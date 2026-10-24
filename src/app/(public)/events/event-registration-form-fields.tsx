@@ -16,7 +16,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { CHANGE_ANSWERS_LINK_LABEL } from "@/lib/registration-answer-requests";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Field, FieldLabel } from "@/components/ui/field";
+import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { AttendedBeforeField } from "@/components/attended-before-field";
@@ -102,6 +102,7 @@ export function EventRegistrationForm({
   minorAccompaniment = [],
   photoConsent = [],
   carpoolCostNotice = [],
+  photosNotice = "",
   registrationOptions = null,
   registrationQuestions = [],
   profileQuestions = [],
@@ -174,6 +175,11 @@ export function EventRegistrationForm({
    * carpools -- renders nothing. Notice only: no box, nothing sent back.
    */
   carpoolCostNotice?: string[];
+  /**
+   * `events.photos_notice` (#1555): one sentence under the email field saying
+   * the address will also carry the event's photos. Blank renders nothing.
+   */
+  photosNotice?: string;
   /**
    * The event's registration question (#1407). Null for an event that asks
    * none, which leaves this form exactly as it was.
@@ -431,7 +437,15 @@ export function EventRegistrationForm({
               autoComplete="email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
+              aria-describedby={
+                photosNotice.trim() ? "registration-email-photos" : undefined
+              }
             />
+            {photosNotice.trim() && (
+              <FieldDescription id="registration-email-photos">
+                {photosNotice}
+              </FieldDescription>
+            )}
           </Field>
           {/* Instagram and pronouns stay here (#1403): they are about the
               person. */}

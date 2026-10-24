@@ -185,3 +185,44 @@ describe("AnnounceToRegistrantsDialog", () => {
     ).toBeInTheDocument();
   });
 });
+
+describe("AnnounceToRegistrantsDialog as Send photos (#1555)", () => {
+  const URL = "https://www.example.test/events/e/22222222/photos";
+
+  beforeEach(() => {
+    sendEventAnnouncementActionMock.mockClear();
+  });
+
+  test("starts from everyone registered, the tenant's words and the gallery link", async () => {
+    render(
+      <AnnounceToRegistrantsDialog
+        eventId="22222222-2222-4222-8222-222222222222"
+        eventName="Mountain Day"
+        registrations={[
+          registration({ id: "in", checked_in_at: "2026-10-01T15:00:00Z" }),
+          registration({ id: "out" }),
+        ]}
+        replyTo={null}
+        photos={{ url: URL, body: ["Thanks for coming!"] }}
+      />,
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Send photos" }));
+
+    expect(screen.getByLabelText(/Who it goes to/)).toHaveValue("everyone");
+    expect(screen.getByText("This will email 2 people.")).toBeVisible();
+    expect(screen.getByLabelText(/Subject/)).toHaveValue(
+      "Photos from Mountain Day",
+    );
+    expect(screen.getByLabelText(/Message/)).toHaveValue(
+      `Thanks for coming!\n\n${URL}`,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Send photos" }));
+    expect(sendEventAnnouncementActionMock).toHaveBeenCalledTimes(1);
+    expect(sendEventAnnouncementActionMock.mock.calls[0][0]).toMatchObject({
+      audience: "everyone",
+      subject: "Photos from Mountain Day",
+      body: `Thanks for coming!\n\n${URL}`,
+    });
+  });
+});

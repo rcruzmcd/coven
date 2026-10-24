@@ -113,6 +113,9 @@ describe("the site content registry", () => {
     expect(carpool).toHaveLength(1);
     expect(carpool[0]).toContain("first name and Instagram handle");
     expect(carpool[0]).not.toMatch(/agree|consent/i);
+    // Whether an organization mails its photos out is its own practice
+    // (#1555), so the registration form promises nothing until it says so.
+    expect(DEFAULT_SITE_CONTENT.text("events.photos_notice")).toBe("");
     // Likewise what an organization does with a photographer's uploads
     // (#1620): the uploader agrees to these words, so only a tenant writes them.
     expect(

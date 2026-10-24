@@ -770,6 +770,18 @@ export function RegistrantsTab({
         }
       />
     ) : null;
+  // #1555. Only once the event's photos are on the public site.
+  const photosAction =
+    canManage && messaging?.orgEmailEnabled && messaging.photos.url ? (
+      <AnnounceToRegistrantsDialog
+        eventId={eventId}
+        eventName={eventName}
+        registrations={list}
+        replyTo={messaging.replyTo}
+        photos={{ url: messaging.photos.url, body: messaging.photos.body }}
+        onSent={refreshAll}
+      />
+    ) : null;
 
   return (
     <div className="flex flex-col gap-4">
@@ -782,6 +794,7 @@ export function RegistrantsTab({
       {(summary ||
         (previewRows === null && headerActions) ||
         announceAction ||
+        photosAction ||
         askAction ||
         downloadAction ||
         missingFilter ||
@@ -795,6 +808,7 @@ export function RegistrantsTab({
             {downloadAction}
             {askAction}
             {announceAction}
+            {photosAction}
           </div>
         </div>
       )}

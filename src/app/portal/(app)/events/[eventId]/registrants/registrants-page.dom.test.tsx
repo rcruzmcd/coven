@@ -136,6 +136,7 @@ function payload(
       orgName: "Example",
       replyTo: null,
       orgEmailEnabled: true,
+      photos: { url: null, body: [] },
     } as EventRegistrantsData["messaging"],
     waiverInForce: false,
     photoConsentInForce: false,
@@ -312,6 +313,38 @@ describe("RegistrantsPage", () => {
       screen.getByRole("button", { name: "+ Add registrant" }),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "More" })).toBeInTheDocument();
+  });
+
+  test("Send photos waits for the public gallery, then opens to everyone registered (#1555)", async () => {
+    const { unmount } = renderPage();
+    await screen.findByText("Jo Park");
+    await userEvent.click(screen.getByRole("button", { name: "More" }));
+    expect(
+      await screen.findByRole("menuitem", { name: /Send photos/ }),
+    ).toHaveAttribute("aria-disabled", "true");
+    unmount();
+
+    const url = "https://www.example.test/events/e/event-1/photos";
+    data = payload({
+      messaging: {
+        orgName: "Example",
+        replyTo: null,
+        orgEmailEnabled: true,
+        photos: { url, body: ["Thanks for coming!"] },
+      },
+    });
+    renderPage();
+    await screen.findByText("Jo Park");
+    await userEvent.click(screen.getByRole("button", { name: "More" }));
+    await userEvent.click(
+      await screen.findByRole("menuitem", { name: /Send photos/ }),
+    );
+    expect(await screen.findByLabelText(/Who it goes to/)).toHaveValue(
+      "everyone",
+    );
+    expect(screen.getByLabelText(/Message/)).toHaveValue(
+      `Thanks for coming!\n\n${url}`,
+    );
   });
 
   test("an events: view reader reads the list and changes nothing", async () => {
