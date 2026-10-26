@@ -1,6 +1,6 @@
 # Learn module content audit
 
-Resolves the "define scope" blocker in `chattersnow-web#361`. Maps epic `chattersnow-web#256`'s proposed IA, priority order, and legal-risk tiers into a concrete per-category article list for the 7 categories that currently render the "Articles for this category are coming soon." placeholder in `src/app/(public)/learn/[slug]/page.tsx`. `park-riding-safety` is excluded — it already has content, shipped via the later, separately-scoped epic `chattersnow-web#269`, and was never part of #256's original 7-category IA.
+Resolves the "define scope" blocker in `coven#361`. Maps epic `coven#256`'s proposed IA, priority order, and legal-risk tiers into a concrete per-category article list for the 7 categories that currently render the "Articles for this category are coming soon." placeholder in `src/app/(public)/learn/[slug]/page.tsx`. `park-riding-safety` is excluded — it already has content, shipped via the later, separately-scoped epic `coven#269`, and was never part of #256's original 7-category IA.
 
 Authors: follow `docs/learn-content-guidelines.md` for tone, per-topic risk rules, and the required per-article disclaimer.
 

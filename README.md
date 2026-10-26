@@ -1,15 +1,16 @@
-# chattersnow-web
+# Coven
 
 **Coven** — a multi-tenant operations platform for small nonprofits and small
 businesses: a public website and an operations portal, served to any number of
 organizations from one Next.js App Router application backed by Supabase.
 
-Coven is the product's name. The repository is named after Chatter Snow because
-it started as that organization's site; the commercial product ships under its
-own name and on its own domain (`docs/licensing.md`).
+Coven is the product's name. The repository was previously
+`chattersnow/chattersnow-web` because it started as Chatter Snow's site; the
+commercial product ships under its own name and on its own domain
+(`docs/licensing.md`).
 
-**Chatter Snow is the first tenant, not the product.** The repository is named
-after it and started as its site, but every organization the platform serves is
+**Chatter Snow is the first tenant, not the product.** The platform started as
+its site, but every organization the platform serves is
 a row in `tenants`, and nothing about which one a request belongs to is
 hardcoded: the request host resolves the tenant, and the tenant's own rows carry
 its branding, copy, permission matrix and data. Chatter Snow specifics belong in

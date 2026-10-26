@@ -4,7 +4,7 @@
 
 The rule for how much of the viewport a public page's content occupies, and
 where a shorter reading measure belongs when one is needed. Settled in
-[#1218](https://github.com/chattersnow/chattersnow-web/issues/1218).
+[#1218](https://github.com/rcruzmcd/coven/issues/1218).
 
 Read this before adding a public route, a page shell, or a `max-w-*` on
 anything that wraps a whole page.
@@ -99,14 +99,14 @@ shells so the two layouts stay alike.
 
 ## Related
 
-- [#1218](https://github.com/chattersnow/chattersnow-web/issues/1218) — this rule.
-- [#211](https://github.com/chattersnow/chattersnow-web/issues/211) — raised the
+- [#1218](https://github.com/rcruzmcd/coven/issues/1218) — this rule.
+- [#211](https://github.com/rcruzmcd/coven/issues/211) — raised the
   same inconsistency for `/home` and the event detail page and left the call
   open. #1218 closes it: the event page takes the standard column.
-- [#412](https://github.com/chattersnow/chattersnow-web/issues/412) — `/about`
+- [#412](https://github.com/rcruzmcd/coven/issues/412) — `/about`
   widened for the same reason, one page at a time.
-- [#845](https://github.com/chattersnow/chattersnow-web/issues/845) — `/brand`,
+- [#845](https://github.com/rcruzmcd/coven/issues/845) — `/brand`,
   where the `max-w-4xl` came from.
-- [#1179](https://github.com/chattersnow/chattersnow-web/issues/1179) — gave the
+- [#1179](https://github.com/rcruzmcd/coven/issues/1179) — gave the
   account area a shell at all, with the per-route widths this rule replaces.
 - `docs/portal-navigation.md` — the equivalent rule for the ops portal.

@@ -4,7 +4,7 @@ Findings-only audit of the whole operations portal — every route under `src/ap
 
 **Method and its limits.** This is a source-level review of all 62 `page.tsx` files, the portal shell, the shared primitives they compose, and the cross-cutting helpers (`src/lib/auth/permissions.ts`, `src/components/ui/*`, `src/components/portal/*`). It was **not** a live browser or screen-reader pass — no dev server, no Supabase stack, no measured screenshots. Where a finding depends on runtime behaviour I say what the code does and what that implies, rather than claiming an observed result. Several findings below are worth confirming in a browser before they're sized.
 
-This audit deliberately targets what automated scanning can't see. `bun run test:a11y` reports 3 violations across 68 routes (`docs/a11y-scan-findings.md`, all one `color-contrast` rule, tracked in [#436](https://github.com/chattersnow/chattersnow-web/issues/436)), so almost everything below is information architecture, task flow, affordance, resilience, and design-system consistency that axe passes by.
+This audit deliberately targets what automated scanning can't see. `bun run test:a11y` reports 3 violations across 68 routes (`docs/a11y-scan-findings.md`, all one `color-contrast` rule, tracked in [#436](https://github.com/rcruzmcd/coven/issues/436)), so almost everything below is information architecture, task flow, affordance, resilience, and design-system consistency that axe passes by.
 
 **Shape of the portal under audit** — 55 reachable routes, 14 top-level sidebar sections (5 of them with 4–10 sub-items), 105 `<Table>` instances, ~40 create/edit dialogs, 5 roles.
 
@@ -286,7 +286,7 @@ The "Happening now" card at the top is the exception and the right model — liv
 
 `notifications-menu.tsx:19` returns `null` when there are no items. The control disappears from the header rather than showing a zero state. Users build spatial memory for header controls; a bell that is sometimes absent can't be used to answer "am I clear?", only "is something wrong?".
 
-Every count also renders as `Badge variant="destructive"` — the same red for a pending expense approval, an unread contact message, and a content-calendar coverage reminder. There is no severity distinction, and the `destructive` token is the one still carrying an unresolved contrast finding ([#436](https://github.com/chattersnow/chattersnow-web/issues/436)).
+Every count also renders as `Badge variant="destructive"` — the same red for a pending expense approval, an unread contact message, and a content-calendar coverage reminder. There is no severity distinction, and the `destructive` token is the one still carrying an unresolved contrast finding ([#436](https://github.com/rcruzmcd/coven/issues/436)).
 
 ### 27. Help is offered everywhere and written for half the routes — Moderate
 
