@@ -6,7 +6,7 @@
 - **Version:** 0.10
 - **Date:** 2026-09-10
 - **Owner:** the platform, which ships as **Coven** (Chatter Snow is its first tenant)
-- **Repository:** `chattersnow-web`
+- **Repository:** [`rcruzmcd/coven`](https://github.com/rcruzmcd/coven) (formerly `chattersnow/chattersnow-web`)
 - **Hosts:** see §3.1
 
 ## How to read this spec

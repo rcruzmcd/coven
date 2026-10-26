@@ -1,4 +1,4 @@
-# Contributing to chattersnow-web
+# Contributing to Coven
 
 **Status:** Draft — pending board resolution and attorney review
 **Updated:** 2026-09-05
