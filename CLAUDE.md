@@ -69,7 +69,7 @@ A browser run from a worktree does not share `:3000` with the primary checkout. 
 
 ## Ticket workflow
 
-Issues are tracked on the `ChatterWeb` GitHub Project (owner `chattersnow`, project number `1`) via its `Status` field. Keep status in sync with `gh project item-edit`:
+Issues are tracked on the `RcmLabsWeb` GitHub Project (owner `rcruzmcd`, project number `4`) via its `Status` field. Add every new issue to it with `gh project item-add 4 --owner rcruzmcd --url <issue url>`; `gh issue create --project` does not find it from this repo. Keep status in sync with `gh project item-edit`:
 
 - make sure to always start from latest development
 - When starting work on a ticket (e.g. creating/checking out its branch), move the linked issue's `Status` to `In progress`.
