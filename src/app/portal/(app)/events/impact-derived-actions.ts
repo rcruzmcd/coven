@@ -18,6 +18,7 @@ import {
   type PricedOptionCountRow,
   type RegistrationRow,
 } from "@/lib/portal/impact-metrics";
+import type { PlaceCountRow } from "@/lib/places/place-breakdown";
 
 type DerivedData = {
   auto_assign_discount_codes: boolean;
@@ -57,9 +58,11 @@ export async function getEventImpactDerivedAction(
 ): Promise<{ data: EventImpactDerived } | { error: string }> {
   const supabase = await createSupabaseServerClient();
 
-  const [{ data, error }, permissions] = await Promise.all([
+  const [{ data, error }, permissions, places] = await Promise.all([
     supabase.rpc("get_event_impact_derived_data", { p_event_id: eventId }),
     getCurrentUserPermissions(supabase),
+    // #1701. A failure only loses the places-reached figure.
+    supabase.rpc("get_event_place_breakdown", { p_event_id: eventId }),
   ]);
   const canSeeRider = hasPermission(permissions, "rider_profiles", "view");
 
@@ -91,6 +94,9 @@ export async function getEventImpactDerivedAction(
       assistanceExpenses: result.assistance_expenses ?? null,
       offeredCodes: result.offered_codes ?? null,
       optionCounts: result.option_counts ?? null,
+      placeAnswers: places.error
+        ? null
+        : ((places.data ?? []) as PlaceCountRow[]),
     }),
   };
 }

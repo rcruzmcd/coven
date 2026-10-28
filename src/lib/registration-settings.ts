@@ -53,6 +53,26 @@ export async function getRegistrationRequiresInstagram(
 }
 
 /**
+ * The current tenant's service area (#1699): the states, counties and
+ * boroughs whose places its place questions suggest first. Null when the
+ * caller may not change it (events:manage).
+ */
+export async function getRegistrationServiceArea(
+  supabase: SupabaseClient,
+): Promise<{ id: string; kind: string; label: string }[] | null> {
+  const { data, error } = await supabase.rpc("registration_service_area");
+  if (error || !Array.isArray(data)) return null;
+  return data.flatMap((item) =>
+    item &&
+    typeof item === "object" &&
+    typeof item.id === "string" &&
+    typeof item.label === "string"
+      ? [{ id: item.id, kind: String(item.kind ?? ""), label: item.label }]
+      : [],
+  );
+}
+
+/**
  * The current tenant's setting, for the portal switch (#1416). Null when the
  * caller may not change it (events:manage).
  */

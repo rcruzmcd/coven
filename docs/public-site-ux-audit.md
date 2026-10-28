@@ -1,6 +1,6 @@
 # Public site UX audit — header, navigation, mobile
 
-Findings-only audit of the public site, prompted by the header looking wrong after the board hid four sections via the page-visibility gate added in [#586](https://github.com/chattersnow/chattersnow-web/pull/586). Run against `development` on 2026-09-01 with a local Supabase stack and `bun run dev`.
+Findings-only audit of the public site, prompted by the header looking wrong after the board hid four sections via the page-visibility gate added in [#586](https://github.com/rcruzmcd/coven/pull/586). Run against `development` on 2026-09-01 with a local Supabase stack and `bun run dev`.
 
 **Local state under audit** — `about`, `programs`, `learn` and `support` all set to `false` in `public_page_visibility`, leaving four visible sections. This is the state the header screenshots were taken in:
 

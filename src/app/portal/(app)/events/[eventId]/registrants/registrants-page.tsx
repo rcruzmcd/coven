@@ -401,7 +401,10 @@ export function RegistrantsPage({
   // A chip per shown column with a short list of answers, plus any column
   // still filtered after it was hidden, so a filter is never invisible.
   const answerFilters = allAnswerColumns.flatMap(({ question }) => {
-    const choices = answerFilterChoices(question);
+    const choices = answerFilterChoices(
+      question,
+      list.map((registrant) => registrant.answers),
+    );
     return choices &&
       (shownColumnIds.has(question.id) || question.id in view.answers)
       ? [{ question, choices }]

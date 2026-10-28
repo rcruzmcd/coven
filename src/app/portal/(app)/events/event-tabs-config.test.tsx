@@ -43,7 +43,10 @@ function without(...resources: string[]): PermissionMap {
 
 function cards(
   permissions: PermissionMap,
-  options: EventGroupOptions = { carpoolsEnabled: true },
+  options: EventGroupOptions = {
+    carpoolsEnabled: true,
+    hasPlaceQuestion: true,
+  },
 ): TabValue[] {
   return eventGroups(permissions, options).flatMap((group) =>
     group.tabs.map((tab) => tab.value),
@@ -63,6 +66,11 @@ describe("eventGroups", () => {
       "carpools",
     );
     expect(cards(FULL_ACCESS, { carpoolsEnabled: true })).toContain("carpools");
+  });
+
+  test("Where registrants come from is listed only with a place question (#1701)", () => {
+    expect(cards(FULL_ACCESS, {})).not.toContain("places");
+    expect(cards(FULL_ACCESS, { hasPlaceQuestion: true })).toContain("places");
   });
 
   test("an admin holding everything gets every card in the catalog", () => {

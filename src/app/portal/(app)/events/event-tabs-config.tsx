@@ -22,6 +22,7 @@ import { StaffTab } from "./staff-tab";
 import { AttendanceTab } from "./attendance-tab";
 import { RegistrantsTab } from "./registrants-tab";
 import { CarpoolsTab } from "./carpools-tab";
+import { PlaceBreakdownTab } from "./place-breakdown-tab";
 import { DiscountCodesTab } from "./discount-codes-tab";
 import { DonationsTab } from "./donations-tab";
 import { CashDonationsTab } from "./cash-donations-tab";
@@ -64,6 +65,7 @@ export type TabValue =
   | "attendance"
   | "registrants"
   | "carpools"
+  | "places"
   | "discount-codes"
   | "distributions"
   | "incidents"
@@ -244,6 +246,22 @@ export const TAB_CONFIG: readonly TabConfigEntry[] = [
       <CarpoolsTab
         eventId={ctx.event.id}
         registrants={ctx.shared.registrants}
+      />
+    ),
+  },
+  {
+    // #1701. Only on an event with a place question. Answers read at
+    // `events: view`, which no per-event grant gives, so no `area`.
+    value: "places",
+    label: "Where registrants come from",
+    keywords: ["location", "borough", "county", "town", "neighborhood"],
+    group: "guests",
+    kind: "plain",
+    shownWhen: "hasPlaceQuestion",
+    render: (ctx) => (
+      <PlaceBreakdownTab
+        eventId={ctx.event.id}
+        questions={ctx.event.registration_questions ?? []}
       />
     ),
   },
@@ -719,6 +737,8 @@ export type EventGroup = {
 export type EventGroupOptions = {
   /** `events.carpools_enabled` (#1649). */
   carpoolsEnabled?: boolean;
+  /** The event asks a current `place` question (#1701). */
+  hasPlaceQuestion?: boolean;
 };
 
 export function eventGroups(

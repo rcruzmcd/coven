@@ -30,12 +30,12 @@
  *
  * ## The single-host tenants must not get one
  *
- * The demo tenant serves its portal at `demo.rickiecruz.com/portal`, on the
- * same host as its public site, so it needs no shared cookie -- and giving it
- * one would put the session on `.rickiecruz.com`, which is also the platform
- * tenant's domain and the user's own consulting site. The platform tenant
- * (`portal.rickiecruz.com`) has no public site at all. Neither apex is listed,
- * so neither gets a domain, which is both the safe answer and the correct one.
+ * The demo and platform tenants serve their portals at
+ * `demo.rcmlabs.dev/portal` and `coven.rcmlabs.dev/portal`, on the same host as
+ * their public sites, so they need no shared cookie -- and giving either one
+ * would put the session on `.rcmlabs.dev`, where it would reach the other
+ * tenant. The apex is not listed, so neither gets a domain, which is both the
+ * safe answer and the correct one.
  *
  * ## Both bundles must agree
  *

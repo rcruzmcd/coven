@@ -42,6 +42,8 @@ function draft(overrides: Partial<QuestionDraft> & { id: string }) {
     max: "",
     showIf: null,
     sharesContact: false,
+    placeGranularity: "locality",
+    placeAllowOther: true,
     ...overrides,
   } satisfies QuestionDraft;
 }

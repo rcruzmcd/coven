@@ -11,7 +11,7 @@ grants a broad license rather than transferring ownership: **you keep the
 copyright in everything you write.**
 
 By signing, you agree to the terms below for all contributions you make to the
-`chattersnow-web` repository, past and future.
+`coven` repository (formerly `chattersnow-web`), past and future.
 
 ## 1. Definitions
 

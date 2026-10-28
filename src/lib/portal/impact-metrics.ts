@@ -5,6 +5,12 @@
 // the same row shapes, so the two surfaces cannot drift apart. Two RPCs, one set
 // of definitions — if you change a rule here, both move together.
 
+import {
+  placeReach,
+  type PlaceCountRow,
+  type PlaceReach,
+} from "@/lib/places/place-breakdown";
+
 export type DistributedMovementRow = {
   quantity: number | string;
   event_id: string | null;
@@ -523,6 +529,11 @@ export type EventImpactDerivedInput = {
   /** null when the caller lacks event_impact:view (#1589). */
   offeredCodes: OfferedCodeRow[] | null;
   optionCounts: PricedOptionCountRow[] | null;
+  /**
+   * Place answers by place (#1701), from get_event_place_breakdown(). null
+   * when they could not be read.
+   */
+  placeAnswers?: PlaceCountRow[] | null;
 };
 
 export type EventImpactDerived = {
@@ -549,6 +560,8 @@ export type EventImpactDerived = {
   peopleServed: PeopleServed;
   /** Never part of assistance; null when the viewer may not see discount data. */
   discountValueOffered: DiscountValueOffered | null;
+  /** Distinct places reached (#1701); null where no place answer was read. */
+  placeReach: PlaceReach | null;
 };
 
 export function computeEventImpactDerived(
@@ -609,6 +622,7 @@ export function computeEventImpactDerived(
             input.registrations,
           )
         : null,
+    placeReach: input.placeAnswers ? placeReach(input.placeAnswers) : null,
   };
 }
 
@@ -639,6 +653,8 @@ export type ProgramImpactRollup = {
   /** Shown beside assistance, never added to it (#1589). */
   discountValueOffered: DiscountValueOffered;
   repeatParticipants: number;
+  /** Distinct places reached (#1701); null where no place answer was read. */
+  placeReach: PlaceReach | null;
 };
 
 export type ProgramImpactRollupInput = {
@@ -657,6 +673,8 @@ export type ProgramImpactRollupInput = {
   assistanceExpenses: AssistanceExpenseRow[];
   offeredCodes: OfferedCodeRow[];
   optionCounts: PricedOptionCountRow[];
+  /** From get_program_place_reach() (#1701); null when it could not be read. */
+  placeAnswers?: PlaceCountRow[] | null;
 };
 
 export function computeProgramImpactRollup(
@@ -702,5 +720,6 @@ export function computeProgramImpactRollup(
       input.registrations,
     ),
     repeatParticipants: countRepeatParticipants(input.registrations),
+    placeReach: input.placeAnswers ? placeReach(input.placeAnswers) : null,
   };
 }

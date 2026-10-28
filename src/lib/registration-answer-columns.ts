@@ -26,7 +26,12 @@ export type AnswerColumn = {
 /** A stored answer row with its raw value, as the registrants list holds it. */
 export type StoredAnswerRow = Pick<AnswerRow, "question_id" | "answer_text"> & {
   value: unknown;
+  /** A place answer's county, borough or state (#1701), where it has one. */
+  place_region?: { id: string; label: string };
 };
+
+/** The place filter's choice for "Not listed" and places with no region. */
+export const PLACE_OTHER_FILTER = "other";
 
 /** How many answer columns a list shows before anybody picks. */
 export const DEFAULT_ANSWER_COLUMNS = 3;
@@ -125,14 +130,31 @@ export function shownAnswerColumns(
 export type AnswerFilterChoice = { value: string; label: string };
 
 /**
- * What a column can be filtered by: a choice question's options, or a consent
- * box's two answers. Null for free text and numbers, which have no short list
- * of answers to pick from.
+ * What a column can be filtered by: a choice question's options, a consent
+ * box's two answers, or for a place question (#1701) the counties, boroughs
+ * and states the registrations in `answered` came from, then Not listed. Null
+ * for free text and numbers, which have no short list of answers to pick from.
  */
 export function answerFilterChoices(
   question: RegistrationQuestion,
+  answered: readonly (readonly StoredAnswerRow[])[] = [],
 ): AnswerFilterChoice[] | null {
   switch (question.kind) {
+    case "place": {
+      const regions = new Map<string, string>();
+      for (const rows of answered) {
+        const region = rows.find(
+          (row) => row.question_id === question.id,
+        )?.place_region;
+        if (region) regions.set(region.id, region.label);
+      }
+      return [
+        ...[...regions]
+          .map(([value, label]) => ({ value, label }))
+          .sort((a, b) => a.label.localeCompare(b.label)),
+        { value: PLACE_OTHER_FILTER, label: "Not listed or other" },
+      ];
+    }
     case "single_choice":
     case "multi_choice":
       return question.options.map((option) => ({
@@ -155,6 +177,13 @@ export function matchesAnswerFilter(
   rows: readonly StoredAnswerRow[],
   value: string,
 ): boolean {
+  if (question.kind === "place") {
+    const row = rows.find((answer) => answer.question_id === question.id);
+    if (!row) return false;
+    return value === PLACE_OTHER_FILTER
+      ? !row.place_region
+      : row.place_region?.id === value;
+  }
   const stored = answerRowsToAnswers(rows)[question.id];
   if (stored === undefined) return false;
   if (question.kind === "consent") return stored === (value === "yes");

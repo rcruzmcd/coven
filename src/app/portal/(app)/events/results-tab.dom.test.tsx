@@ -77,6 +77,7 @@ const derived: EventImpactDerived = {
     total: 585,
     codes: [],
   },
+  placeReach: null,
 };
 
 const emptyMoney = {

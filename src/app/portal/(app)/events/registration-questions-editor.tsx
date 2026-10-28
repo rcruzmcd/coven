@@ -39,6 +39,8 @@ import {
 import {
   MAX_QUESTIONS,
   MAX_QUESTION_OPTIONS,
+  PLACE_GRANULARITIES,
+  PLACE_GRANULARITY_LABELS,
   QUESTION_COLUMN_LABEL_MAX_LENGTH,
   QUESTION_HELP_MAX_LENGTH,
   QUESTION_KINDS,
@@ -46,6 +48,7 @@ import {
   QUESTION_OPTION_LABEL_MAX_LENGTH,
   QUESTION_PROMPT_MAX_LENGTH,
   isChoiceKind,
+  type PlaceGranularity,
   type QuestionKind,
 } from "@/lib/registration-questions";
 import {
@@ -390,6 +393,58 @@ function QuestionCard({
             />
           </Field>
         </Field>
+      )}
+
+      {question.kind === "place" && (
+        <>
+          <Field>
+            <FieldLabel htmlFor={`${id}-granularity`}>Granularity</FieldLabel>
+            <Select
+              value={question.placeGranularity}
+              disabled={disabled}
+              onValueChange={(next) =>
+                next && onUpdate({ placeGranularity: next as PlaceGranularity })
+              }
+            >
+              <SelectTrigger id={`${id}-granularity`} className="w-full">
+                <SelectValue>
+                  {(value: PlaceGranularity) => PLACE_GRANULARITY_LABELS[value]}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {PLACE_GRANULARITIES.map((granularity) => (
+                  <SelectItem key={granularity} value={granularity}>
+                    {PLACE_GRANULARITY_LABELS[granularity]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <FieldDescription>
+              Neighborhoods are listed for New York City; everywhere else this
+              asks for the city or town. Places in your service area (Events →
+              Registration) are suggested first.
+            </FieldDescription>
+          </Field>
+          <Field orientation="horizontal">
+            <FieldContent>
+              <FieldLabel htmlFor={`${id}-allow-other`}>
+                Allow &ldquo;Not listed&rdquo;
+              </FieldLabel>
+              <FieldDescription>
+                Lets someone type a place that isn&apos;t in the list, up to 200
+                characters.
+              </FieldDescription>
+            </FieldContent>
+            <Switch
+              id={`${id}-allow-other`}
+              checked={question.placeAllowOther}
+              disabled={disabled}
+              onCheckedChange={(checked) =>
+                onUpdate({ placeAllowOther: checked })
+              }
+            />
+          </Field>
+        </>
       )}
 
       {question.kind === "consent" ? (

@@ -212,3 +212,84 @@ test("toRegistrationQuestion skips a kind it does not know", () => {
     })?.options,
   ).toEqual([{ id: "a", label: "A" }]);
 });
+
+// #1699
+describe("place questions", () => {
+  const from = question({
+    id: "from",
+    kind: "place",
+    prompt: "Where are you coming from?",
+    required: true,
+    place: { granularity: "locality", allow_other: true },
+  });
+  const strict = question({
+    id: "strict",
+    kind: "place",
+    prompt: "Neighborhood",
+    place: { granularity: "neighborhood", allow_other: false },
+  });
+  const brooklyn = {
+    place_id: "db302e7c-2238-5829-ab07-ecbc3c244d11",
+    label: "Brooklyn, NY",
+  };
+
+  test("reads its settings off the row, defaulting to city/town with Not listed", () => {
+    expect(
+      toRegistrationQuestion({ id: "q", kind: "place", prompt: "From" })?.place,
+    ).toEqual({ granularity: "locality", allow_other: true });
+    expect(
+      toRegistrationQuestion({
+        id: "q",
+        kind: "place",
+        prompt: "From",
+        place_granularity: "neighborhood",
+        place_allow_other: false,
+      })?.place,
+    ).toEqual({ granularity: "neighborhood", allow_other: false });
+    expect(
+      toRegistrationQuestion({ id: "q", kind: "short_text", prompt: "Notes" })
+        ?.place,
+    ).toBeNull();
+  });
+
+  test("sends a picked place, and Not listed only with text", () => {
+    expect(draftToAnswers([from], { from: brooklyn })).toEqual({
+      from: brooklyn,
+    });
+    expect(
+      draftToAnswers([from], { from: { other: "  Hoboken-ish " } }),
+    ).toEqual({ from: { other: "Hoboken-ish" } });
+    expect(draftToAnswers([from], { from: { other: "  " } })).toEqual({});
+    expect(draftToAnswers([from], { from: "" })).toEqual({});
+  });
+
+  test("is required like any other kind", () => {
+    expect(answersError([from], {})?.questionId).toBe("from");
+    expect(answersError([from], { from: brooklyn })).toBeNull();
+  });
+
+  test("refuses Not listed where it is off, and text over 200 characters", () => {
+    expect(answersError([strict], { strict: { other: "Somewhere" } })).toEqual({
+      questionId: "strict",
+      message: "Please pick a place for “Neighborhood”.",
+    });
+    expect(
+      answersError([from], { from: { other: "x".repeat(201) } })?.questionId,
+    ).toBe("from");
+  });
+
+  test("reads back in words and into a draft", () => {
+    expect(answerSummaryRows([from], { from: brooklyn })).toEqual([
+      { label: "Where are you coming from?", value: "Brooklyn, NY" },
+    ]);
+    expect(answerSummaryRows([from], { from: { other: "Hoboken" } })).toEqual([
+      { label: "Where are you coming from?", value: "Hoboken" },
+    ]);
+    const answers = answerRowsToAnswers([
+      { question_id: "from", value: brooklyn },
+    ]);
+    expect(answers).toEqual({ from: brooklyn });
+    expect(answersToDraft([from], answers)).toEqual({ from: brooklyn });
+    expect(emptyAnswerDraft([from])).toEqual({ from: "" });
+  });
+});

@@ -30,6 +30,12 @@ import {
   type VolunteerHoursRow,
 } from "./impact-rollup";
 import { formatCurrency, formatNumber } from "@/lib/format";
+import {
+  placeBreakdown,
+  placeReachSummary,
+  type PlaceBreakdown,
+  type PlaceCountRow,
+} from "@/lib/places/place-breakdown";
 
 type RollupData = {
   event_ids: string[];
@@ -77,6 +83,7 @@ export default async function ProgramImpactReportPage({
   const programs = "data" in programsResult ? programsResult.data : [];
 
   let rollup: ProgramImpactRollup | null = null;
+  let places: PlaceBreakdown | null = null;
   let loadError: string | null = null;
 
   if (programId) {
@@ -84,12 +91,17 @@ export default async function ProgramImpactReportPage({
     // (each season is its own programs row, per
     // 20260825020000_add_programs_reports_resource.sql), so the rollup
     // includes every event ever tied to this program_id.
-    const { data, error } = await supabase.rpc(
-      "get_program_impact_rollup_data",
-      {
+    const [{ data, error }, placeResult] = await Promise.all([
+      supabase.rpc("get_program_impact_rollup_data", {
         p_program_id: programId,
-      },
-    );
+      }),
+      // #1701. A failure only loses the place figures.
+      supabase.rpc("get_program_place_reach", { p_program_id: programId }),
+    ]);
+    const placeAnswers = placeResult.error
+      ? null
+      : ((placeResult.data ?? []) as PlaceCountRow[]);
+    places = placeAnswers ? placeBreakdown(placeAnswers) : null;
 
     if (error) {
       loadError =
@@ -113,6 +125,7 @@ export default async function ProgramImpactReportPage({
         assistanceExpenses: result.assistance_expenses ?? [],
         offeredCodes: result.offered_codes ?? [],
         optionCounts: result.option_counts ?? [],
+        placeAnswers,
       });
     }
   }
@@ -215,6 +228,14 @@ export default async function ProgramImpactReportPage({
           label: "Repeat participants",
           value: formatNumber(rollup.repeatParticipants),
         },
+        ...(rollup.placeReach
+          ? [
+              {
+                label: "Places reached",
+                value: placeReachSummary(rollup.placeReach),
+              },
+            ]
+          : []),
       ]
     : [];
 
@@ -370,6 +391,56 @@ export default async function ProgramImpactReportPage({
               </Table>
             </CardContent>
           </Card>
+
+          {places && places.total > 0 && (
+            <Card className="mt-6">
+              <CardHeader>
+                <CardTitle>Where registrants come from</CardTitle>
+              </CardHeader>
+              <CardContent className="px-0">
+                {/* Staff-only, so small counts are shown; the Places reached
+                    line above is the one to quote outside. */}
+                <Table stickyHeader="page">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Area</TableHead>
+                      <TableHead className="text-right">Places</TableHead>
+                      <TableHead className="text-right">
+                        Registrations
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {places.regions.map((region) => (
+                      <TableRow key={region.id}>
+                        <TableCell className="whitespace-normal">
+                          {region.label}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {formatNumber(
+                            region.places.length +
+                              (region.regionOnly > 0 ? 1 : 0),
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {formatNumber(region.registrations)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {places.other > 0 && (
+                      <TableRow>
+                        <TableCell>Not listed or other</TableCell>
+                        <TableCell className="text-right">—</TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {formatNumber(places.other)}
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          )}
         </>
       ) : null}
     </>

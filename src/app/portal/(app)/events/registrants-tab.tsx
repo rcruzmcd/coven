@@ -275,8 +275,16 @@ export function registrationAnswerColumns(
         label,
         headTitle:
           label === column.question.prompt ? undefined : column.question.prompt,
-        sortValue: (registrant: EventRegistrant) =>
-          answerCellText(column, registrant.answers),
+        sortValue: (registrant: EventRegistrant) => {
+          const text = answerCellText(column, registrant.answers);
+          if (text === null || column.question.kind !== "place") return text;
+          // By county or borough first, so a carpool's riders from one area
+          // sort together (#1701); Not listed last.
+          const region = registrant.answers.find(
+            (row) => row.question_id === column.question.id,
+          )?.place_region;
+          return `${region ? region.label : "￿"} ${text}`;
+        },
         // From 2xl only: three of these beside the rest of a registration
         // need ~1260px, more than a 1280px desk has beside the sidebar, and
         // the registrants page must not scroll sideways there (#1511). Below

@@ -205,6 +205,7 @@ const registrationQuestionSchema = z
       "short_text",
       "number",
       "consent",
+      "place",
     ]),
     prompt: z.string(),
     help: z.union([z.string(), z.null()]),
@@ -223,6 +224,19 @@ const registrationQuestionSchema = z
       .meta({
         description:
           "Asked only when the named earlier single_choice question is answered with one of these option ids.",
+      }),
+    place: z
+      .union([
+        z.object({
+          granularity: z.enum(["locality", "neighborhood"]),
+          allow_other: z.boolean(),
+        }),
+        z.null(),
+      ])
+      .optional()
+      .meta({
+        description:
+          'For a place question (#1699): whether it asks for a city/town (locality) or an NYC neighborhood where there is one, and whether a free-text "Not listed" answer is accepted.',
       }),
   })
   .meta({

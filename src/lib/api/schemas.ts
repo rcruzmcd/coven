@@ -214,12 +214,14 @@ export const eventRegistrationSchema = z
           z.array(z.string()).max(20),
           z.int(),
           z.boolean(),
+          z.object({ place_id: z.uuid() }),
+          z.object({ other: z.string().max(200) }),
         ]),
       )
       .optional()
       .meta({
         description:
-          "Answers to the event's registration_questions, keyed by question id, once for the whole registration: an option id for single_choice, an array of option ids for multi_choice, text for short_text, a whole number for number, true or false for consent. Leave out a question whose show_if is not met. Required when any visible question is required.",
+          "Answers to the event's registration_questions, keyed by question id, once for the whole registration: an option id for single_choice, an array of option ids for multi_choice, text for short_text, a whole number for number, true or false for consent, {place_id} for place (or {other: text} where the question allows it). Leave out a question whose show_if is not met. Required when any visible question is required.",
       }),
   })
   .meta({ id: "EventRegistration" });

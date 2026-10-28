@@ -405,6 +405,7 @@ describe("computeProgramImpactRollup", () => {
         ],
       },
       repeatParticipants: 1,
+      placeReach: null,
     });
   });
 

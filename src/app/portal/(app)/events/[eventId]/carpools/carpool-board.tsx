@@ -217,7 +217,10 @@ export function CarpoolBoard({
     ),
   );
   const answerFilters = allAnswerColumns.flatMap(({ question }) => {
-    const choices = answerFilterChoices(question);
+    const choices = answerFilterChoices(
+      question,
+      registrants.map((registrant) => registrant.answers),
+    );
     return choices &&
       (shownColumnIds.has(question.id) || question.id in view.answers)
       ? [{ question, choices }]

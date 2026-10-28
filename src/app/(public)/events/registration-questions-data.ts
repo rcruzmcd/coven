@@ -17,7 +17,7 @@ export async function loadRegistrationQuestions(
   const { data } = await supabase
     .from("public_event_registration_questions")
     .select(
-      "id, kind, prompt, help, required, options, min_value, max_value, show_if",
+      "id, kind, prompt, help, required, options, min_value, max_value, show_if, place_granularity, place_allow_other",
     )
     .eq("event_id", eventId)
     .order("sort_order", { ascending: true });

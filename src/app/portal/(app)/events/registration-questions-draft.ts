@@ -7,6 +7,7 @@ import {
   toRegistrationQuestion,
   type QuestionCondition,
   type QuestionKind,
+  type PlaceGranularity,
   type QuestionOption,
   type RegistrationQuestion,
 } from "@/lib/registration-questions";
@@ -39,6 +40,9 @@ export type QuestionDraft = {
   max: string;
   showIf: QuestionCondition | null;
   sharesContact: boolean;
+  /** A place question's settings (#1699), kept while the kind is another. */
+  placeGranularity: PlaceGranularity;
+  placeAllowOther: boolean;
 };
 
 /** The one form field the questions travel in, as JSON. */
@@ -73,6 +77,8 @@ export function newQuestionDraft(): QuestionDraft {
     max: "",
     showIf: null,
     sharesContact: false,
+    placeGranularity: "locality",
+    placeAllowOther: true,
   };
 }
 
@@ -96,6 +102,8 @@ export function questionDrafts(
         }
       : null,
     sharesContact: question.shares_contact,
+    placeGranularity: question.place?.granularity ?? "locality",
+    placeAllowOther: question.place?.allow_other ?? true,
   }));
 }
 
@@ -126,6 +134,8 @@ export function questionsPayload(drafts: readonly QuestionDraft[]) {
     max_value: draft.kind === "number" ? bound(draft.max) : null,
     show_if: draft.showIf,
     shares_contact: draft.kind === "consent" && draft.sharesContact,
+    place_granularity: draft.kind === "place" ? draft.placeGranularity : null,
+    place_allow_other: draft.kind !== "place" || draft.placeAllowOther,
   }));
 }
 

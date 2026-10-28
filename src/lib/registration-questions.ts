@@ -19,6 +19,7 @@ export const QUESTION_KINDS = [
   "short_text",
   "number",
   "consent",
+  "place",
 ] as const;
 
 export type QuestionKind = (typeof QUESTION_KINDS)[number];
@@ -29,6 +30,7 @@ export const QUESTION_KIND_LABELS: Record<QuestionKind, string> = {
   short_text: "Short text",
   number: "Number",
   consent: "Consent checkbox",
+  place: "Place (city, town or neighborhood)",
 };
 
 export const SHORT_TEXT_MAX_LENGTH = 500;
@@ -38,6 +40,42 @@ export const QUESTION_COLUMN_LABEL_MAX_LENGTH = 24;
 export const QUESTION_OPTION_LABEL_MAX_LENGTH = 120;
 export const MAX_QUESTIONS = 20;
 export const MAX_QUESTION_OPTIONS = 20;
+export const PLACE_OTHER_MAX_LENGTH = 200;
+
+/**
+ * How fine a place question asks (#1699). `neighborhood` is an NYC
+ * neighborhood where there is one, and a city/town everywhere else.
+ */
+export const PLACE_GRANULARITIES = ["locality", "neighborhood"] as const;
+export type PlaceGranularity = (typeof PLACE_GRANULARITIES)[number];
+
+export const PLACE_GRANULARITY_LABELS: Record<PlaceGranularity, string> = {
+  locality: "City/town",
+  neighborhood: "Neighborhood where available",
+};
+
+/** A place question's settings; null on every other kind. */
+export type PlaceSettings = {
+  granularity: PlaceGranularity;
+  /** Whether "Not listed" with a short text is offered. */
+  allow_other: boolean;
+};
+
+/**
+ * A place answer: a place from the reference table with its label as shown,
+ * or the text typed under "Not listed". The server re-reads the label.
+ */
+export type PlaceAnswer =
+  { place_id: string; label: string } | { other: string };
+
+export function isPlaceAnswer(value: unknown): value is PlaceAnswer {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const answer = value as Record<string, unknown>;
+  return (
+    (typeof answer.place_id === "string" && typeof answer.label === "string") ||
+    typeof answer.other === "string"
+  );
+}
 
 export type QuestionOption = { id: string; label: string };
 
@@ -59,19 +97,25 @@ export type RegistrationQuestion = {
   min_value: number | null;
   max_value: number | null;
   show_if: QuestionCondition | null;
+  /** A place question's settings (#1699); null or absent on other kinds. */
+  place?: PlaceSettings | null;
 };
 
-/** A stored answer, by kind: option id, option ids, text, number, or yes/no. */
-export type AnswerValue = string | string[] | number | boolean;
+/**
+ * A stored answer, by kind: option id, option ids, text, number, yes/no, or a
+ * place.
+ */
+export type AnswerValue = string | string[] | number | boolean | PlaceAnswer;
 
 /** Question id -> answer, as the RPCs take it. Hidden and empty ones are absent. */
 export type RegistrationAnswers = Record<string, AnswerValue>;
 
 /**
  * What a form holds while it is being filled in: a string for a choice, text
- * or number field, an array for a multiple choice, a boolean for a consent box.
+ * or number field, an array for a multiple choice, a boolean for a consent box,
+ * and for a place the place picked or "Not listed" text ("" while neither).
  */
-export type AnswerDraftValue = string | string[] | boolean;
+export type AnswerDraftValue = string | string[] | boolean | PlaceAnswer;
 export type AnswerDraft = Record<string, AnswerDraftValue>;
 
 /** A stored answer as the portal, the email and the export read it. */
@@ -133,6 +177,8 @@ export function toRegistrationQuestion(row: {
   min_value?: number | null;
   max_value?: number | null;
   show_if?: unknown;
+  place_granularity?: string | null;
+  place_allow_other?: boolean | null;
 }): RegistrationQuestion | null {
   const id = row.id ?? row.question_id;
   if (!id || !isKind(row.kind) || !row.prompt) return null;
@@ -147,6 +193,16 @@ export function toRegistrationQuestion(row: {
     min_value: row.min_value ?? null,
     max_value: row.max_value ?? null,
     show_if: toCondition(row.show_if),
+    place:
+      row.kind === "place"
+        ? {
+            granularity:
+              row.place_granularity === "neighborhood"
+                ? "neighborhood"
+                : "locality",
+            allow_other: row.place_allow_other !== false,
+          }
+        : null,
   };
 }
 
@@ -205,6 +261,8 @@ export function answersToDraft(
       draft[question.id] = Array.isArray(value) ? value : [];
     } else if (question.kind === "consent") {
       draft[question.id] = value === true;
+    } else if (question.kind === "place") {
+      draft[question.id] = isPlaceAnswer(value) ? value : "";
     } else {
       draft[question.id] = Array.isArray(value) ? "" : String(value);
     }
@@ -239,6 +297,18 @@ export function draftToAnswers(
         if (raw === "") break;
         const number = Number(raw);
         answers[question.id] = Number.isFinite(number) ? number : raw;
+        break;
+      }
+      case "place": {
+        if (!isPlaceAnswer(value)) break;
+        if ("place_id" in value) {
+          answers[question.id] = {
+            place_id: value.place_id,
+            label: value.label,
+          };
+        } else if (value.other.trim() !== "") {
+          answers[question.id] = { other: value.other.trim() };
+        }
         break;
       }
       default: {
@@ -301,6 +371,20 @@ export function answersError(
         message: `“${question.prompt}” can be at most ${SHORT_TEXT_MAX_LENGTH} characters.`,
       };
     }
+    if (question.kind === "place" && isPlaceAnswer(value) && "other" in value) {
+      if (question.place?.allow_other === false) {
+        return {
+          questionId: question.id,
+          message: `Please pick a place for “${question.prompt}”.`,
+        };
+      }
+      if (value.other.length > PLACE_OTHER_MAX_LENGTH) {
+        return {
+          questionId: question.id,
+          message: `“${question.prompt}” can be at most ${PLACE_OTHER_MAX_LENGTH} characters.`,
+        };
+      }
+    }
   }
   return null;
 }
@@ -325,6 +409,9 @@ export function answerText(
     }
     case "consent":
       return value === true ? "Yes" : "No";
+    case "place":
+      if (!isPlaceAnswer(value)) return null;
+      return "place_id" in value ? value.label : value.other;
     default:
       return String(value);
   }
@@ -365,6 +452,7 @@ export function answerRowsToAnswers(
       typeof value === "string" ||
       typeof value === "number" ||
       typeof value === "boolean" ||
+      isPlaceAnswer(value) ||
       (Array.isArray(value) && value.every((item) => typeof item === "string"))
     ) {
       answers[row.question_id] = value as AnswerValue;

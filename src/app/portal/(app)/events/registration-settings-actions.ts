@@ -45,6 +45,53 @@ export async function updateAsksAboutMinorsAction(
   return { success: true };
 }
 
+const SERVICE_AREA_ERRORS: Record<string, string> = {
+  PERMISSION_DENIED:
+    "You don't have permission to change registration settings.",
+  SERVICE_AREA_TOO_LARGE: "A service area can list at most 50 places.",
+  SERVICE_AREA_INVALID:
+    "A service area can only list states, counties and boroughs.",
+};
+
+/**
+ * Replaces this organization's service area (#1699): the states, counties
+ * and boroughs whose places a place question suggests first. Gated like the
+ * settings above, and for their reason.
+ */
+export async function updateServiceAreaAction(
+  placeIds: string[],
+): Promise<RegistrationSettingsResult> {
+  const supabase = await createSupabaseServerClient();
+  const userResult = await checkUser(
+    supabase,
+    "You must be signed in to change registration settings.",
+  );
+  if ("error" in userResult) return userResult;
+  const permissionError = await checkPermission(supabase, "events", "manage");
+  if (permissionError) return permissionError;
+
+  if (
+    !Array.isArray(placeIds) ||
+    placeIds.some((id) => typeof id !== "string")
+  ) {
+    return { error: SERVICE_AREA_ERRORS.SERVICE_AREA_INVALID };
+  }
+
+  const { error } = await supabase.rpc("set_registration_service_area", {
+    p_place_ids: placeIds,
+  });
+  if (error) {
+    return {
+      error:
+        SERVICE_AREA_ERRORS[error.message] ??
+        "Could not save the setting. Please try again.",
+    };
+  }
+
+  revalidatePath("/portal/events");
+  return { success: true };
+}
+
 /**
  * Turns this organization's Instagram-or-preferred-contact requirement on or
  * off (#1647). Gated like the setting above, and for its reason.

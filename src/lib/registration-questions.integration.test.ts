@@ -1083,6 +1083,9 @@ describe("who can read the tables", () => {
         "max_value",
         "min_value",
         "options",
+        // #1699
+        "place_allow_other",
+        "place_granularity",
         "prompt",
         "required",
         "show_if",

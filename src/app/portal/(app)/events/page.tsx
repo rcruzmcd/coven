@@ -41,6 +41,7 @@ import {
   getEventPublicGalleryEnabled,
   getRegistrationAsksAboutMinors,
   getRegistrationRequiresInstagram,
+  getRegistrationServiceArea,
 } from "@/lib/registration-settings";
 import { FilterSubmitButton } from "@/components/filter-submit-button";
 import { LinkPendingPulse } from "@/components/link-pending";
@@ -231,6 +232,7 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
     riderMountains,
     asksAboutMinors,
     requiresInstagram,
+    serviceArea,
     mediaUploadsEnabled,
     mediaRetention,
     publicGalleryEnabled,
@@ -255,6 +257,8 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
     canManage
       ? getRegistrationRequiresInstagram(supabase)
       : Promise.resolve(null),
+    // And its service area (#1699), likewise.
+    canManage ? getRegistrationServiceArea(supabase) : Promise.resolve(null),
     // Event media uploads (#1606), likewise.
     canManage ? getEventMediaUploadsEnabled(supabase) : Promise.resolve(null),
     // And how long that media is kept (#1608).
@@ -434,6 +438,7 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
           <RegistrationSettingsSheet
             asksAboutMinors={asksAboutMinors}
             requiresInstagram={requiresInstagram ?? false}
+            serviceArea={serviceArea ?? []}
           />
         )}
 

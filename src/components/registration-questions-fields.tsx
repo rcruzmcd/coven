@@ -16,8 +16,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { NOT_LISTED, PlaceCombobox } from "@/components/place-combobox";
 import {
+  PLACE_OTHER_MAX_LENGTH,
   SHORT_TEXT_MAX_LENGTH,
+  isPlaceAnswer,
   visibleQuestions,
   type AnswerDraft,
   type RegistrationQuestion,
@@ -199,6 +202,61 @@ function QuestionField({
           {help}
         </Field>
       );
+
+    case "place": {
+      // #1699. A place from the list, or "Not listed" and a few words.
+      const answer = isPlaceAnswer(value) ? value : null;
+      const notListed = answer !== null && "other" in answer;
+      const allowNotListed = question.place?.allow_other !== false;
+      return (
+        <Field>
+          <FieldLabel htmlFor={id} required={required}>
+            {question.prompt}
+          </FieldLabel>
+          <PlaceCombobox
+            id={id}
+            granularity={question.place?.granularity ?? "locality"}
+            value={
+              answer === null
+                ? null
+                : "place_id" in answer
+                  ? { id: answer.place_id, kind: "place", label: answer.label }
+                  : NOT_LISTED
+            }
+            onChange={(next) =>
+              onChange(
+                next === null
+                  ? ""
+                  : next.id === NOT_LISTED.id
+                    ? { other: notListed && answer ? answer.other : "" }
+                    : { place_id: next.id, label: next.label },
+              )
+            }
+            allowNotListed={allowNotListed}
+            required={required}
+            disabled={disabled}
+            placeholder={
+              question.place?.granularity === "neighborhood"
+                ? "Start typing a neighborhood, city, town or ZIP"
+                : "Start typing a city, town or ZIP"
+            }
+          />
+          {notListed && answer && "other" in answer && (
+            <Input
+              id={`${id}-other`}
+              aria-label={`${question.prompt}: where you are from`}
+              placeholder="Where are you from?"
+              maxLength={PLACE_OTHER_MAX_LENGTH}
+              required={required}
+              disabled={disabled}
+              value={answer.other}
+              onChange={(event) => onChange({ other: event.target.value })}
+            />
+          )}
+          {help}
+        </Field>
+      );
+    }
 
     default:
       return (

@@ -5,6 +5,10 @@ import type { EventImpactNote } from "./impact-actions";
 import { plural, Section } from "./report-summary";
 import { Figure } from "./summary-figures";
 import { formatCurrency, formatNumber } from "@/lib/format";
+import {
+  placeReachSummary,
+  regionCountText,
+} from "@/lib/places/place-breakdown";
 
 /**
  * The figures typed by hand before #1588, on the events that have any. Shown
@@ -142,6 +146,26 @@ export function OutcomesSection({
           />
         )}
       </Section>
+
+      {/* #1701. Only on an event whose place questions someone answered. The
+          sentence is the one to quote: totals, naming only an area more than
+          one registrant came from. */}
+      {derived.placeReach && (
+        <Section
+          title="Reach"
+          empty={false}
+          emptyMessage=""
+          note={placeReachSummary(derived.placeReach)}
+        >
+          <Figure
+            eventId={eventId}
+            card="places"
+            label="Places reached"
+            value={formatNumber(derived.placeReach.places)}
+            caption={`In ${regionCountText(derived.placeReach.regionKinds)}`}
+          />
+        </Section>
+      )}
 
       <Section
         title="People served"

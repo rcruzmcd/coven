@@ -109,6 +109,7 @@ import {
 } from "@/lib/registration-group-chat";
 import type { EventCarpools } from "@/lib/event-carpools";
 import { loadEventCarpools } from "@/lib/portal/event-carpools";
+import { withPlaceRegions, type PlaceRegion } from "@/lib/places/place-regions";
 
 /**
  * The rider level recorded when this registrant was checked in, alongside the
@@ -156,7 +157,15 @@ export type RegistrantMinorContacts = {
 };
 
 /** A stored answer, with the raw value an editor needs to seed itself. */
-export type RegistrantAnswerRow = AnswerRow & { value: unknown };
+export type RegistrantAnswerRow = AnswerRow & {
+  value: unknown;
+  /**
+   * For a place answer, the county, borough or state its place lies in
+   * (#1701, `place_regions()`), which the place filter and sort read. Absent
+   * otherwise, and for "Not listed" or a place the dataset no longer has.
+   */
+  place_region?: PlaceRegion;
+};
 
 export type EventRegistrant = {
   id: string;
@@ -484,7 +493,7 @@ async function loadRegistrationQuestions(
   const { data } = await supabase
     .from("event_registration_questions")
     .select(
-      "id, kind, prompt, help, column_label, required, options, min_value, max_value, show_if",
+      "id, kind, prompt, help, column_label, required, options, min_value, max_value, show_if, place_granularity, place_allow_other",
     )
     .eq("event_id", eventId)
     .is("archived_at", null)
@@ -536,8 +545,9 @@ export async function listEventRegistrantsAction(
   const adderNames = new Map(
     (adders.data ?? []).map((row) => [row.user_id, row.name]),
   );
-  const rows = (data ?? []).map((row) =>
-    toRegistrant(row, canSeeRider, adderNames),
+  const rows = await withPlaceRegions(
+    supabase,
+    (data ?? []).map((row) => toRegistrant(row, canSeeRider, adderNames)),
   );
   const registrants = rows.filter((row) => row.cancelled_at === null);
   const cancelled = rows.filter((row) => row.cancelled_at !== null);

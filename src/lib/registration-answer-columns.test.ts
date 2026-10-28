@@ -3,7 +3,9 @@ import {
   answerCellText,
   answerColumnLabel,
   answerColumns,
+  answerFilterChoices,
   matchesAnswerFilter,
+  PLACE_OTHER_FILTER,
   shownAnswerColumns,
   type StoredAnswerRow,
 } from "./registration-answer-columns";
@@ -220,5 +222,41 @@ describe("matchesAnswerFilter", () => {
     expect(
       matchesAnswerFilter(multi, [row("multi", ["a", "b"], "A, B")], "b"),
     ).toBe(true);
+  });
+});
+
+describe("place filters (#1701)", () => {
+  const place = question({ id: "from", kind: "place" });
+  const brooklyn = { id: "bk", label: "Brooklyn, NY" };
+  const wburg: StoredAnswerRow = {
+    ...row(
+      "from",
+      { place_id: "w", label: "Williamsburg, Brooklyn" },
+      "Williamsburg, Brooklyn",
+    ),
+    place_region: brooklyn,
+  };
+  const essex: StoredAnswerRow = {
+    ...row("from", { place_id: "m", label: "Montclair" }, "Montclair"),
+    place_region: { id: "essex", label: "Essex County, NJ" },
+  };
+  const other = row("from", { other: "Somewhere" }, "Somewhere");
+
+  test("offers the regions answered, then Not listed", () => {
+    expect(answerFilterChoices(place, [[wburg], [essex], [other], []])).toEqual(
+      [
+        { value: "bk", label: "Brooklyn, NY" },
+        { value: "essex", label: "Essex County, NJ" },
+        { value: PLACE_OTHER_FILTER, label: "Not listed or other" },
+      ],
+    );
+  });
+
+  test("matches by region, and Not listed by having none", () => {
+    expect(matchesAnswerFilter(place, [wburg], "bk")).toBe(true);
+    expect(matchesAnswerFilter(place, [essex], "bk")).toBe(false);
+    expect(matchesAnswerFilter(place, [other], PLACE_OTHER_FILTER)).toBe(true);
+    expect(matchesAnswerFilter(place, [wburg], PLACE_OTHER_FILTER)).toBe(false);
+    expect(matchesAnswerFilter(place, [], PLACE_OTHER_FILTER)).toBe(false);
   });
 });
