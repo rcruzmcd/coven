@@ -15,17 +15,20 @@ businesses; a tenant is one customer organization of it.
 This is no longer hypothetical. Three tenants are live, and **Chatter Snow is
 simply the first of them**, not the product:
 
-| Tenant       | Plan       | Hosts                                                                                                                                    |
-| ------------ | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| Chatter Snow | (customer) | `www.chattersnow.org`, `portal.chattersnow.org`, and `uat.chattersnow.org` for the `development` preview                                 |
-| Platform     | `internal` | `portal.rickiecruz.com` -- no public site, since the `rickiecruz.com` apex is a separate consulting site not served from this deployment |
-| Demo         | `demo`     | `demo.rickiecruz.com`, portal at `demo.rickiecruz.com/portal`                                                                            |
+| Tenant       | Plan       | Hosts                                                                                                    |
+| ------------ | ---------- | -------------------------------------------------------------------------------------------------------- |
+| Chatter Snow | (customer) | `www.chattersnow.org`, `portal.chattersnow.org`, and `uat.chattersnow.org` for the `development` preview |
+| Platform     | `internal` | `coven.rcmlabs.dev` (Coven's marketing site), portal at `coven.rcmlabs.dev/portal`                       |
+| Demo         | `demo`     | `demo.rcmlabs.dev`, portal at `demo.rcmlabs.dev/portal`                                                  |
 
-The demo and platform tenants are on `rickiecruz.com` subdomains rather than
+The demo and platform tenants are on `rcmlabs.dev` subdomains rather than
 `chattersnow.org` because neither belongs to Chatter Snow -- demoing the
 platform on a customer's domain would present that customer's brand as the
-product. Host -> tenant resolution is data-driven, so moving them to a product
-domain later is a `custom_domain` update, not a code change.
+product. Host -> tenant resolution is data-driven, so moving them was a
+`custom_domain` update (and, for the demo, `DEMO_HOST`), not a code change:
+they moved off `rickiecruz.com` subdomains in October 2026, and the old hosts
+308 to the new ones. Moving the platform again is the same: the Domain button
+on Administration → Platform, then a redirect from the old host.
 
 Most of it can also be done from the portal, at Administration → **Platform**
 (#707 Phase 5c) — provisioning, the domain, the status and the export. That
@@ -189,7 +192,7 @@ To put a tenant on its domain:
    `.example.org` cookie written on a staging host would collide with
    production's by name and sign people in and out of the wrong one. A tenant
    that serves its portal on the _same_ host as its public site (the demo
-   tenant's `demo.rickiecruz.com/portal`) needs nothing here at all, and must
+   tenant's `demo.rcmlabs.dev/portal`) needs nothing here at all, and must
    not be listed: it has no second host to reach, and the shared cookie would
    widen to a domain other tenants sit on. The older server-only
    `PORTAL_REDIRECT_HOSTS` still works for the redirect, but only the
@@ -810,7 +813,7 @@ enters that email.
 Once it is granted, **work the grant on the tenant's own portal host**. Since
 #956 a portal session is scoped to the organization that owns the host it is
 served from, so a support grant in `example-nonprofit` is exercised at
-`portal.example.org`, not from `portal.rickiecruz.com`. Session cookies are
+`portal.example.org`, not from `coven.rcmlabs.dev/portal`. Session cookies are
 host-only, so this was already a separate sign-in in practice; what changed is
 that the platform host no longer offers a switcher into the tenant. A tenant
 with no `custom_domain` yet has no host of its own, which leaves its portal
@@ -1308,7 +1311,7 @@ deployment can reach whether or not the button was drawn.
 One consequence worth knowing before you go looking for the button: it is
 absent on `uat.chattersnow.org` and on preview and local runs, because
 `TENANT_HOST_OVERRIDE` resolves those to Chatter Snow's own tenant. The demo is
-exercised on `demo.rickiecruz.com`.
+exercised on `demo.rcmlabs.dev`.
 
 ### The rollout order is load-bearing
 
@@ -1342,10 +1345,10 @@ verified **positively** while the fallback is still masking any mistake:
    which is a single unique column, so a second host cannot simply be listed
    against the tenant. `src/lib/supabase/server.ts` prefers the override over
    the request `Host` when it is set.
-4. Add `demo.rickiecruz.com` to the Vercel project and to the Supabase Auth
+4. Add `demo.rcmlabs.dev` to the Vercel project and to the Supabase Auth
    redirect allowlist. `src/proxy.ts` needs no change: it is not a `portal.`
    host, so `/portal/login` passes through as a path, which is why the demo
-   portal is reached at `demo.rickiecruz.com/portal`. It is on a different
+   portal is reached at `demo.rcmlabs.dev/portal`. It is on a different
    apex from any customer domain, so nothing about it depends on
    longest-suffix matching against `chattersnow.org`; a `demo.` subdomain of a
    customer's own domain would have, and would also have put the demo behind
@@ -1355,7 +1358,7 @@ verified **positively** while the fallback is still masking any mistake:
 ### Resetting it
 
 ```bash
-DEMO_EMAIL=… DEMO_PASSWORD=… DEMO_SLUG=demo DEMO_HOST=demo.rickiecruz.com \
+DEMO_EMAIL=… DEMO_PASSWORD=… DEMO_SLUG=demo DEMO_HOST=demo.rcmlabs.dev \
   bun --env-file=.env.production.local scripts/demo-reset.ts
 ```
 
@@ -1430,7 +1433,7 @@ to find or re-create the demo account itself. A self-serve sign-up creates an
 - Its `people` link is deleted with the tenant, so the account would come back
   the next night unlinked and facing the claim form again. The reset would go
   _around_ the account rather than resetting it.
-- Sign-up is open to anyone and `demo.rickiecruz.com` is public, which makes the
+- Sign-up is open to anyone and `demo.rcmlabs.dev` is public, which makes the
   combination an unauthenticated, unbounded row creator against the production
   Auth project.
 

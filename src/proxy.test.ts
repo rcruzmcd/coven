@@ -192,7 +192,7 @@ describe("the index redirects", () => {
     });
   });
 
-  // A preview, a local run and the demo tenant (`demo.rickiecruz.com/portal`)
+  // A preview, a local run and the demo tenant (`demo.rcmlabs.dev/portal`)
   // serve the portal as a path, so `/portal` is its index there.
   test("sends /portal to the portal entry where the portal is a path", () => {
     for (const host of [

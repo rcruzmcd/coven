@@ -131,7 +131,11 @@ describe("the login page's link back to the public site", () => {
   };
   const platform = {
     name: "Platform",
-    custom_domain: "portal.rickiecruz.com",
+    custom_domain: "coven.rcmlabs.dev",
+  };
+  const portalOnly = {
+    name: "Portal Only",
+    custom_domain: "portal.example.test",
   };
 
   test("leaves the deployment for the tenant's own domain, from a portal host", () => {
@@ -142,10 +146,18 @@ describe("the login page's link back to the public site", () => {
   });
 
   test("is not offered at all when the tenant has no public site", () => {
-    // The platform tenant's domain is the portal host itself: the
-    // rickiecruz.com apex is the consulting site and is not served here, so
-    // there is nowhere to go back to.
-    expect(publicSiteLink("portal.rickiecruz.com", platform)).toBeNull();
+    // The tenant's domain is the portal host itself, so there is nowhere to
+    // go back to.
+    expect(publicSiteLink("portal.example.test", portalOnly)).toBeNull();
+  });
+
+  test("stays relative on a single-host tenant, whose site is on the same host", () => {
+    // The platform tenant serves its marketing site and its portal from
+    // coven.rcmlabs.dev, so the login links back to its own /home.
+    expect(publicSiteLink("coven.rcmlabs.dev", platform)).toEqual({
+      href: "/home",
+      label: "coven.rcmlabs.dev",
+    });
   });
 
   test("stays relative off a portal host, so a preview stays on the preview", () => {
@@ -235,7 +247,7 @@ describe("a path on the tenant's public site (#1654)", () => {
 
   test("is null from a portal host when the tenant has no public site", () => {
     expect(
-      publicSiteHref("portal.rickiecruz.com", "portal.rickiecruz.com", "/x"),
+      publicSiteHref("portal.example.test", "portal.example.test", "/x"),
     ).toBeNull();
     expect(publicSiteHref("portal.example.test", null, "/x")).toBeNull();
   });

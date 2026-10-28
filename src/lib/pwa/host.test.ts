@@ -13,9 +13,9 @@ afterEach(() => redirectHosts(ORIGINAL));
 describe("surfaceAtRoot", () => {
   test("the portal owns the root on a portal host, and nowhere else", () => {
     expect(surfaceAtRoot("portal", "portal.chattersnow.org")).toBe(true);
-    expect(surfaceAtRoot("portal", "portal.rickiecruz.com")).toBe(true);
+    expect(surfaceAtRoot("portal", "portal.example.test")).toBe(true);
     expect(surfaceAtRoot("portal", "www.chattersnow.org")).toBe(false);
-    expect(surfaceAtRoot("portal", "demo.rickiecruz.com")).toBe(false);
+    expect(surfaceAtRoot("portal", "demo.rcmlabs.dev")).toBe(false);
     expect(surfaceAtRoot("portal", "localhost")).toBe(false);
   });
 
@@ -31,7 +31,7 @@ describe("surfaceAtRoot", () => {
     redirectHosts("chattersnow.org");
     // The demo tenant, a preview and a local run all serve the portal as a
     // path, so the public app narrows to /my and the scopes stay disjoint.
-    for (const host of ["demo.rickiecruz.com", "localhost:3000"]) {
+    for (const host of ["demo.rcmlabs.dev", "localhost:3000"]) {
       expect(surfaceAtRoot("portal", host)).toBe(false);
       expect(surfaceAtRoot("public", host)).toBe(false);
     }
@@ -52,6 +52,6 @@ describe("servesPublicApp", () => {
     // the same `id` as the portal's.
     expect(servesPublicApp("portal.chattersnow.org")).toBe(false);
     expect(servesPublicApp("www.chattersnow.org")).toBe(true);
-    expect(servesPublicApp("demo.rickiecruz.com")).toBe(true);
+    expect(servesPublicApp("demo.rcmlabs.dev")).toBe(true);
   });
 });
