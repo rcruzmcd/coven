@@ -31,7 +31,7 @@ export default async function PortalLoginPage() {
     // The logo the host's tenant has set, if any. It was
     // `/chatter-logo-transparent.png` hardcoded, so every tenant's login page
     // carried Chatter Snow's mark -- visible on portal.rickiecruz.com, which
-    // is the platform's own host (#795 Phase 3).
+    // was then the platform's own host (#795 Phase 3).
     getPublicBranding(supabase),
     getRequestHost(),
   ]);

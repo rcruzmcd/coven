@@ -109,9 +109,9 @@ export function stripPortalPrefix(pathname: string): string {
  *
  *   - an apex listed in PORTAL_REDIRECT_HOSTS -- 308s to `portal.<apex>/home`;
  *   - an apex that is not listed, or any other subdomain (the demo's
- *     `demo.rickiecruz.com`) -- serves `/portal/home` as a plain path;
- *   - a `portal.` host of its own (the platform tenant) -- the proxy 307s the
- *     redundant prefix away.
+ *     `demo.rcmlabs.dev`) -- serves `/portal/home` as a plain path;
+ *   - a `portal.` host of its own (a portal-only tenant) -- the proxy 307s
+ *     the redundant prefix away.
  *
  * A tenant with no domain yet is reachable only on whatever host the operator
  * sent its invite from, which is not something this can name, hence null.
@@ -140,8 +140,8 @@ export type PublicSiteLink = { href: string; label: string };
  *      `uat.chattersnow.org` on uat rather than sending them to production.
  *   2. A portal host, tenant has a public domain: an absolute link to it.
  *   3. A portal host, and the tenant's own `custom_domain` is a portal host --
- *      the platform tenant, whose domain is `portal.rickiecruz.com` because the
- *      rickiecruz.com apex is the consulting site and is not served here. There
+ *      a portal-only tenant (the platform tenant was one, on
+ *      `portal.rickiecruz.com`, until it moved to `coven.rcmlabs.dev`). There
  *      is no public site, so nothing is offered rather than a link off the
  *      deployment.
  */

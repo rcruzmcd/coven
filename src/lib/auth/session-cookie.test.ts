@@ -43,14 +43,14 @@ describe("sessionCookieDomain", () => {
   });
 
   // A single-host tenant serves both surfaces from one host, so it needs no
-  // shared cookie -- and .rickiecruz.com would reach the platform tenant and
-  // the user's consulting site.
+  // shared cookie -- and .rcmlabs.dev would carry the demo's session to the
+  // platform tenant and back.
   test("gives an unlisted apex no domain", () => {
     listApexes("chattersnow.org");
 
-    expect(sessionCookieDomain("demo.rickiecruz.com")).toBeUndefined();
-    expect(sessionCookieDomain("portal.rickiecruz.com")).toBeUndefined();
-    expect(sessionCookieDomain("rickiecruz.com")).toBeUndefined();
+    expect(sessionCookieDomain("demo.rcmlabs.dev")).toBeUndefined();
+    expect(sessionCookieDomain("coven.rcmlabs.dev")).toBeUndefined();
+    expect(sessionCookieDomain("rcmlabs.dev")).toBeUndefined();
   });
 
   test("never matches a host that merely ends with a listed apex", () => {

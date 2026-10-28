@@ -18,14 +18,15 @@ that tenant's data, never in platform code — see `docs/licensing.md`.
 
 ## Where it runs
 
-| Host                         | What it serves                                                   |
-| ---------------------------- | ---------------------------------------------------------------- |
-| `www.chattersnow.org`        | Chatter Snow's public site (the apex redirects to `www`)         |
-| `portal.chattersnow.org`     | Chatter Snow's operations portal                                 |
-| `demo.rickiecruz.com`        | The public demo tenant's site                                    |
-| `demo.rickiecruz.com/portal` | The demo portal — one click from the login screen, reset nightly |
-| `portal.rickiecruz.com`      | The platform tenant's own portal (no public site)                |
-| `uat.chattersnow.org`        | The `development` branch, deployed as a Vercel Preview           |
+| Host                       | What it serves                                                   |
+| -------------------------- | ---------------------------------------------------------------- |
+| `www.chattersnow.org`      | Chatter Snow's public site (the apex redirects to `www`)         |
+| `portal.chattersnow.org`   | Chatter Snow's operations portal                                 |
+| `demo.rcmlabs.dev`         | The public demo tenant's site                                    |
+| `demo.rcmlabs.dev/portal`  | The demo portal — one click from the login screen, reset nightly |
+| `coven.rcmlabs.dev`        | The platform tenant's site: Coven's marketing pages              |
+| `coven.rcmlabs.dev/portal` | The platform tenant's own portal                                 |
+| `uat.chattersnow.org`      | The `development` branch, deployed as a Vercel Preview           |
 
 The demo is the fastest way to see the portal: it is an ordinary tenant on the
 `demo` plan, kept apart by the same policies as any paying one, and its data is
