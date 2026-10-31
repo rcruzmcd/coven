@@ -51,7 +51,7 @@ import { registerMyselfForEventAction } from "./my-registration-actions";
 import type { WaiverOnFile } from "./my-registration";
 import type { RegistrationStep } from "./registration-step";
 import { RegistrationSteps } from "./registration-steps";
-import { trackRegistration } from "@/lib/analytics/registration-events";
+import { trackForm } from "@/lib/analytics/form-events";
 import {
   attendedBeforeRows,
   contactSummaryRows,
@@ -280,14 +280,14 @@ export function MyEventRegistrationForm({
       const result = await registerMyselfForEventAction(eventId, formData);
       if ("error" in result) {
         setError({ message: result.error, step: result.step });
-        trackRegistration("registration_failed", {
+        trackForm("event_registration", "form_failed", {
           event_id: eventId,
           step: result.step,
           error_code: result.code ?? "INVALID_FORM",
         });
         return;
       }
-      trackRegistration("registration_completed", { event_id: eventId });
+      trackForm("event_registration", "form_completed", { event_id: eventId });
       setRegistered(true);
     });
   }
