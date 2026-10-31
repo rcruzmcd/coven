@@ -5,7 +5,9 @@ import type { RegistrationStep } from "@/app/(public)/events/registration-step";
  * Every event the public site sends to PostHog about a form (#1710), and the
  * only properties each may carry. One generic set for every form, told apart
  * by `form`, so a single PostHog funnel -- `form_viewed` -> `form_started` ->
- * `form_completed`, filtered on `form` -- works for all of them.
+ * `form_completed`, filtered on `form` -- works for all of them. The gear
+ * cart's few steps before its checkout form are here too (`GearEvents`), so
+ * the allowlist stays in one file.
  *
  * This file is where the no-PII rule lives. Public forms hold names, phone
  * numbers, addresses and, on some tenants, a minor's and an emergency
@@ -24,6 +26,8 @@ import type { RegistrationStep } from "@/app/(public)/events/registration-step";
 /** The steps of each form, `never` for a form without steps. */
 export type FormSteps = {
   event_registration: RegistrationStep;
+  contact: never;
+  gear_request: never;
 };
 
 /** Every form that sends events: a closed list, so a typo is a type error. */
@@ -38,13 +42,40 @@ export type FormName = keyof FormSteps;
  */
 export type FormContext = {
   event_registration: { event_id: string };
+  contact: Record<never, never>;
+  gear_request: Record<never, never>;
 };
 
 const FORM_CONTEXT_PROPERTIES: {
   [F in FormName]: readonly (keyof FormContext[F])[];
 } = {
   event_registration: ["event_id"],
+  contact: [],
+  gear_request: [],
 };
+
+/**
+ * What a form adds to `form_submitted` alone. A gear request's item count
+ * (#1711) is a number of catalog items, nobody's detail.
+ */
+export type FormSubmitted = {
+  event_registration: Record<never, never>;
+  contact: Record<never, never>;
+  gear_request: { item_count: string };
+};
+
+const FORM_SUBMITTED_PROPERTIES: {
+  [F in FormName]: readonly (keyof FormSubmitted[F])[];
+} = {
+  event_registration: [],
+  contact: [],
+  gear_request: ["item_count"],
+};
+
+/** `step` where a form has steps; a single-step form has none to name. */
+type StepOf<F extends FormName> = [FormSteps[F]] extends [never]
+  ? Record<never, never>
+  : { step: FormSteps[F] };
 
 export type FormEvents<F extends FormName> = {
   /** The form is shown: its sheet or disclosure opened, or it came into view. */
@@ -54,11 +85,11 @@ export type FormEvents<F extends FormName> = {
   /** A step is reached, after the first (multi-step forms only). */
   form_step_viewed: { step: FormSteps[F] };
   /** Submit was pressed and the form passed the browser's validation. */
-  form_submitted: Record<never, never>;
+  form_submitted: FormSubmitted[F];
   /** The server accepted it. */
   form_completed: Record<never, never>;
   /** The server refused it. */
-  form_failed: { step: FormSteps[F]; error_code: string };
+  form_failed: StepOf<F> & { error_code: string };
 };
 
 export type FormEventName = keyof FormEvents<FormName>;
@@ -98,12 +129,64 @@ export function trackForm<F extends FormName, E extends FormEventName>(
     readonly string[] | undefined;
   const extra = EVENT_PROPERTIES[event];
   if (!capture || !context || !extra) return;
-  const sent: Record<string, string> = { form };
-  for (const key of [...context, ...extra]) {
+  const submitted =
+    event === "form_submitted"
+      ? (FORM_SUBMITTED_PROPERTIES[form] as readonly string[])
+      : [];
+  send(
+    capture,
+    event,
+    { form },
+    [...context, ...extra, ...submitted],
+    properties,
+  );
+}
+
+function send(
+  to: Capture,
+  event: string,
+  sent: Record<string, string>,
+  allowed: readonly string[],
+  properties: object,
+): void {
+  for (const key of allowed) {
     const value = (properties as Record<string, unknown>)[key];
     if (typeof value === "string") sent[key] = value;
   }
-  capture(event, sent);
+  to(event, sent);
+}
+
+/**
+ * The gear cart's steps before its checkout form (#1711): what is added, the
+ * cart being opened, and the passphrase gate. No item id or name -- at most
+ * the item's category key, which is the tenant's catalog vocabulary.
+ */
+export type GearEvents = {
+  gear_added_to_cart: { category?: string };
+  gear_cart_opened: Record<never, never>;
+  /** The passphrase dialog opened, before an add or after a refused submit. */
+  gear_passphrase_prompted: Record<never, never>;
+  /** A wrong passphrase, in the dialog or held from before and refused. */
+  gear_passphrase_rejected: Record<never, never>;
+};
+
+export type GearEventName = keyof GearEvents;
+
+const GEAR_EVENT_PROPERTIES: Record<GearEventName, readonly string[]> = {
+  gear_added_to_cart: ["category"],
+  gear_cart_opened: [],
+  gear_passphrase_prompted: [],
+  gear_passphrase_rejected: [],
+};
+
+/** Sends one gear cart event, or does nothing when analytics is off. */
+export function trackGear<E extends GearEventName>(
+  event: E,
+  properties?: GearEvents[E],
+): void {
+  const allowed = GEAR_EVENT_PROPERTIES[event];
+  if (!capture || !allowed) return;
+  send(capture, event, {}, allowed, properties ?? {});
 }
 
 /**

@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState, useTransition } from "react";
+import { FormEvent, useEffect, useState, useTransition } from "react";
 import { useSearchParams } from "next/navigation";
 import { submitContactMessageAction } from "./contact-actions";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -17,6 +17,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { PrivacyNotice } from "@/components/privacy-notice";
 import { RequiredFieldsNote } from "@/components/required-fields-note";
+import { trackForm, useFormStarted } from "@/lib/analytics/form-events";
 import { contactTopics } from "@/lib/contact-topics";
 import { DEFAULT_LEXICON, type Lexicon } from "@/lib/lexicon";
 
@@ -48,10 +49,18 @@ export function ContactForm({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const startTracking = useFormStarted("contact", {});
+
+  // The contact funnel (#1712): one step, so viewed -> started -> submitted
+  // -> completed or failed.
+  useEffect(() => {
+    trackForm("contact", "form_viewed", {});
+  }, []);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
+    trackForm("contact", "form_submitted", {});
 
     const formData = new FormData();
     formData.set("name", name);
@@ -64,8 +73,14 @@ export function ContactForm({
       const result = await submitContactMessageAction(formData);
       if ("error" in result) {
         setError(result.error);
+        trackForm("contact", "form_failed", {
+          error_code: result.code ?? "INVALID_FORM",
+        });
         return;
       }
+      // A filled honeypot "succeeds" with nothing saved, so a bot is not
+      // counted as a message.
+      if (!company) trackForm("contact", "form_completed", {});
       setSuccess(true);
     });
   }
@@ -82,7 +97,7 @@ export function ContactForm({
   }
 
   return (
-    <form onSubmit={handleSubmit}>
+    <form onSubmit={handleSubmit} {...startTracking}>
       <FieldGroup>
         <RequiredFieldsNote />
         <Field>

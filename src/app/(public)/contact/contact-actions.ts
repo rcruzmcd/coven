@@ -6,9 +6,12 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getRequestOrigin } from "@/lib/request-origin";
 import { getClientIp } from "@/lib/get-client-ip";
 import { notifyNewContactMessage } from "@/lib/notifications/submission-notifications";
+import { rpcErrorCode } from "@/lib/analytics/error-code";
 import { parseContactForm } from "./contact-form-parser";
 
-export type SubmitContactMessageResult = { error: string } | { success: true };
+/** `code` is the RPC's refusal, for the funnel (#1712); absent where the form parser refused. */
+export type SubmitContactMessageResult =
+  { error: string; code?: string } | { success: true };
 
 const ERROR_MESSAGES: Record<string, string> = {
   NAME_REQUIRED: "Name is required.",
@@ -50,6 +53,7 @@ export async function submitContactMessageAction(
       error:
         ERROR_MESSAGES[error.message] ??
         "Could not send your message. Please try again.",
+      code: rpcErrorCode(error.message),
     };
   }
 
