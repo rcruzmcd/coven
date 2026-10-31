@@ -21,6 +21,7 @@ import type {
   DeliveryMethod,
   PublicGearRequestOptions,
 } from "@/lib/gear-requests";
+import { trackGear } from "@/lib/analytics/form-events";
 import { DEFAULT_LEXICON, type Lexicon } from "@/lib/lexicon";
 import type { AccountOffer } from "@/lib/constituent/account-offer";
 import type { ViewerContactPrefill } from "@/lib/constituent/viewer";
@@ -155,6 +156,7 @@ export function GearCatalog({
   const openCart = () => {
     setCartSuccess(null);
     setCartOpen(true);
+    trackGear("gear_cart_opened");
   };
 
   // From the detail sheet, which the cart tray cannot be seen or reached
@@ -171,6 +173,13 @@ export function GearCatalog({
   const [passphraseNotice, setPassphraseNotice] = useState<string | null>(null);
   const [unlocked, setUnlocked] = useState(passphraseUnlocked);
 
+  // The funnel's first step (#1711): the item's category key at most, never
+  // its id or description.
+  const trackAddedToCart = (itemId: string) => {
+    const category = items.find((item) => item.id === itemId)?.category_key;
+    trackGear("gear_added_to_cart", category ? { category } : {});
+  };
+
   const toggleCartItem = (itemId: string) => {
     if (
       requestOptions.passphraseRequired &&
@@ -180,8 +189,10 @@ export function GearCatalog({
       setPendingItemId(itemId);
       setPassphraseNotice(null);
       setPassphraseOpen(true);
+      trackGear("gear_passphrase_prompted");
       return;
     }
+    if (!cartIds.has(itemId)) trackAddedToCart(itemId);
     setCartIds((current) => {
       const next = new Set(current);
       if (next.has(itemId)) {
@@ -199,6 +210,7 @@ export function GearCatalog({
     setPassphraseNotice(null);
     if (pendingItemId) {
       const itemId = pendingItemId;
+      trackAddedToCart(itemId);
       setCartIds((current) => new Set(current).add(itemId));
       setPendingItemId(null);
     }
@@ -211,6 +223,8 @@ export function GearCatalog({
     setPendingItemId(null);
     setPassphraseNotice(message);
     setPassphraseOpen(true);
+    trackGear("gear_passphrase_rejected");
+    trackGear("gear_passphrase_prompted");
   };
 
   const cartItems = items.filter((item) => cartIds.has(item.id));

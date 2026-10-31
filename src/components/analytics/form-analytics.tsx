@@ -23,7 +23,8 @@ import { POSTHOG_PROXY_PATH } from "@/lib/analytics/form-analytics";
  *   - nothing captured implicitly: no autocapture, replay, heatmaps, dead
  *     clicks, exceptions, page-leave, surveys or flags. Registration forms
  *     hold names, phone numbers and, on some tenants, a minor's contacts; the
- *     only events are page views and the named `form_*` events (`src/lib/analytics/form-events.ts`).
+ *     only events are page views, the named `form_*` events and the gear
+ *     cart's `gear_*` steps (`src/lib/analytics/form-events.ts`).
  *
  * `before_send` drops anything sent from `/portal`. On a host that serves the
  * portal from the same origin (the demo), a client-side navigation out of the

@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { setFormCapture, trackForm } from "@/lib/analytics/form-events";
+import {
+  setFormCapture,
+  trackForm,
+  trackGear,
+} from "@/lib/analytics/form-events";
 
 function recorder() {
   const calls: [string, Record<string, string>][] = [];
@@ -92,7 +96,7 @@ describe("trackForm", () => {
   });
 });
 
-// #1712: a single-step form carries no context and no step.
+// #1712, #1711: a single-step form carries no context and no step.
 describe("single-step forms", () => {
   test("contact sends only its form name, and an error code on failure", () => {
     const calls = recorder();
@@ -106,9 +110,45 @@ describe("single-step forms", () => {
     ]);
   });
 
-  test("a step is a type error", () => {
+  test("a gear request's item count rides on form_submitted alone", () => {
+    const calls = recorder();
+    trackForm("gear_request", "form_submitted", { item_count: "3" });
+    const sneaky = { item_count: "3" } as Record<never, never>;
+    trackForm("gear_request", "form_completed", sneaky);
+    expect(calls).toEqual([
+      ["form_submitted", { form: "gear_request", item_count: "3" }],
+      ["form_completed", { form: "gear_request" }],
+    ]);
+  });
+
+  test("a step, or a missing item count, is a type error", () => {
     recorder();
     // @ts-expect-error -- contact has no steps
     trackForm("contact", "form_failed", { step: "event", error_code: "X" });
+    // @ts-expect-error -- the item count is required
+    trackForm("gear_request", "form_submitted", {});
+  });
+});
+
+describe("trackGear", () => {
+  test("sends a category at most, and nothing outside the allowlist", () => {
+    const calls = recorder();
+    trackGear("gear_added_to_cart", { category: "skis" });
+    trackGear("gear_added_to_cart");
+    trackGear("gear_cart_opened");
+    const sneaky = { item_id: "i1" } as Record<never, never>;
+    trackGear("gear_passphrase_rejected", sneaky);
+    expect(calls).toEqual([
+      ["gear_added_to_cart", { category: "skis" }],
+      ["gear_added_to_cart", {}],
+      ["gear_cart_opened", {}],
+      ["gear_passphrase_rejected", {}],
+    ]);
+  });
+
+  test("an unknown property is a type error", () => {
+    recorder();
+    // @ts-expect-error -- no item names
+    trackGear("gear_added_to_cart", { name: "Powder skis" });
   });
 });
