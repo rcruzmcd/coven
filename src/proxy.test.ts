@@ -1,6 +1,12 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { NextRequest } from "next/server";
-import { hasAuthCookie, resolveDeviceClass, resolvePortalRoute } from "./proxy";
+import {
+  config,
+  hasAuthCookie,
+  resolveDeviceClass,
+  resolvePortalRoute,
+  trailingSlashRedirect,
+} from "./proxy";
 
 const PORTAL = "portal.example.org";
 const PUBLIC = "www.example.org";
@@ -375,5 +381,31 @@ describe("hasAuthCookie", () => {
     expect(
       hasAuthCookie(withCookies(["device_override", "sb-analytics-id"])),
     ).toBe(false);
+  });
+});
+
+// #1708: Next's own trailing-slash 308 is off, so this is the only one.
+describe("trailingSlashRedirect", () => {
+  test("strips the trailing slash off a page path", () => {
+    expect(trailingSlashRedirect("/events/")).toBe("/events");
+    expect(trailingSlashRedirect("/portal/home/")).toBe("/portal/home");
+  });
+
+  test("strips a run of slashes in one hop", () => {
+    expect(trailingSlashRedirect("/contact//")).toBe("/contact");
+  });
+
+  test("leaves the root and slashless paths alone", () => {
+    expect(trailingSlashRedirect("/")).toBeNull();
+    expect(trailingSlashRedirect("/events")).toBeNull();
+  });
+
+  // The redirect only runs where the proxy does, so the ingest keeps its slash
+  // by never reaching it.
+  test("PostHog's ingest is outside the proxy matcher", () => {
+    const matcher = new RegExp(`^${config.matcher[0]}$`);
+    expect(matcher.test("/ph/i/v0/e/")).toBe(false);
+    expect(matcher.test("/ph/flags/")).toBe(false);
+    expect(matcher.test("/events/")).toBe(true);
   });
 });
