@@ -9,6 +9,7 @@
 // Requires `bun run db:start && bun run db:reset` first; run via
 // `bun run test:integration`. Not picked up by `bun run test`.
 import { afterAll, afterEach, describe, expect, mock, test } from "bun:test";
+import { freezeClock } from "../../../../../test/frozen-clock";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   SEEDED_USERS,
@@ -325,6 +326,8 @@ describe("resendEventRegistrationConfirmationAction", () => {
   });
 
   test("sends a second copy, records it as a receipt, and is idempotent in the minute", async () => {
+    // Both calls in one clock minute, which the second one's refusal needs.
+    freezeClock();
     const registration = await newRegistration();
     currentSupabase = await signInAs(SEEDED_USERS.coordinator);
 

@@ -15,6 +15,7 @@ import {
   mock,
   test,
 } from "bun:test";
+import { freezeClock } from "../../../../../../test/frozen-clock";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   SEEDED_USERS,
@@ -221,6 +222,8 @@ describe("resendGearRequestConfirmationAction", () => {
   });
 
   test("sends a second copy, and records it as a resend", async () => {
+    // Both calls in one clock minute, which the second one's refusal needs.
+    freezeClock();
     const request = await newGearRequest();
     currentSupabase = await signIn(SEEDED_USERS.admin);
 

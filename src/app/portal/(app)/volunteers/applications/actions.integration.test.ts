@@ -9,6 +9,7 @@
 // Requires `bun run db:start && bun run db:reset` first; run via
 // `bun run test:integration`. Not picked up by `bun run test`.
 import { afterEach, describe, expect, mock, test } from "bun:test";
+import { freezeClock } from "../../../../../../test/frozen-clock";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { VolunteerApplicationStatus } from "./application-types";
 import {
@@ -321,6 +322,8 @@ describe("resendVolunteerApplicationConfirmationAction (integration)", () => {
   });
 
   test("sends a second copy, and records it as a resend", async () => {
+    // Both calls in one clock minute, which the second one's refusal needs.
+    freezeClock();
     const application = await createApplication();
     currentSupabase = await signInAs(SEEDED_USERS.admin);
 
