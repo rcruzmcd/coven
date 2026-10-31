@@ -24,6 +24,7 @@ import type { RegistrationStep } from "@/app/(public)/events/registration-step";
 /** The steps of each form, `never` for a form without steps. */
 export type FormSteps = {
   event_registration: RegistrationStep;
+  contact: never;
 };
 
 /** Every form that sends events: a closed list, so a typo is a type error. */
@@ -38,13 +39,20 @@ export type FormName = keyof FormSteps;
  */
 export type FormContext = {
   event_registration: { event_id: string };
+  contact: Record<never, never>;
 };
 
 const FORM_CONTEXT_PROPERTIES: {
   [F in FormName]: readonly (keyof FormContext[F])[];
 } = {
   event_registration: ["event_id"],
+  contact: [],
 };
+
+/** `step` where a form has steps; a single-step form has none to name. */
+type StepOf<F extends FormName> = [FormSteps[F]] extends [never]
+  ? Record<never, never>
+  : { step: FormSteps[F] };
 
 export type FormEvents<F extends FormName> = {
   /** The form is shown: its sheet or disclosure opened, or it came into view. */
@@ -58,7 +66,7 @@ export type FormEvents<F extends FormName> = {
   /** The server accepted it. */
   form_completed: Record<never, never>;
   /** The server refused it. */
-  form_failed: { step: FormSteps[F]; error_code: string };
+  form_failed: StepOf<F> & { error_code: string };
 };
 
 export type FormEventName = keyof FormEvents<FormName>;

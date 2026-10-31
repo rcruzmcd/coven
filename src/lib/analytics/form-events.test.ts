@@ -66,7 +66,7 @@ describe("trackForm", () => {
       event: string,
       properties: Record<string, string>,
     ) => void;
-    untyped("contact", "form_viewed", { event_id: "e1" });
+    untyped("newsletter", "form_viewed", { event_id: "e1" });
     untyped("event_registration", "form_abandoned", { event_id: "e1" });
     expect(calls).toEqual([]);
   });
@@ -86,8 +86,29 @@ describe("trackForm", () => {
     // @ts-expect-error -- the form's context is required
     trackForm("event_registration", "form_viewed", {});
     // @ts-expect-error -- not a known form
-    trackForm("contact", "form_viewed", { event_id: "e1" });
+    trackForm("newsletter", "form_viewed", { event_id: "e1" });
     // @ts-expect-error -- not a form event
     trackForm("event_registration", "form_abandoned", { event_id: "e1" });
+  });
+});
+
+// #1712: a single-step form carries no context and no step.
+describe("single-step forms", () => {
+  test("contact sends only its form name, and an error code on failure", () => {
+    const calls = recorder();
+    trackForm("contact", "form_viewed", {});
+    trackForm("contact", "form_submitted", {});
+    trackForm("contact", "form_failed", { error_code: "RATE_LIMITED" });
+    expect(calls).toEqual([
+      ["form_viewed", { form: "contact" }],
+      ["form_submitted", { form: "contact" }],
+      ["form_failed", { form: "contact", error_code: "RATE_LIMITED" }],
+    ]);
+  });
+
+  test("a step is a type error", () => {
+    recorder();
+    // @ts-expect-error -- contact has no steps
+    trackForm("contact", "form_failed", { step: "event", error_code: "X" });
   });
 });
