@@ -74,7 +74,7 @@ export function registrationFieldStep(field?: string): RegistrationStep {
 }
 
 /**
- * What the funnel's `registration_failed` event may say about a refusal
+ * What the funnel's `form_failed` event may say about a refusal
  * (#1480): the RPC's error code, which is an upper-case token, and never its
  * message. Anything else -- a Postgres message, which can quote what was typed
  * -- is reported as `UNKNOWN`.

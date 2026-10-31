@@ -12,7 +12,7 @@ import { flushSync } from "react-dom";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { FieldGroup, FieldLegend, FieldSet } from "@/components/ui/field";
-import { trackRegistration } from "@/lib/analytics/registration-events";
+import { trackForm, useFormStarted } from "@/lib/analytics/form-events";
 import { useCloseRegistration } from "./event-registration-disclosure";
 import { REGISTRATION_STEPS, type RegistrationStep } from "./registration-step";
 
@@ -121,6 +121,9 @@ export function RegistrationSteps({
     { about: null, event: null, review: null },
   );
   const errorRef = useRef<HTMLDivElement>(null);
+  const startTracking = useFormStarted("event_registration", {
+    event_id: eventId,
+  });
   const legends = { ...LEGENDS, event: eventLegend };
   const index = REGISTRATION_STEPS.indexOf(step);
   const isLast = index === REGISTRATION_STEPS.length - 1;
@@ -140,7 +143,7 @@ export function RegistrationSteps({
   /** Shows `next` and hands it focus, so a screen reader hears its legend. */
   function goTo(next: RegistrationStep) {
     flushSync(() => setStep(next));
-    trackRegistration("registration_step_viewed", {
+    trackForm("event_registration", "form_step_viewed", {
       event_id: eventId,
       step: next,
     });
@@ -190,7 +193,7 @@ export function RegistrationSteps({
       return;
     }
 
-    trackRegistration("registration_submitted", { event_id: eventId });
+    trackForm("event_registration", "form_submitted", { event_id: eventId });
     onSubmit();
   }
 
@@ -271,6 +274,7 @@ export function RegistrationSteps({
     <form
       ref={formRef}
       data-registration-steps=""
+      {...startTracking}
       noValidate
       onSubmit={handleSubmit}
       onKeyDown={handleKeyDown}

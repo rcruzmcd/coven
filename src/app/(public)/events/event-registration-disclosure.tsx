@@ -12,7 +12,7 @@ import {
 import { flushSync } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { trackRegistration } from "@/lib/analytics/registration-events";
+import { trackForm } from "@/lib/analytics/form-events";
 
 /** Fields, in document order, ignoring the honeypot and anything hidden. */
 const FIRST_FIELD_SELECTOR =
@@ -93,7 +93,9 @@ export function EventRegistrationDisclosure({
           aria-controls={panelId}
           onClick={() => {
             setOpen(true);
-            trackRegistration("registration_opened", { event_id: eventId });
+            trackForm("event_registration", "form_viewed", {
+              event_id: eventId,
+            });
           }}
           className="w-full sm:w-fit"
         >

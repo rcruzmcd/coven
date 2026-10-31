@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { setRegistrationCapture } from "@/lib/analytics/registration-events";
+import { setFormCapture } from "@/lib/analytics/form-events";
 import { POSTHOG_PROXY_PATH } from "@/lib/analytics/form-analytics";
 
 /**
@@ -23,7 +23,7 @@ import { POSTHOG_PROXY_PATH } from "@/lib/analytics/form-analytics";
  *   - nothing captured implicitly: no autocapture, replay, heatmaps, dead
  *     clicks, exceptions, page-leave, surveys or flags. Registration forms
  *     hold names, phone numbers and, on some tenants, a minor's contacts; the
- *     only events are page views and the named funnel events.
+ *     only events are page views and the named `form_*` events (`src/lib/analytics/form-events.ts`).
  *
  * `before_send` drops anything sent from `/portal`. On a host that serves the
  * portal from the same origin (the demo), a client-side navigation out of the
@@ -64,13 +64,13 @@ export function FormAnalytics({
           window.location.pathname.startsWith("/portal") ? null : event,
       });
       posthog.register({ tenant });
-      setRegistrationCapture((event, properties) => {
+      setFormCapture((event, properties) => {
         posthog.capture(event, properties);
       });
     });
     return () => {
       cancelled = true;
-      setRegistrationCapture(null);
+      setFormCapture(null);
     };
   }, [apiKey, tenant]);
 
