@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, type FormEvent } from "react";
+import { useEffect, useState, useTransition, type FormEvent } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { FieldGroup } from "@/components/ui/field";
@@ -15,6 +15,7 @@ import {
   type RegistrationQuestion,
 } from "@/lib/registration-questions";
 import { ANSWER_TOKEN_FIELD } from "@/lib/registration-answer-requests";
+import { trackForm, useFormStarted } from "@/lib/analytics/form-events";
 import { submitAnswersByLinkAction } from "./actions";
 
 /**
@@ -42,6 +43,13 @@ export function AnswersForm({
   const [linkInvalid, setLinkInvalid] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  // No event id here, unlike registration: this funnel is about the link,
+  // and the page is reached through a token.
+  const startTracking = useFormStarted("registration_answers", {});
+
+  useEffect(() => {
+    trackForm("registration_answers", "form_viewed", {});
+  }, []);
 
   const answers = draftToAnswers(questions, draft);
   const dirty = JSON.stringify(answers) !== JSON.stringify(saved);
@@ -56,6 +64,7 @@ export function AnswersForm({
       setError(problem.message);
       return;
     }
+    trackForm("registration_answers", "form_submitted", {});
     const formData = new FormData(event.currentTarget);
     setAnswersField(formData, answers);
     startTransition(async () => {
@@ -63,8 +72,12 @@ export function AnswersForm({
       if ("error" in result) {
         setError(result.error);
         setLinkInvalid(Boolean(result.linkInvalid));
+        trackForm("registration_answers", "form_failed", {
+          error_code: result.code ?? "INVALID_FORM",
+        });
         return;
       }
+      trackForm("registration_answers", "form_completed", {});
       setSaved(answers);
       setMessage(
         "Thank you — your answers are saved. You can come back to this link to change them.",
@@ -81,7 +94,11 @@ export function AnswersForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+    <form
+      onSubmit={handleSubmit}
+      className="flex flex-col gap-4"
+      {...startTracking}
+    >
       <input type="hidden" name={ANSWER_TOKEN_FIELD} value={token} />
       {missing.length > 0 && (
         <Alert>

@@ -374,7 +374,10 @@ describe("submitArtworkAction (integration)", () => {
       }),
     );
 
-    expect(result).toEqual({ error: "This call for artwork is closed." });
+    expect(result).toEqual({
+      error: "This call for artwork is closed.",
+      code: "CALL_CLOSED",
+    });
     expect(await submissionsFor(call.id)).toHaveLength(0);
   });
 
@@ -393,7 +396,10 @@ describe("submitArtworkAction (integration)", () => {
       }),
     );
 
-    expect(result).toEqual({ error: "This call for artwork is closed." });
+    expect(result).toEqual({
+      error: "This call for artwork is closed.",
+      code: "CALL_CLOSED",
+    });
   });
 
   test("refuses more images than the call accepts", async () => {
@@ -411,6 +417,7 @@ describe("submitArtworkAction (integration)", () => {
 
     expect(result).toEqual({
       error: "That is more images than this call accepts.",
+      code: "TOO_MANY_IMAGES",
     });
     // The insert and the image loop share a transaction, so the refusal must
     // take the submission row with it.
@@ -443,6 +450,7 @@ describe("submitArtworkAction (integration)", () => {
     expect(result).toEqual({
       error:
         "Something went wrong with your images. Please remove them and add them again.",
+      code: "INVALID_IMAGE_PATH",
     });
     expect(await submissionsFor(call.id)).toHaveLength(0);
   });
@@ -470,6 +478,7 @@ describe("submitArtworkAction (integration)", () => {
     expect(result).toEqual({
       error:
         "Something went wrong with your images. Please remove them and add them again.",
+      code: "INVALID_IMAGE_PATH",
     });
   });
 
@@ -499,6 +508,7 @@ describe("submitArtworkAction (integration)", () => {
     );
     expect(blocked).toEqual({
       error: "Too many attempts — please try again in a few minutes.",
+      code: "RATE_LIMITED",
     });
     expect(await submissionsFor(call.id)).toHaveLength(5);
   });
@@ -824,7 +834,10 @@ describe("get_artwork_call status (integration)", () => {
       }),
     );
 
-    expect(result).toEqual({ error: "This call for artwork is closed." });
+    expect(result).toEqual({
+      error: "This call for artwork is closed.",
+      code: "CALL_CLOSED",
+    });
     expect(await submissionsFor(call.id)).toHaveLength(0);
   });
 

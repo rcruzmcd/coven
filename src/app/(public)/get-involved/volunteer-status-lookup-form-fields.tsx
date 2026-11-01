@@ -1,12 +1,13 @@
 "use client";
 
-import { FormEvent, useState, useTransition } from "react";
+import { FormEvent, useEffect, useState, useTransition } from "react";
 import { lookupVolunteerApplicationStatusAction } from "./volunteer-status-lookup-actions";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { RequiredFieldsNote } from "@/components/required-fields-note";
+import { trackForm, useFormStarted } from "@/lib/analytics/form-events";
 
 export function VolunteerStatusLookupForm() {
   const [email, setEmail] = useState("");
@@ -14,11 +15,17 @@ export function VolunteerStatusLookupForm() {
   const [error, setError] = useState<string | null>(null);
   const [statusLabel, setStatusLabel] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const startTracking = useFormStarted("volunteer_status_lookup", {});
+
+  useEffect(() => {
+    trackForm("volunteer_status_lookup", "form_viewed", {});
+  }, []);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
     setStatusLabel(null);
+    trackForm("volunteer_status_lookup", "form_submitted", {});
 
     const formData = new FormData();
     formData.set("email", email);
@@ -28,14 +35,18 @@ export function VolunteerStatusLookupForm() {
       const result = await lookupVolunteerApplicationStatusAction(formData);
       if ("error" in result) {
         setError(result.error);
+        trackForm("volunteer_status_lookup", "form_failed", {
+          error_code: result.code ?? "INVALID_FORM",
+        });
         return;
       }
+      trackForm("volunteer_status_lookup", "form_completed", {});
       setStatusLabel(result.statusLabel);
     });
   }
 
   return (
-    <form onSubmit={handleSubmit}>
+    <form onSubmit={handleSubmit} {...startTracking}>
       <FieldGroup>
         <RequiredFieldsNote />
         <Field>

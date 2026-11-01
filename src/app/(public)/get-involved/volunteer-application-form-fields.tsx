@@ -12,6 +12,7 @@ import { PrivacyNotice } from "@/components/privacy-notice";
 import { PronounsField } from "@/components/pronouns-field";
 import { RequiredFieldsNote } from "@/components/required-fields-note";
 import { VolunteerScreeningNotice } from "@/components/volunteer-screening-notice";
+import { trackForm, useFormStarted } from "@/lib/analytics/form-events";
 
 export function VolunteerApplicationForm({
   screeningNotes,
@@ -28,10 +29,12 @@ export function VolunteerApplicationForm({
   const [error, setError] = useState<string | null>(null);
   const [referenceCode, setReferenceCode] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const startTracking = useFormStarted("volunteer_application", {});
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
+    trackForm("volunteer_application", "form_submitted", {});
 
     const formData = new FormData();
     formData.set("name", name);
@@ -46,8 +49,14 @@ export function VolunteerApplicationForm({
       const result = await submitVolunteerApplicationAction(formData);
       if ("error" in result) {
         setError(result.error);
+        trackForm("volunteer_application", "form_failed", {
+          error_code: result.code ?? "INVALID_FORM",
+        });
         return;
       }
+      // A filled honeypot "succeeds" with nothing saved, so a bot is not
+      // counted as an application.
+      if (!company) trackForm("volunteer_application", "form_completed", {});
       setReferenceCode(result.referenceCode);
     });
   }
@@ -81,7 +90,7 @@ export function VolunteerApplicationForm({
   }
 
   return (
-    <form onSubmit={handleSubmit}>
+    <form onSubmit={handleSubmit} {...startTracking}>
       <FieldGroup>
         {/* Before the first field, not beside the submit button where the
             privacy sentence sits (#690). #1256 put the event form behind a

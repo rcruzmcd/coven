@@ -1,7 +1,12 @@
 "use client";
 
 import { useEffect } from "react";
-import { setFormCapture } from "@/lib/analytics/form-events";
+import {
+  holdFormEvents,
+  linkClickEvent,
+  setFormCapture,
+  trackSite,
+} from "@/lib/analytics/form-events";
 import { POSTHOG_PROXY_PATH } from "@/lib/analytics/form-analytics";
 
 /**
@@ -23,8 +28,12 @@ import { POSTHOG_PROXY_PATH } from "@/lib/analytics/form-analytics";
  *   - nothing captured implicitly: no autocapture, replay, heatmaps, dead
  *     clicks, exceptions, page-leave, surveys or flags. Registration forms
  *     hold names, phone numbers and, on some tenants, a minor's contacts; the
- *     only events are page views, the named `form_*` events and the gear
- *     cart's `gear_*` steps (`src/lib/analytics/form-events.ts`).
+ *     only events are page views, the named `form_*` events, the gear
+ *     cart's `gear_*` steps and the few site events of #1714 -- a donate
+ *     button, a link out by host, a missing page, a catalog filter's name
+ *     (`src/lib/analytics/form-events.ts`). The link clicks are read by the
+ *     one listener below, not by autocapture, so nothing else about a click
+ *     is ever sent.
  *
  * `before_send` drops anything sent from `/portal`. On a host that serves the
  * portal from the same origin (the demo), a client-side navigation out of the
@@ -39,6 +48,7 @@ export function FormAnalytics({
 }) {
   useEffect(() => {
     let cancelled = false;
+    holdFormEvents();
     void import("posthog-js").then(({ default: posthog }) => {
       if (cancelled) return;
       posthog.init(apiKey, {
@@ -65,15 +75,36 @@ export function FormAnalytics({
           window.location.pathname.startsWith("/portal") ? null : event,
       });
       posthog.register({ tenant });
-      setFormCapture((event, properties) => {
-        posthog.capture(event, properties);
+      setFormCapture((event, properties, options) => {
+        posthog.capture(
+          event,
+          properties,
+          options?.leaving
+            ? { transport: "sendBeacon", send_instantly: true }
+            : undefined,
+        );
       });
+      document.addEventListener("click", onLinkClick, true);
     });
     return () => {
       cancelled = true;
+      document.removeEventListener("click", onLinkClick, true);
       setFormCapture(null);
     };
   }, [apiKey, tenant]);
 
   return null;
+}
+
+/** Capture phase, so a link whose own handler stops propagation still counts. */
+function onLinkClick(event: MouseEvent) {
+  const link =
+    event.target instanceof Element ? event.target.closest("a[href]") : null;
+  if (!(link instanceof HTMLAnchorElement)) return;
+  const click = linkClickEvent(
+    link.href,
+    link.dataset.analyticsPlacement,
+    window.location.href,
+  );
+  if (click) trackSite(click.event, click.properties);
 }

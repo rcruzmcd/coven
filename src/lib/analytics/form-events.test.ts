@@ -1,8 +1,12 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import {
+  holdFormEvents,
+  linkClickEvent,
+  notFoundPath,
   setFormCapture,
   trackForm,
   trackGear,
+  trackSite,
 } from "@/lib/analytics/form-events";
 
 function recorder() {
@@ -101,11 +105,11 @@ describe("single-step forms", () => {
   test("contact sends only its form name, and an error code on failure", () => {
     const calls = recorder();
     trackForm("contact", "form_viewed", {});
-    trackForm("contact", "form_submitted", {});
+    trackForm("contact", "form_submitted", { topic: "gear" });
     trackForm("contact", "form_failed", { error_code: "RATE_LIMITED" });
     expect(calls).toEqual([
       ["form_viewed", { form: "contact" }],
-      ["form_submitted", { form: "contact" }],
+      ["form_submitted", { form: "contact", topic: "gear" }],
       ["form_failed", { form: "contact", error_code: "RATE_LIMITED" }],
     ]);
   });
@@ -127,6 +131,29 @@ describe("single-step forms", () => {
     trackForm("contact", "form_failed", { step: "event", error_code: "X" });
     // @ts-expect-error -- the item count is required
     trackForm("gear_request", "form_submitted", {});
+  });
+
+  // #1713: the /my sign-in says which way was pressed, and only on submit.
+  test("a sign-in's method rides on form_submitted alone", () => {
+    const calls = recorder();
+    trackForm("my_sign_in", "form_submitted", { method: "google" });
+    const sneaky = { method: "password", email: "a@b.c" } as Record<
+      never,
+      never
+    >;
+    trackForm("my_sign_in", "form_completed", sneaky);
+    expect(calls).toEqual([
+      ["form_submitted", { form: "my_sign_in", method: "google" }],
+      ["form_completed", { form: "my_sign_in" }],
+    ]);
+  });
+
+  test("an unknown method, or a topic's label, is a type error", () => {
+    recorder();
+    // @ts-expect-error -- not a sign-in method
+    trackForm("my_sign_in", "form_submitted", { method: "magic_link" });
+    // @ts-expect-error -- the topic is required on a contact submit
+    trackForm("contact", "form_submitted", {});
   });
 });
 
@@ -150,5 +177,115 @@ describe("trackGear", () => {
     recorder();
     // @ts-expect-error -- no item names
     trackGear("gear_added_to_cart", { name: "Powder skis" });
+  });
+});
+
+// An event fired on mount, before posthog-js has loaded, is held and sent
+// once it has -- but only while the provider says it is loading.
+describe("events sent while PostHog loads", () => {
+  test("are held and sent, in order, once it has loaded", () => {
+    holdFormEvents();
+    trackForm("contact", "form_viewed", {});
+    trackSite("not_found", { path: "/events" });
+    const calls = recorder();
+    expect(calls).toEqual([
+      ["form_viewed", { form: "contact" }],
+      ["not_found", { path: "/events" }],
+    ]);
+  });
+
+  test("are dropped when nothing is loading", () => {
+    trackForm("contact", "form_viewed", {});
+    expect(recorder()).toEqual([]);
+  });
+
+  test("are dropped when the provider unmounts first", () => {
+    holdFormEvents();
+    trackForm("contact", "form_viewed", {});
+    setFormCapture(null);
+    expect(recorder()).toEqual([]);
+  });
+});
+
+// #1714: signals beyond forms.
+describe("trackSite", () => {
+  test("sends only allowlisted properties, link clicks by beacon", () => {
+    const sent: unknown[] = [];
+    setFormCapture((event, properties, options) => {
+      sent.push([event, properties, options?.leaving]);
+    });
+    trackSite("donate_clicked", { placement: "give_card" });
+    const sneaky = { filter: "type", value: "skis" } as {
+      filter: "type";
+    };
+    trackSite("gear_filter_applied", sneaky);
+    expect(sent).toEqual([
+      ["donate_clicked", { placement: "give_card" }, true],
+      ["gear_filter_applied", { filter: "type" }, false],
+    ]);
+  });
+
+  test("an unknown filter or placement is a type error", () => {
+    recorder();
+    // @ts-expect-error -- filters are named, never valued
+    trackSite("gear_filter_applied", { filter: "skis" });
+    // @ts-expect-error -- not a placement
+    trackSite("donate_clicked", { placement: "footer" });
+  });
+});
+
+describe("linkClickEvent", () => {
+  const here = "https://www.example.org/support";
+
+  test("the donate redirect, by placement, never its amount", () => {
+    expect(
+      linkClickEvent("/support/donate?amount=25", "give_card_amount", here),
+    ).toEqual({
+      event: "donate_clicked",
+      properties: { placement: "give_card_amount" },
+    });
+    expect(linkClickEvent("/support/donate", undefined, here)).toEqual({
+      event: "donate_clicked",
+      properties: { placement: "other" },
+    });
+    expect(linkClickEvent("/support/donate", "made-up", here)).toEqual({
+      event: "donate_clicked",
+      properties: { placement: "other" },
+    });
+  });
+
+  test("a link to another site is its host alone", () => {
+    expect(
+      linkClickEvent(
+        "https://instagram.com/someone?igsh=abc#top",
+        undefined,
+        here,
+      ),
+    ).toEqual({
+      event: "outbound_clicked",
+      properties: { host: "instagram.com" },
+    });
+  });
+
+  test("anything else sends nothing", () => {
+    expect(linkClickEvent("/events", undefined, here)).toBeNull();
+    expect(linkClickEvent("mailto:hi@example.org", undefined, here)).toBeNull();
+    expect(linkClickEvent("tel:5550100", undefined, here)).toBeNull();
+    expect(linkClickEvent("http://[bad", undefined, here)).toBeNull();
+  });
+});
+
+describe("notFoundPath", () => {
+  test("keeps a route name and drops everything after it", () => {
+    expect(notFoundPath("/artwork/AB12CD34")).toBe("/artwork");
+    expect(notFoundPath("/acknowledge/tok_123")).toBe("/acknowledge");
+    expect(notFoundPath("/get-involved/nope")).toBe("/get-involved");
+    expect(notFoundPath("/")).toBe("/");
+  });
+
+  test("a first segment that could be a code is not sent", () => {
+    expect(notFoundPath("/Xk93jd")).toBe("/:other");
+    expect(notFoundPath("/a1b2c3")).toBe("/:other");
+    expect(notFoundPath(`/${"a".repeat(41)}`)).toBe("/:other");
   });
 });

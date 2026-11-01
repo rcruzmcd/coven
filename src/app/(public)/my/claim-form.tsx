@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { RequiredFieldsNote } from "@/components/required-fields-note";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
+import { trackForm, useFormStarted } from "@/lib/analytics/form-events";
 import { submitClaimAction } from "./claim-actions";
 
 /**
@@ -65,19 +66,29 @@ export function ClaimForm({ defaultEmail }: { defaultEmail: string | null }) {
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const startTracking = useFormStarted("my_claim", {});
+
+  useEffect(() => {
+    trackForm("my_claim", "form_viewed", {});
+  }, []);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
     setIsSubmitting(true);
+    trackForm("my_claim", "form_submitted", {});
 
     const result = await submitClaimAction(new FormData(event.currentTarget));
     setIsSubmitting(false);
 
     if ("error" in result) {
       setError(result.error);
+      trackForm("my_claim", "form_failed", {
+        error_code: result.code ?? "INVALID_FORM",
+      });
       return;
     }
+    trackForm("my_claim", "form_completed", {});
     setSubmitted(true);
   }
 
@@ -92,7 +103,7 @@ export function ClaimForm({ defaultEmail }: { defaultEmail: string | null }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} noValidate>
+    <form onSubmit={handleSubmit} noValidate {...startTracking}>
       <div className="mb-5 space-y-2">
         <p className="app-muted text-sm leading-relaxed">{CLAIM_INTRO}</p>
         <p className="app-muted text-sm leading-relaxed">{CLAIM_OUTCOMES}</p>

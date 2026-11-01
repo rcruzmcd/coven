@@ -12,12 +12,15 @@ import {
   extensionForType,
   type ArtworkUploadSlot,
 } from "@/lib/storage/artwork-submissions";
+import { rpcErrorCode } from "@/lib/analytics/error-code";
 import { parseArtworkForm } from "./artwork-form";
 
 export type ArtworkUploadSlotsResult =
   { error: string } | { slots: ArtworkUploadSlot[] };
 
-export type SubmitArtworkResult = { error: string } | { success: true };
+/** `code` is the RPC's refusal, for the funnel (#1713); absent where the form parser refused. */
+export type SubmitArtworkResult =
+  { error: string; code?: string } | { success: true };
 
 const ERROR_MESSAGES: Record<string, string> = {
   RATE_LIMITED: "Too many attempts — please try again in a few minutes.",
@@ -167,6 +170,7 @@ export async function submitArtworkAction(
         error.message,
         "Could not send your submission. Please try again.",
       ),
+      code: rpcErrorCode(error.message),
     };
   }
 

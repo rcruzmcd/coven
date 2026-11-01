@@ -35,6 +35,7 @@ function formData(fields: Record<string, string>) {
 const NOT_FOUND = {
   error:
     "We couldn't find an application matching that email and reference code.",
+  code: "NOT_FOUND",
 };
 
 const cleanups: (() => Promise<void>)[] = [];
@@ -138,6 +139,7 @@ describe("lookupVolunteerApplicationStatusAction (integration)", () => {
 
     expect(limited).toEqual({
       error: "Too many attempts — please try again in a few minutes.",
+      code: "RATE_LIMITED",
     });
   });
 });

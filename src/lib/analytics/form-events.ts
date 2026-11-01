@@ -6,8 +6,9 @@ import type { RegistrationStep } from "@/app/(public)/events/registration-step";
  * only properties each may carry. One generic set for every form, told apart
  * by `form`, so a single PostHog funnel -- `form_viewed` -> `form_started` ->
  * `form_completed`, filtered on `form` -- works for all of them. The gear
- * cart's few steps before its checkout form are here too (`GearEvents`), so
- * the allowlist stays in one file.
+ * cart's few steps before its checkout form are here too (`GearEvents`), as
+ * are the few signals beyond forms (`SiteEvents`, #1714), so the allowlist
+ * stays in one file.
  *
  * This file is where the no-PII rule lives. Public forms hold names, phone
  * numbers, addresses and, on some tenants, a minor's and an emergency
@@ -28,6 +29,12 @@ export type FormSteps = {
   event_registration: RegistrationStep;
   contact: never;
   gear_request: never;
+  volunteer_application: never;
+  volunteer_status_lookup: never;
+  artwork_submission: never;
+  registration_answers: never;
+  my_sign_in: never;
+  my_claim: never;
 };
 
 /** Every form that sends events: a closed list, so a typo is a type error. */
@@ -44,6 +51,12 @@ export type FormContext = {
   event_registration: { event_id: string };
   contact: Record<never, never>;
   gear_request: Record<never, never>;
+  volunteer_application: Record<never, never>;
+  volunteer_status_lookup: Record<never, never>;
+  artwork_submission: Record<never, never>;
+  registration_answers: Record<never, never>;
+  my_sign_in: Record<never, never>;
+  my_claim: Record<never, never>;
 };
 
 const FORM_CONTEXT_PROPERTIES: {
@@ -52,24 +65,46 @@ const FORM_CONTEXT_PROPERTIES: {
   event_registration: ["event_id"],
   contact: [],
   gear_request: [],
+  volunteer_application: [],
+  volunteer_status_lookup: [],
+  artwork_submission: [],
+  registration_answers: [],
+  my_sign_in: [],
+  my_claim: [],
 };
 
 /**
  * What a form adds to `form_submitted` alone. A gear request's item count
- * (#1711) is a number of catalog items, nobody's detail.
+ * (#1711) is a number of catalog items, nobody's detail. A contact message's
+ * topic (#1713) is one of the fixed values in `CONTACT_TOPICS`, never its
+ * label -- `topic = gear` is the gear donation funnel, since the donate page
+ * has no form of its own and sends people to `/contact?topic=gear`. The `/my`
+ * sign-in's `method` says which of its three ways was pressed.
  */
 export type FormSubmitted = {
   event_registration: Record<never, never>;
-  contact: Record<never, never>;
+  contact: { topic: string };
   gear_request: { item_count: string };
+  volunteer_application: Record<never, never>;
+  volunteer_status_lookup: Record<never, never>;
+  artwork_submission: Record<never, never>;
+  registration_answers: Record<never, never>;
+  my_sign_in: { method: "password" | "sign_up" | "google" };
+  my_claim: Record<never, never>;
 };
 
 const FORM_SUBMITTED_PROPERTIES: {
   [F in FormName]: readonly (keyof FormSubmitted[F])[];
 } = {
   event_registration: [],
-  contact: [],
+  contact: ["topic"],
   gear_request: ["item_count"],
+  volunteer_application: [],
+  volunteer_status_lookup: [],
+  artwork_submission: [],
+  registration_answers: [],
+  my_sign_in: ["method"],
+  my_claim: [],
 };
 
 /** `step` where a form has steps; a single-step form has none to name. */
@@ -103,7 +138,15 @@ const EVENT_PROPERTIES: Record<FormEventName, readonly string[]> = {
   form_failed: ["step", "error_code"],
 };
 
-type Capture = (event: string, properties: Record<string, string>) => void;
+/**
+ * `leaving` marks an event sent as the page navigates away (a link out, a
+ * donate button), so it goes by beacon rather than wait for the next batch.
+ */
+type Capture = (
+  event: string,
+  properties: Record<string, string>,
+  options?: { leaving?: boolean },
+) => void;
 
 /**
  * Set by the provider once PostHog has loaded, and null everywhere it has not:
@@ -114,8 +157,41 @@ type Capture = (event: string, properties: Record<string, string>) => void;
  */
 let capture: Capture | null = null;
 
+/**
+ * Events sent while PostHog is still loading, or null when nothing is. A form
+ * that sends `form_viewed` on mount, or a page-not-found, fires before the
+ * dynamic import resolves on a page's first load, and would otherwise be
+ * dropped. Capped, since a load that never finishes must not grow it.
+ */
+type Pending = [string, Record<string, string>, { leaving?: boolean }?];
+let pending: Pending[] | null = null;
+const PENDING_LIMIT = 50;
+
+/**
+ * Called by the provider as it starts loading PostHog, and only then, so a
+ * page with analytics off holds nothing. It sits above the page in the public
+ * layout, so its effect runs before any form's.
+ */
+export function holdFormEvents(): void {
+  pending ??= [];
+}
+
 export function setFormCapture(next: Capture | null): void {
   capture = next;
+  const held = pending ?? [];
+  pending = null;
+  if (next) for (const args of held) next(...args);
+}
+
+/** What `send` hands on: to PostHog once loaded, to the queue while loading. */
+function deliver(
+  event: string,
+  sent: Record<string, string>,
+  options?: { leaving?: boolean },
+): void {
+  if (capture) capture(event, sent, options);
+  else if (pending && pending.length < PENDING_LIMIT)
+    pending.push([event, sent, options]);
 }
 
 /** Sends one form event, or does nothing when analytics is off. */
@@ -128,32 +204,26 @@ export function trackForm<F extends FormName, E extends FormEventName>(
   const context = FORM_CONTEXT_PROPERTIES[form] as
     readonly string[] | undefined;
   const extra = EVENT_PROPERTIES[event];
-  if (!capture || !context || !extra) return;
+  if (!context || !extra) return;
   const submitted =
     event === "form_submitted"
       ? (FORM_SUBMITTED_PROPERTIES[form] as readonly string[])
       : [];
-  send(
-    capture,
-    event,
-    { form },
-    [...context, ...extra, ...submitted],
-    properties,
-  );
+  send(event, { form }, [...context, ...extra, ...submitted], properties);
 }
 
 function send(
-  to: Capture,
   event: string,
   sent: Record<string, string>,
   allowed: readonly string[],
   properties: object,
+  options?: { leaving?: boolean },
 ): void {
   for (const key of allowed) {
     const value = (properties as Record<string, unknown>)[key];
     if (typeof value === "string") sent[key] = value;
   }
-  to(event, sent);
+  deliver(event, sent, options);
 }
 
 /**
@@ -185,8 +255,119 @@ export function trackGear<E extends GearEventName>(
   properties?: GearEvents[E],
 ): void {
   const allowed = GEAR_EVENT_PROPERTIES[event];
-  if (!capture || !allowed) return;
-  send(capture, event, {}, allowed, properties ?? {});
+  if (!allowed) return;
+  send(event, {}, allowed, properties ?? {});
+}
+
+/**
+ * Signals beyond forms (#1714), each needing the privacy policy's wording
+ * about "a few clicks and dead ends". None says who: a donate button's
+ * placement is one of the fixed names in `DONATE_PLACEMENTS`, an outbound link
+ * is its host alone, a missing page is its first path segment at most
+ * (`notFoundPath()`), and a catalog filter is its name, never the value
+ * picked.
+ */
+export type SiteEvents = {
+  donate_clicked: { placement: DonatePlacement };
+  outbound_clicked: { host: string };
+  not_found: { path: string };
+  gear_filter_applied: { filter: "type" | "condition" | "gender" };
+};
+
+export type SiteEventName = keyof SiteEvents;
+
+const SITE_EVENT_PROPERTIES: Record<SiteEventName, readonly string[]> = {
+  donate_clicked: ["placement"],
+  outbound_clicked: ["host"],
+  not_found: ["path"],
+  gear_filter_applied: ["filter"],
+};
+
+/** Clicks that leave the page, so they go by beacon. */
+const LEAVING: ReadonlySet<SiteEventName> = new Set([
+  "donate_clicked",
+  "outbound_clicked",
+]);
+
+/** Sends one site event, or does nothing when analytics is off. */
+export function trackSite<E extends SiteEventName>(
+  event: E,
+  properties: SiteEvents[E],
+): void {
+  const allowed = SITE_EVENT_PROPERTIES[event];
+  if (!allowed) return;
+  send(event, {}, allowed, properties, {
+    leaving: LEAVING.has(event),
+  });
+}
+
+/**
+ * Where on the site a donate button sits, set on the link as
+ * `data-analytics-placement`. A link without one, or with a value not listed
+ * here, is counted as `other` -- the attribute is markup, not an allowlist.
+ */
+export const DONATE_PLACEMENTS = [
+  "support_page",
+  "give_card",
+  "give_card_amount",
+  "other",
+] as const;
+
+export type DonatePlacement = (typeof DONATE_PLACEMENTS)[number];
+
+/** Where `/support/donate` redirects to the giving provider. */
+const DONATE_PATH = "/support/donate";
+
+/**
+ * What a click on a link sends, if anything (#1714): `donate_clicked` for the
+ * donate redirect, `outbound_clicked` with the host alone for a web link to
+ * another host, and nothing for anything else -- a link within the site, a
+ * `mailto:`, a `tel:`.
+ */
+export function linkClickEvent(
+  href: string,
+  placement: string | undefined,
+  here: string,
+):
+  | { event: "donate_clicked"; properties: SiteEvents["donate_clicked"] }
+  | { event: "outbound_clicked"; properties: SiteEvents["outbound_clicked"] }
+  | null {
+  let url: URL;
+  let origin: URL;
+  try {
+    origin = new URL(here);
+    url = new URL(href, origin);
+  } catch {
+    return null;
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") return null;
+  if (url.host !== origin.host) {
+    return { event: "outbound_clicked", properties: { host: url.hostname } };
+  }
+  if (url.pathname === DONATE_PATH) {
+    const known = (DONATE_PLACEMENTS as readonly string[]).includes(
+      placement ?? "",
+    );
+    return {
+      event: "donate_clicked",
+      properties: {
+        placement: known ? (placement as DonatePlacement) : "other",
+      },
+    };
+  }
+  return null;
+}
+
+/**
+ * A missing page's path, cut to something that cannot hold a token (#1714):
+ * the first segment, and only when it reads as a route name -- lowercase
+ * letters and hyphens. Anything else, a code or a mistyped id, is `/:other`.
+ * `/artwork/AB12CD` is `/artwork`; `/Xk93jd` is `/:other`.
+ */
+export function notFoundPath(pathname: string): string {
+  const first = pathname.split("/").find((segment) => segment !== "");
+  if (first === undefined) return "/";
+  return /^[a-z][a-z-]{0,39}$/.test(first) ? `/${first}` : "/:other";
 }
 
 /**

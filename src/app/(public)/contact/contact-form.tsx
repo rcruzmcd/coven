@@ -60,7 +60,7 @@ export function ContactForm({
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
-    trackForm("contact", "form_submitted", {});
+    trackForm("contact", "form_submitted", { topic });
 
     const formData = new FormData();
     formData.set("name", name);

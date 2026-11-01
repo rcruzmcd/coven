@@ -21,7 +21,7 @@ import type {
   DeliveryMethod,
   PublicGearRequestOptions,
 } from "@/lib/gear-requests";
-import { trackGear } from "@/lib/analytics/form-events";
+import { trackGear, trackSite } from "@/lib/analytics/form-events";
 import { DEFAULT_LEXICON, type Lexicon } from "@/lib/lexicon";
 import type { AccountOffer } from "@/lib/constituent/account-offer";
 import type { ViewerContactPrefill } from "@/lib/constituent/viewer";
@@ -394,17 +394,21 @@ export function GearCatalog({
     setPage(1);
   }
 
+  // #1714: which filter was used, never the value picked.
   function handleTypeFilterChange(value: string | null) {
+    if (value) trackSite("gear_filter_applied", { filter: "type" });
     setTypeFilter(value);
     setPage(1);
   }
 
   function handleConditionFilterChange(value: string | null) {
+    if (value) trackSite("gear_filter_applied", { filter: "condition" });
     setConditionFilter(value);
     setPage(1);
   }
 
   function handleGenderFilterChange(value: string | null) {
+    if (value) trackSite("gear_filter_applied", { filter: "gender" });
     setGenderFilter(value);
     setPage(1);
   }
