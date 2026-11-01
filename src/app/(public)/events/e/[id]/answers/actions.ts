@@ -2,6 +2,7 @@
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getClientIp } from "@/lib/get-client-ip";
+import { rpcErrorCode } from "@/lib/analytics/error-code";
 import {
   hashConfirmationToken,
   isConfirmationToken,
@@ -15,8 +16,9 @@ import {
   ANSWER_TOKEN_FIELD,
 } from "@/lib/registration-answer-requests";
 
+/** `code` is the refusal, for the funnel (#1713); absent where the form parser refused. */
 export type SubmitAnswersByLinkResult =
-  { error: string; linkInvalid?: boolean } | { success: true };
+  { error: string; linkInvalid?: boolean; code?: string } | { success: true };
 
 /**
  * Saves a registrant's answers through their emailed link (#1502).
@@ -31,7 +33,11 @@ export async function submitAnswersByLinkAction(
 ): Promise<SubmitAnswersByLinkResult> {
   const token = String(formData.get(ANSWER_TOKEN_FIELD) ?? "");
   if (!isConfirmationToken(token)) {
-    return { error: ANSWER_LINK_INVALID, linkInvalid: true };
+    return {
+      error: ANSWER_LINK_INVALID,
+      linkInvalid: true,
+      code: "LINK_INVALID",
+    };
   }
 
   const parsed = parseAnswersField(formData);
@@ -46,15 +52,23 @@ export async function submitAnswersByLinkAction(
 
   if (error) {
     if (error.message === "LINK_INVALID") {
-      return { error: ANSWER_LINK_INVALID, linkInvalid: true };
+      return {
+        error: ANSWER_LINK_INVALID,
+        linkInvalid: true,
+        code: "LINK_INVALID",
+      };
     }
     if (error.message.includes("Too many")) {
-      return { error: "Too many attempts. Please try again in a few minutes." };
+      return {
+        error: "Too many attempts. Please try again in a few minutes.",
+        code: "RATE_LIMITED",
+      };
     }
     return {
       error:
         REGISTRATION_ANSWER_ERROR_MESSAGES[error.message] ??
         "Could not save your answers. Please try again.",
+      code: rpcErrorCode(error.message),
     };
   }
 

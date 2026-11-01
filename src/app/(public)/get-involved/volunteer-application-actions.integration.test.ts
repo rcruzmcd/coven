@@ -214,6 +214,7 @@ describe("submitVolunteerApplicationAction (integration)", () => {
     expect(second).toEqual({
       error:
         "We already have a recent application from this email — we'll be in touch soon.",
+      code: "ALREADY_SUBMITTED",
     });
     expect(await findVolunteerApplications(email)).toHaveLength(1);
   });
@@ -228,7 +229,10 @@ describe("submitVolunteerApplicationAction (integration)", () => {
       formData({ name: "Jamie Rivera", email: "jamie@example" }),
     );
 
-    expect(result).toEqual({ error: "A valid email is required." });
+    expect(result).toEqual({
+      error: "A valid email is required.",
+      code: "INVALID_EMAIL",
+    });
     expect(await findVolunteerApplications("jamie@example")).toHaveLength(0);
   });
 
@@ -253,6 +257,7 @@ describe("submitVolunteerApplicationAction (integration)", () => {
 
     expect(limited).toEqual({
       error: "Too many attempts — please try again in a few minutes.",
+      code: "RATE_LIMITED",
     });
     expect(await findVolunteerApplications(blockedEmail)).toHaveLength(0);
   });

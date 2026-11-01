@@ -1,4 +1,4 @@
-import { describe, expect, mock, test } from "bun:test";
+import { afterEach, describe, expect, mock, test } from "bun:test";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ClaimActionResult } from "./claim-actions";
@@ -16,6 +16,17 @@ mock.module("./claim-actions", () => ({
 }));
 
 const { ClaimForm, CLAIM_OUTCOMES } = await import("./claim-form");
+const { setFormCapture } = await import("@/lib/analytics/form-events");
+
+afterEach(() => setFormCapture(null));
+
+function recorder() {
+  const calls: [string, Record<string, string>][] = [];
+  setFormCapture((event, properties) => {
+    calls.push([event, properties]);
+  });
+  return calls;
+}
 
 const VERIFIED = "rider@example.com";
 
@@ -132,5 +143,34 @@ describe("ClaimForm", () => {
     const name = screen.getByLabelText(/^Your name/) as HTMLInputElement;
     expect(name.required).toBe(true);
     expect(screen.queryByText("Your name *")).toBeNull();
+  });
+
+  // #1713: the same events whatever the matcher found, so the funnel answers
+  // nothing the confirmation does not.
+  test("sends the form funnel and nothing about the claimant", async () => {
+    const calls = recorder();
+    await submitAs("Dana Okafor", { Phone: "555 0100" });
+
+    const form = { form: "my_claim" };
+    expect(calls).toEqual([
+      ["form_viewed", form],
+      ["form_started", form],
+      ["form_submitted", form],
+      ["form_completed", form],
+    ]);
+  });
+
+  test("a refusal sends its code", async () => {
+    const calls = recorder();
+    submitClaimActionMock.mockImplementationOnce(async () => ({
+      error: "Too many requests just now. Try again in a little while.",
+      code: "RATE_LIMITED",
+    }));
+    await submitAs("Dana Okafor");
+
+    expect(calls.at(-1)).toEqual([
+      "form_failed",
+      { form: "my_claim", error_code: "RATE_LIMITED" },
+    ]);
   });
 });

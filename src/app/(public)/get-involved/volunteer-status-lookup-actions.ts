@@ -6,9 +6,11 @@ import {
   mapVolunteerApplicationStatusToLabel,
   parseVolunteerStatusLookupForm,
 } from "./volunteer-status-lookup-form";
+import { rpcErrorCode } from "@/lib/analytics/error-code";
 
+/** `code` is the refusal, for the funnel (#1713); absent where the form parser refused. */
 export type LookupVolunteerApplicationStatusResult =
-  { error: string } | { statusLabel: string };
+  { error: string; code?: string } | { statusLabel: string };
 
 const ERROR_MESSAGES: Record<string, string> = {
   NOT_FOUND:
@@ -43,13 +45,14 @@ export async function lookupVolunteerApplicationStatusAction(
       error:
         ERROR_MESSAGES[error.message] ??
         "Could not look up your application. Please try again.",
+      code: rpcErrorCode(error.message),
     };
   }
 
   // A null result (no matching row) is a normal return, not an RPC error --
   // see 20260827020000 for why the RPC can't raise an exception here.
   if (!data) {
-    return { error: ERROR_MESSAGES.NOT_FOUND };
+    return { error: ERROR_MESSAGES.NOT_FOUND, code: "NOT_FOUND" };
   }
 
   return { statusLabel: mapVolunteerApplicationStatusToLabel(data as string) };

@@ -28,6 +28,12 @@ export type FormSteps = {
   event_registration: RegistrationStep;
   contact: never;
   gear_request: never;
+  volunteer_application: never;
+  volunteer_status_lookup: never;
+  artwork_submission: never;
+  registration_answers: never;
+  my_sign_in: never;
+  my_claim: never;
 };
 
 /** Every form that sends events: a closed list, so a typo is a type error. */
@@ -44,6 +50,12 @@ export type FormContext = {
   event_registration: { event_id: string };
   contact: Record<never, never>;
   gear_request: Record<never, never>;
+  volunteer_application: Record<never, never>;
+  volunteer_status_lookup: Record<never, never>;
+  artwork_submission: Record<never, never>;
+  registration_answers: Record<never, never>;
+  my_sign_in: Record<never, never>;
+  my_claim: Record<never, never>;
 };
 
 const FORM_CONTEXT_PROPERTIES: {
@@ -52,24 +64,46 @@ const FORM_CONTEXT_PROPERTIES: {
   event_registration: ["event_id"],
   contact: [],
   gear_request: [],
+  volunteer_application: [],
+  volunteer_status_lookup: [],
+  artwork_submission: [],
+  registration_answers: [],
+  my_sign_in: [],
+  my_claim: [],
 };
 
 /**
  * What a form adds to `form_submitted` alone. A gear request's item count
- * (#1711) is a number of catalog items, nobody's detail.
+ * (#1711) is a number of catalog items, nobody's detail. A contact message's
+ * topic (#1713) is one of the fixed values in `CONTACT_TOPICS`, never its
+ * label -- `topic = gear` is the gear donation funnel, since the donate page
+ * has no form of its own and sends people to `/contact?topic=gear`. The `/my`
+ * sign-in's `method` says which of its three ways was pressed.
  */
 export type FormSubmitted = {
   event_registration: Record<never, never>;
-  contact: Record<never, never>;
+  contact: { topic: string };
   gear_request: { item_count: string };
+  volunteer_application: Record<never, never>;
+  volunteer_status_lookup: Record<never, never>;
+  artwork_submission: Record<never, never>;
+  registration_answers: Record<never, never>;
+  my_sign_in: { method: "password" | "sign_up" | "google" };
+  my_claim: Record<never, never>;
 };
 
 const FORM_SUBMITTED_PROPERTIES: {
   [F in FormName]: readonly (keyof FormSubmitted[F])[];
 } = {
   event_registration: [],
-  contact: [],
+  contact: ["topic"],
   gear_request: ["item_count"],
+  volunteer_application: [],
+  volunteer_status_lookup: [],
+  artwork_submission: [],
+  registration_answers: [],
+  my_sign_in: ["method"],
+  my_claim: [],
 };
 
 /** `step` where a form has steps; a single-step form has none to name. */

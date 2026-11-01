@@ -101,11 +101,11 @@ describe("single-step forms", () => {
   test("contact sends only its form name, and an error code on failure", () => {
     const calls = recorder();
     trackForm("contact", "form_viewed", {});
-    trackForm("contact", "form_submitted", {});
+    trackForm("contact", "form_submitted", { topic: "gear" });
     trackForm("contact", "form_failed", { error_code: "RATE_LIMITED" });
     expect(calls).toEqual([
       ["form_viewed", { form: "contact" }],
-      ["form_submitted", { form: "contact" }],
+      ["form_submitted", { form: "contact", topic: "gear" }],
       ["form_failed", { form: "contact", error_code: "RATE_LIMITED" }],
     ]);
   });
@@ -127,6 +127,29 @@ describe("single-step forms", () => {
     trackForm("contact", "form_failed", { step: "event", error_code: "X" });
     // @ts-expect-error -- the item count is required
     trackForm("gear_request", "form_submitted", {});
+  });
+
+  // #1713: the /my sign-in says which way was pressed, and only on submit.
+  test("a sign-in's method rides on form_submitted alone", () => {
+    const calls = recorder();
+    trackForm("my_sign_in", "form_submitted", { method: "google" });
+    const sneaky = { method: "password", email: "a@b.c" } as Record<
+      never,
+      never
+    >;
+    trackForm("my_sign_in", "form_completed", sneaky);
+    expect(calls).toEqual([
+      ["form_submitted", { form: "my_sign_in", method: "google" }],
+      ["form_completed", { form: "my_sign_in" }],
+    ]);
+  });
+
+  test("an unknown method, or a topic's label, is a type error", () => {
+    recorder();
+    // @ts-expect-error -- not a sign-in method
+    trackForm("my_sign_in", "form_submitted", { method: "magic_link" });
+    // @ts-expect-error -- the topic is required on a contact submit
+    trackForm("contact", "form_submitted", {});
   });
 });
 
