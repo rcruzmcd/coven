@@ -879,7 +879,7 @@ describe("EventRegistrationForm and the event's questions (#1501)", () => {
       options: [],
       min_value: 1,
       max_value: 7,
-      show_if: { question_id: "getting", option_ids: ["drive"] },
+      show_if: { any: [{ question_id: "getting", option_ids: ["drive"] }] },
     },
     {
       id: "share",

@@ -1,7 +1,16 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { ArrowDown, ArrowUp, Copy, Plus, Trash2, X } from "lucide-react";
+import {
+  Archive,
+  ArchiveRestore,
+  ArrowDown,
+  ArrowUp,
+  Copy,
+  Plus,
+  Trash2,
+  X,
+} from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -45,11 +54,15 @@ import {
   QUESTION_HELP_MAX_LENGTH,
   QUESTION_KINDS,
   QUESTION_KIND_LABELS,
+  QUESTION_OPTION_HINT_MAX_LENGTH,
+  QUESTION_OPTION_KEY_MAX_LENGTH,
   QUESTION_OPTION_LABEL_MAX_LENGTH,
   QUESTION_PROMPT_MAX_LENGTH,
   isChoiceKind,
+  type ConditionClause,
   type PlaceGranularity,
   type QuestionKind,
+  type QuestionOption,
 } from "@/lib/registration-questions";
 import {
   listEventOptionsAction,
@@ -59,7 +72,6 @@ import {
 import {
   conditionParents,
   copyQuestions,
-  hasDependents,
   newOption,
   newQuestionDraft,
   normalizeConditions,
@@ -214,13 +226,15 @@ function QuestionCard({
     );
   }
 
-  function updateOption(optionId: string, label: string) {
+  function updateOption(optionId: string, patch: Partial<QuestionOption>) {
     onUpdate({
       options: question.options.map((option) =>
-        option.id === optionId ? { ...option, label } : option,
+        option.id === optionId ? { ...option, ...patch } : option,
       ),
     });
   }
+
+  const offered = question.options.filter((option) => !option.archived).length;
 
   return (
     <li className="flex flex-col gap-4 rounded-lg border p-3">
@@ -276,7 +290,7 @@ function QuestionCard({
           onChange={(event) => onUpdate({ columnLabel: event.target.value })}
         />
         <FieldDescription id={`${id}-column-label-description`}>
-          {question.showIf && question.kind !== "consent"
+          {question.showIf?.any.length === 1 && question.kind !== "consent"
             ? "A follow-up shows in the column of the question it depends on, after its answer. For a number, this is its unit, like “seats”."
             : "A word or two, like “Carpool”. Left blank, the list shows the start of the prompt."}
         </FieldDescription>
@@ -319,34 +333,88 @@ function QuestionCard({
       {isChoiceKind(question.kind) && (
         <FieldSet>
           <FieldLegend variant="label">Options</FieldLegend>
-          <ol className="flex flex-col gap-2">
-            {question.options.map((option, optionIndex) => (
-              <li key={option.id} className="flex items-center gap-2">
-                <Input
-                  id={`${id}-option-${option.id}`}
-                  aria-label={`Question ${number} option ${optionIndex + 1}`}
-                  value={option.label}
-                  maxLength={QUESTION_OPTION_LABEL_MAX_LENGTH}
-                  required
-                  disabled={disabled}
-                  onChange={(event) =>
-                    updateOption(option.id, event.target.value)
-                  }
-                />
-                <IconAction
-                  label={`Remove question ${number} option ${optionIndex + 1}`}
-                  icon={<X />}
-                  disabled={disabled || question.options.length <= 2}
-                  onClick={() =>
-                    onUpdate({
-                      options: question.options.filter(
-                        (other) => other.id !== option.id,
-                      ),
-                    })
-                  }
-                />
-              </li>
-            ))}
+          {/* #1742. A hint reads under the label; a code names the option
+              for anything that must survive a relabel. Archiving keeps an
+              option for the answers that chose it but stops offering it. */}
+          <FieldDescription>
+            A hint shows under the option. A code is an optional stable name,
+            like first_time. Archive an option people have chosen rather than
+            removing it.
+          </FieldDescription>
+          <ol className="flex flex-col gap-3">
+            {question.options.map((option, optionIndex) => {
+              const name = `Question ${number} option ${optionIndex + 1}`;
+              return (
+                <li key={option.id} className="flex flex-col gap-2">
+                  <div className="flex items-center gap-2">
+                    <Input
+                      id={`${id}-option-${option.id}`}
+                      aria-label={name}
+                      value={option.label}
+                      maxLength={QUESTION_OPTION_LABEL_MAX_LENGTH}
+                      required
+                      disabled={disabled}
+                      onChange={(event) =>
+                        updateOption(option.id, { label: event.target.value })
+                      }
+                    />
+                    <IconAction
+                      label={
+                        option.archived ? `Restore ${name}` : `Archive ${name}`
+                      }
+                      icon={option.archived ? <ArchiveRestore /> : <Archive />}
+                      disabled={disabled || (!option.archived && offered <= 2)}
+                      onClick={() =>
+                        updateOption(option.id, { archived: !option.archived })
+                      }
+                    />
+                    <IconAction
+                      label={`Remove ${name}`}
+                      icon={<X />}
+                      disabled={disabled || question.options.length <= 2}
+                      onClick={() =>
+                        onUpdate({
+                          options: question.options.filter(
+                            (other) => other.id !== option.id,
+                          ),
+                        })
+                      }
+                    />
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Input
+                      id={`${id}-option-${option.id}-hint`}
+                      aria-label={`${name} hint`}
+                      className="min-w-48 flex-1"
+                      value={option.hint ?? ""}
+                      maxLength={QUESTION_OPTION_HINT_MAX_LENGTH}
+                      placeholder="Hint (optional)"
+                      disabled={disabled}
+                      onChange={(event) =>
+                        updateOption(option.id, { hint: event.target.value })
+                      }
+                    />
+                    <Input
+                      id={`${id}-option-${option.id}-key`}
+                      aria-label={`${name} code`}
+                      className="w-40 font-mono"
+                      value={option.key ?? ""}
+                      maxLength={QUESTION_OPTION_KEY_MAX_LENGTH}
+                      placeholder="Code (optional)"
+                      disabled={disabled}
+                      onChange={(event) =>
+                        updateOption(option.id, { key: event.target.value })
+                      }
+                    />
+                    {option.archived && (
+                      <span className="text-xs text-muted-foreground">
+                        Archived: no longer offered
+                      </span>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
           </ol>
           <div>
             <Button
@@ -364,6 +432,26 @@ function QuestionCard({
             </Button>
           </div>
         </FieldSet>
+      )}
+
+      {question.kind === "single_choice" && (
+        <Field orientation="horizontal">
+          <FieldContent>
+            <FieldLabel htmlFor={`${id}-other`}>
+              Allow &ldquo;Other&rdquo;
+            </FieldLabel>
+            <FieldDescription>
+              Adds an &ldquo;Other&rdquo; choice with a short text, up to 200
+              characters.
+            </FieldDescription>
+          </FieldContent>
+          <Switch
+            id={`${id}-other`}
+            checked={question.allowOther}
+            disabled={disabled}
+            onCheckedChange={(checked) => onUpdate({ allowOther: checked })}
+          />
+        </Field>
       )}
 
       {question.kind === "number" && (
@@ -491,9 +579,9 @@ function QuestionCard({
 }
 
 /**
- * The one condition a question may have (#1501): shown only for some answers
- * to an earlier, always-shown single-choice question. One level deep, so a
- * question others depend on cannot be conditional itself.
+ * When a question is shown (#1501): always, or for some answers to any of a
+ * few earlier single-choice questions (#1742), which may be conditional
+ * themselves. A hidden question counts as unanswered.
  */
 function ConditionField({
   questions,
@@ -509,48 +597,37 @@ function ConditionField({
   const question = questions[index];
   const id = `planning-question-${question.id}-show-if`;
   const parents = conditionParents(questions, index);
-  const parent = parents.find(
-    (candidate) => candidate.id === question.showIf?.question_id,
-  );
+  const clauses = question.showIf?.any ?? [];
 
-  if (hasDependents(questions, question.id)) {
-    return (
-      <FieldDescription>
-        Always shown, because other questions depend on its answer.
-      </FieldDescription>
-    );
-  }
   if (parents.length === 0) return null;
 
   const promptOf = (candidate: QuestionDraft) =>
     candidate.prompt.trim() ||
     `Question ${questions.findIndex((other) => other.id === candidate.id) + 1}`;
+  const unused = parents.filter(
+    (candidate) =>
+      !clauses.some((clause) => clause.question_id === candidate.id),
+  );
 
-  return (
-    <>
+  function setClauses(next: ConditionClause[]) {
+    onUpdate({ showIf: next.length > 0 ? { any: next } : null });
+  }
+
+  if (clauses.length === 0) {
+    return (
       <Field>
         <FieldLabel htmlFor={id}>Show this question</FieldLabel>
         <Select
-          value={question.showIf?.question_id ?? ALWAYS}
+          value={ALWAYS}
           disabled={disabled}
           onValueChange={(next) =>
-            onUpdate({
-              showIf:
-                !next || next === ALWAYS
-                  ? null
-                  : { question_id: next as string, option_ids: [] },
-            })
+            next &&
+            next !== ALWAYS &&
+            setClauses([{ question_id: next as string, option_ids: [] }])
           }
         >
           <SelectTrigger id={id} className="w-full">
-            <SelectValue>
-              {(selected: string) => {
-                const match = parents.find(
-                  (candidate) => candidate.id === selected,
-                );
-                return match ? `Only after “${promptOf(match)}”` : "Always";
-              }}
-            </SelectValue>
+            <SelectValue>{() => "Always"}</SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value={ALWAYS}>Always</SelectItem>
@@ -562,44 +639,146 @@ function ConditionField({
           </SelectContent>
         </Select>
       </Field>
-      {parent && question.showIf && (
+    );
+  }
+
+  return (
+    <FieldSet>
+      <FieldLegend variant="label">Show this question</FieldLegend>
+      <FieldDescription>
+        {clauses.length > 1
+          ? "When any of these answers is given."
+          : "Only for these answers."}
+      </FieldDescription>
+      {clauses.map((clause, clauseIndex) => (
+        <ConditionClauseField
+          key={clause.question_id}
+          id={`${id}-${clauseIndex}`}
+          clause={clause}
+          // This clause's own question, and any not named by another.
+          parents={parents.filter(
+            (candidate) =>
+              candidate.id === clause.question_id || unused.includes(candidate),
+          )}
+          promptOf={promptOf}
+          disabled={disabled}
+          onChange={(next) =>
+            setClauses(
+              next === null
+                ? clauses.filter((_, i) => i !== clauseIndex)
+                : clauses.map((other, i) => (i === clauseIndex ? next : other)),
+            )
+          }
+        />
+      ))}
+      {unused.length > 0 && (
+        <div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            disabled={disabled}
+            onClick={() =>
+              setClauses([
+                ...clauses,
+                { question_id: unused[0].id, option_ids: [] },
+              ])
+            }
+          >
+            <Plus /> Or after another answer
+          </Button>
+        </div>
+      )}
+    </FieldSet>
+  );
+}
+
+/** One "after this question, for these answers" of a condition. */
+function ConditionClauseField({
+  id,
+  clause,
+  parents,
+  promptOf,
+  disabled,
+  onChange,
+}: {
+  id: string;
+  clause: ConditionClause;
+  parents: QuestionDraft[];
+  promptOf: (question: QuestionDraft) => string;
+  disabled?: boolean;
+  /** Null removes the clause. */
+  onChange: (clause: ConditionClause | null) => void;
+}) {
+  const parent = parents.find(
+    (candidate) => candidate.id === clause.question_id,
+  );
+  const label = parent ? `Only after “${promptOf(parent)}”` : "";
+
+  return (
+    <div className="flex flex-col gap-2 rounded-md border p-2">
+      <div className="flex items-center gap-2">
+        <Select
+          value={clause.question_id}
+          disabled={disabled}
+          onValueChange={(next) =>
+            next && onChange({ question_id: next as string, option_ids: [] })
+          }
+        >
+          <SelectTrigger id={id} aria-label="After question" className="w-full">
+            <SelectValue>{() => label}</SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {parents.map((candidate) => (
+              <SelectItem key={candidate.id} value={candidate.id}>
+                {`Only after “${promptOf(candidate)}”`}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <IconAction
+          label={`Remove condition ${label}`}
+          icon={<X />}
+          disabled={disabled}
+          onClick={() => onChange(null)}
+        />
+      </div>
+      {parent && (
         <FieldSet>
           <FieldLegend variant="label">When the answer is</FieldLegend>
           {parent.options.map((option, optionIndex) => {
             const optionId = `${id}-${option.id}`;
-            const chosen = question.showIf?.option_ids ?? [];
             return (
               <Field key={option.id} orientation="horizontal">
                 <Checkbox
                   id={optionId}
-                  checked={chosen.includes(option.id)}
+                  checked={clause.option_ids.includes(option.id)}
                   disabled={disabled}
                   onCheckedChange={(checked) =>
-                    onUpdate({
-                      showIf: {
-                        question_id: parent.id,
-                        // In the parent's order, whatever order they were
-                        // ticked in.
-                        option_ids: parent.options
-                          .map((other) => other.id)
-                          .filter((other) =>
-                            other === option.id
-                              ? checked === true
-                              : chosen.includes(other),
-                          ),
-                      },
+                    onChange({
+                      question_id: parent.id,
+                      // In the parent's order, whatever order they were
+                      // ticked in.
+                      option_ids: parent.options
+                        .map((other) => other.id)
+                        .filter((other) =>
+                          other === option.id
+                            ? checked === true
+                            : clause.option_ids.includes(other),
+                        ),
                     })
                   }
                 />
                 <FieldLabel htmlFor={optionId}>
                   {option.label.trim() || `Option ${optionIndex + 1}`}
+                  {option.archived && " (archived)"}
                 </FieldLabel>
               </Field>
             );
           })}
         </FieldSet>
       )}
-    </>
+    </div>
   );
 }
 

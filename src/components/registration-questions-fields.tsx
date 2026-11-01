@@ -3,6 +3,7 @@
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Field,
+  FieldContent,
   FieldDescription,
   FieldLabel,
   FieldLegend,
@@ -18,13 +19,19 @@ import {
 } from "@/components/ui/select";
 import { NOT_LISTED, PlaceCombobox } from "@/components/place-combobox";
 import {
+  OTHER_TEXT_MAX_LENGTH,
   PLACE_OTHER_MAX_LENGTH,
   SHORT_TEXT_MAX_LENGTH,
+  isOtherAnswer,
   isPlaceAnswer,
+  offeredOptions,
   visibleQuestions,
   type AnswerDraft,
   type RegistrationQuestion,
 } from "@/lib/registration-questions";
+
+/** The single-choice value for "Other"; option ids are uuids, so never this. */
+const OTHER_CHOICE = "other";
 
 /**
  * An event's registration questions (#1501), in the event's order, with each
@@ -34,6 +41,9 @@ import {
  *
  * `required = false` is the staff paths: the asterisks go, because nothing is
  * refused there.
+ *
+ * An archived option (#1742) is not offered, except to an answer that already
+ * chose it, so editing that answer does not lose it.
  */
 export function RegistrationQuestionsFields({
   idPrefix,
@@ -87,7 +97,19 @@ function QuestionField({
   ) : null;
 
   switch (question.kind) {
-    case "single_choice":
+    case "single_choice": {
+      // #1742. "Other" and a few words, where the question offers it.
+      const other = isOtherAnswer(value) ? value : null;
+      const options = offeredOptions(
+        question,
+        typeof value === "string" ? [value] : [],
+      );
+      const items = [
+        ...options.map((option) => ({ value: option.id, label: option.label })),
+        ...(question.allow_other
+          ? [{ value: OTHER_CHOICE, label: "Other" }]
+          : []),
+      ];
       return (
         <Field>
           <FieldLabel htmlFor={id} required={required}>
@@ -95,29 +117,69 @@ function QuestionField({
           </FieldLabel>
           <Select
             // `""` is a value to Base UI and would paint an empty trigger
-            // over the placeholder; see AttendedBeforeField.
-            value={typeof value === "string" && value ? value : null}
+            // over the placeholder; see AttendedBeforeField. The trigger
+            // shows the label alone, not the hint under it.
+            items={items}
+            value={
+              other
+                ? OTHER_CHOICE
+                : typeof value === "string" && value
+                  ? value
+                  : null
+            }
             disabled={disabled}
             required={required}
-            onValueChange={(next) => onChange(String(next ?? ""))}
+            onValueChange={(next) =>
+              onChange(
+                next === OTHER_CHOICE
+                  ? { other: other?.other ?? "" }
+                  : String(next ?? ""),
+              )
+            }
           >
             <SelectTrigger id={id} className="w-full">
               <SelectValue placeholder="Select one" />
             </SelectTrigger>
             <SelectContent>
-              {question.options.map((option) => (
+              {options.map((option) => (
                 <SelectItem key={option.id} value={option.id}>
-                  {option.label}
+                  {option.hint ? (
+                    <span className="flex flex-col whitespace-normal">
+                      <span>{option.label}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {option.hint}
+                      </span>
+                    </span>
+                  ) : (
+                    option.label
+                  )}
                 </SelectItem>
               ))}
+              {question.allow_other && (
+                <SelectItem value={OTHER_CHOICE}>Other</SelectItem>
+              )}
             </SelectContent>
           </Select>
+          {other && (
+            <Input
+              id={`${id}-other`}
+              aria-label={`${question.prompt}: other`}
+              placeholder="Tell us more"
+              maxLength={OTHER_TEXT_MAX_LENGTH}
+              required={required}
+              disabled={disabled}
+              value={other.other}
+              onChange={(event) => onChange({ other: event.target.value })}
+            />
+          )}
           {help}
         </Field>
       );
+    }
 
     case "multi_choice": {
       const chosen = Array.isArray(value) ? value : [];
+      const options = offeredOptions(question, chosen);
       return (
         <FieldSet>
           <FieldLegend variant="label">
@@ -133,7 +195,7 @@ function QuestionField({
             )}
           </FieldLegend>
           {help}
-          {question.options.map((option) => {
+          {options.map((option) => {
             const optionId = `${id}-${option.id}`;
             return (
               <Field key={option.id} orientation="horizontal">
@@ -155,9 +217,14 @@ function QuestionField({
                     )
                   }
                 />
-                <FieldLabel htmlFor={optionId} className="font-normal">
-                  {option.label}
-                </FieldLabel>
+                <FieldContent>
+                  <FieldLabel htmlFor={optionId} className="font-normal">
+                    {option.label}
+                  </FieldLabel>
+                  {option.hint && (
+                    <FieldDescription>{option.hint}</FieldDescription>
+                  )}
+                </FieldContent>
               </Field>
             );
           })}

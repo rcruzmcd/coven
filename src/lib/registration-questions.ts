@@ -38,9 +38,16 @@ export const QUESTION_PROMPT_MAX_LENGTH = 300;
 export const QUESTION_HELP_MAX_LENGTH = 500;
 export const QUESTION_COLUMN_LABEL_MAX_LENGTH = 24;
 export const QUESTION_OPTION_LABEL_MAX_LENGTH = 120;
+export const QUESTION_OPTION_HINT_MAX_LENGTH = 120;
+export const QUESTION_OPTION_KEY_MAX_LENGTH = 40;
 export const MAX_QUESTIONS = 20;
 export const MAX_QUESTION_OPTIONS = 20;
 export const PLACE_OTHER_MAX_LENGTH = 200;
+/** The text under a single choice's "Other" (#1742), as long as a place's. */
+export const OTHER_TEXT_MAX_LENGTH = PLACE_OTHER_MAX_LENGTH;
+
+/** An option key (#1742): a lower-case code like `first_time`. */
+export const QUESTION_OPTION_KEY_PATTERN = /^[a-z][a-z0-9_]{0,39}$/;
 
 /**
  * How fine a place question asks (#1699). `neighborhood` is an NYC
@@ -65,8 +72,19 @@ export type PlaceSettings = {
  * A place answer: a place from the reference table with its label as shown,
  * or the text typed under "Not listed". The server re-reads the label.
  */
-export type PlaceAnswer =
-  { place_id: string; label: string } | { other: string };
+export type PlaceAnswer = { place_id: string; label: string } | OtherAnswer;
+
+/** "Other" with a few words: a place's "Not listed", or a single choice's (#1742). */
+export type OtherAnswer = { other: string };
+
+export function isOtherAnswer(value: unknown): value is OtherAnswer {
+  return (
+    !!value &&
+    typeof value === "object" &&
+    !Array.isArray(value) &&
+    typeof (value as Record<string, unknown>).other === "string"
+  );
+}
 
 export function isPlaceAnswer(value: unknown): value is PlaceAnswer {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
@@ -77,10 +95,30 @@ export function isPlaceAnswer(value: unknown): value is PlaceAnswer {
   );
 }
 
-export type QuestionOption = { id: string; label: string };
+export type QuestionOption = {
+  id: string;
+  label: string;
+  /**
+   * A stable code, unique within the question (#1742), so a metric or a
+   * migration can name an option whatever its label says.
+   */
+  key?: string | null;
+  /** A short descriptor shown under the label. */
+  hint?: string | null;
+  /** Kept for the answers that chose it, but no longer offered. */
+  archived?: boolean;
+};
 
-/** Shown only when an earlier single-choice question has one of these answers. */
-export type QuestionCondition = { question_id: string; option_ids: string[] };
+/** One earlier single-choice question and the answers to it that count. */
+export type ConditionClause = { question_id: string; option_ids: string[] };
+
+/**
+ * Shown when any clause holds (#1742). Each clause names an earlier question,
+ * which may be conditional itself: a hidden question counts as unanswered.
+ * Stored rows from before #1742 hold one bare clause, read as a one-item
+ * `any`.
+ */
+export type QuestionCondition = { any: ConditionClause[] };
 
 export type RegistrationQuestion = {
   id: string;
@@ -99,11 +137,13 @@ export type RegistrationQuestion = {
   show_if: QuestionCondition | null;
   /** A place question's settings (#1699); null or absent on other kinds. */
   place?: PlaceSettings | null;
+  /** A single choice's "Other" with a short text (#1742). */
+  allow_other?: boolean;
 };
 
 /**
- * A stored answer, by kind: option id, option ids, text, number, yes/no, or a
- * place.
+ * A stored answer, by kind: option id (or "Other" text), option ids, text,
+ * number, yes/no, or a place.
  */
 export type AnswerValue = string | string[] | number | boolean | PlaceAnswer;
 
@@ -132,24 +172,27 @@ function isKind(value: unknown): value is QuestionKind {
 
 function toOptions(value: unknown): QuestionOption[] {
   if (!Array.isArray(value)) return [];
-  return value.flatMap((option) =>
-    option &&
-    typeof option === "object" &&
-    typeof (option as QuestionOption).id === "string" &&
-    typeof (option as QuestionOption).label === "string"
-      ? [
-          {
-            id: (option as QuestionOption).id,
-            label: (option as QuestionOption).label,
-          },
-        ]
-      : [],
-  );
+  return value.flatMap((item) => {
+    if (!item || typeof item !== "object") return [];
+    const option = item as Record<string, unknown>;
+    if (typeof option.id !== "string" || typeof option.label !== "string") {
+      return [];
+    }
+    return [
+      {
+        id: option.id,
+        label: option.label,
+        key: typeof option.key === "string" ? option.key : null,
+        hint: typeof option.hint === "string" ? option.hint : null,
+        archived: option.archived === true,
+      },
+    ];
+  });
 }
 
-function toCondition(value: unknown): QuestionCondition | null {
+function toClause(value: unknown): ConditionClause | null {
   if (!value || typeof value !== "object") return null;
-  const { question_id, option_ids } = value as Partial<QuestionCondition>;
+  const { question_id, option_ids } = value as Partial<ConditionClause>;
   if (typeof question_id !== "string" || !Array.isArray(option_ids)) {
     return null;
   }
@@ -157,6 +200,26 @@ function toCondition(value: unknown): QuestionCondition | null {
     question_id,
     option_ids: option_ids.filter((id): id is string => typeof id === "string"),
   };
+}
+
+/** `{any: [...]}`, or a bare clause from before #1742 as a one-item `any`. */
+export function toCondition(value: unknown): QuestionCondition | null {
+  if (!value || typeof value !== "object") return null;
+  const any = (value as { any?: unknown }).any;
+  const clauses = Array.isArray(any)
+    ? any.flatMap((clause) => toClause(clause) ?? [])
+    : [toClause(value)].flatMap((clause) => clause ?? []);
+  return clauses.length > 0 ? { any: clauses } : null;
+}
+
+/** The options a form offers: every one not archived, plus `keep` if it is. */
+export function offeredOptions(
+  question: Pick<RegistrationQuestion, "options">,
+  keep: readonly string[] = [],
+): QuestionOption[] {
+  return question.options.filter(
+    (option) => !option.archived || keep.includes(option.id),
+  );
 }
 
 /**
@@ -179,6 +242,7 @@ export function toRegistrationQuestion(row: {
   show_if?: unknown;
   place_granularity?: string | null;
   place_allow_other?: boolean | null;
+  allow_other?: boolean | null;
 }): RegistrationQuestion | null {
   const id = row.id ?? row.question_id;
   if (!id || !isKind(row.kind) || !row.prompt) return null;
@@ -203,6 +267,7 @@ export function toRegistrationQuestion(row: {
             allow_other: row.place_allow_other !== false,
           }
         : null,
+    allow_other: row.kind === "single_choice" && row.allow_other === true,
   };
 }
 
@@ -211,25 +276,40 @@ export function isChoiceKind(kind: QuestionKind) {
 }
 
 /**
- * Whether a question is shown, given the answers so far. One level deep: the
- * question a condition names is never conditional itself.
+ * Whether a question's condition holds on these answers: any clause whose
+ * question was answered with one of its options. `shown`, where given, is the
+ * questions shown so far, and an answer to any other question counts as
+ * unanswered. Without it every answer counts, which is right for stored
+ * answers, since a hidden question's answer is never stored.
  */
 export function isQuestionVisible(
   question: RegistrationQuestion,
   draft: AnswerDraft | RegistrationAnswers,
+  shown?: ReadonlySet<string>,
 ): boolean {
   if (!question.show_if) return true;
-  const parent = draft[question.show_if.question_id];
-  return (
-    typeof parent === "string" && question.show_if.option_ids.includes(parent)
-  );
+  return question.show_if.any.some((clause) => {
+    if (shown && !shown.has(clause.question_id)) return false;
+    const parent = draft[clause.question_id];
+    return typeof parent === "string" && clause.option_ids.includes(parent);
+  });
 }
 
+/**
+ * The questions shown, given the answers so far. One pass in order: a
+ * condition names only earlier questions, so whether those are shown is
+ * already known, and a cycle cannot occur.
+ */
 export function visibleQuestions(
   questions: readonly RegistrationQuestion[],
   draft: AnswerDraft | RegistrationAnswers,
 ): RegistrationQuestion[] {
-  return questions.filter((question) => isQuestionVisible(question, draft));
+  const shown = new Set<string>();
+  return questions.filter((question) => {
+    if (!isQuestionVisible(question, draft, shown)) return false;
+    shown.add(question.id);
+    return true;
+  });
 }
 
 /** An empty draft: nothing chosen, nothing typed, every box unticked. */
@@ -263,6 +343,8 @@ export function answersToDraft(
       draft[question.id] = value === true;
     } else if (question.kind === "place") {
       draft[question.id] = isPlaceAnswer(value) ? value : "";
+    } else if (question.kind === "single_choice" && isOtherAnswer(value)) {
+      draft[question.id] = value;
     } else {
       draft[question.id] = Array.isArray(value) ? "" : String(value);
     }
@@ -311,6 +393,14 @@ export function draftToAnswers(
         }
         break;
       }
+      case "single_choice":
+        if (isOtherAnswer(value)) {
+          if (value.other.trim() !== "") {
+            answers[question.id] = { other: value.other.trim() };
+          }
+          break;
+        }
+      // falls through: an option id is sent like text.
       default: {
         const raw = typeof value === "string" ? value.trim() : "";
         if (raw !== "") answers[question.id] = raw;
@@ -371,6 +461,20 @@ export function answersError(
         message: `“${question.prompt}” can be at most ${SHORT_TEXT_MAX_LENGTH} characters.`,
       };
     }
+    if (question.kind === "single_choice" && isOtherAnswer(value)) {
+      if (!question.allow_other) {
+        return {
+          questionId: question.id,
+          message: `Please pick an answer for “${question.prompt}”.`,
+        };
+      }
+      if (value.other.length > OTHER_TEXT_MAX_LENGTH) {
+        return {
+          questionId: question.id,
+          message: `“${question.prompt}” can be at most ${OTHER_TEXT_MAX_LENGTH} characters.`,
+        };
+      }
+    }
     if (question.kind === "place" && isPlaceAnswer(value) && "other" in value) {
       if (question.place?.allow_other === false) {
         return {
@@ -397,6 +501,7 @@ export function answerText(
   if (value === undefined) return null;
   switch (question.kind) {
     case "single_choice":
+      if (isOtherAnswer(value)) return value.other;
       return (
         question.options.find((option) => option.id === value)?.label ?? null
       );
@@ -527,8 +632,8 @@ export const REGISTRATION_QUESTION_ERROR_MESSAGES: Record<string, string> = {
   EVENT_QUESTIONS_TOO_MANY: `An event can ask at most ${MAX_QUESTIONS} questions.`,
   EVENT_QUESTIONS_PROMPT_REQUIRED: "Every question needs a prompt.",
   EVENT_QUESTIONS_OPTIONS_INVALID:
-    "Choice questions need at least two options, each with a different label.",
+    "Choice questions need at least two options still offered, each with a different label, and option codes must be different lower-case words.",
   EVENT_QUESTIONS_CONDITION_INVALID:
-    "A condition must name an earlier single-choice question that is always shown.",
+    "A condition must name earlier single-choice questions, each once, and some of their options.",
   EVENT_QUESTIONS_COLUMN_LABEL_TOO_LONG: `A column name can be at most ${QUESTION_COLUMN_LABEL_MAX_LENGTH} characters.`,
 };

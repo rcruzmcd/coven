@@ -399,7 +399,7 @@ describe("RegistrantsPage", () => {
       prompt: "How many open seats do you have?",
       column_label: "seats",
       options: [],
-      show_if: { question_id: "carpool", option_ids: ["drive"] },
+      show_if: { any: [{ question_id: "carpool", option_ids: ["drive"] }] },
     };
     const extra = [1, 2, 3].map((index) => ({
       ...carpool,

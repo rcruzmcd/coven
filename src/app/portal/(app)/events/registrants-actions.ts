@@ -493,7 +493,7 @@ async function loadRegistrationQuestions(
   const { data } = await supabase
     .from("event_registration_questions")
     .select(
-      "id, kind, prompt, help, column_label, required, options, min_value, max_value, show_if, place_granularity, place_allow_other",
+      "id, kind, prompt, help, column_label, required, options, min_value, max_value, show_if, place_granularity, place_allow_other, allow_other",
     )
     .eq("event_id", eventId)
     .is("archived_at", null)

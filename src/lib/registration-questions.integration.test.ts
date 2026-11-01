@@ -31,11 +31,22 @@ type QuestionInput = {
   prompt: string;
   help?: string | null;
   required?: boolean;
-  options?: { id: string; label: string }[];
+  options?: {
+    id: string;
+    label: string;
+    key?: string | null;
+    hint?: string | null;
+    archived?: boolean;
+  }[];
   min_value?: number | null;
   max_value?: number | null;
   shares_contact?: boolean;
-  show_if?: { question_id: string; option_ids: string[] } | null;
+  allow_other?: boolean;
+  // #1742: either form; stored as {any}.
+  show_if?:
+    | { question_id: string; option_ids: string[] }
+    | { any: { question_id: string; option_ids: string[] }[] }
+    | null;
 };
 
 type AnswerRow = {
@@ -250,9 +261,9 @@ describe("save_event_registration_questions", () => {
       { id: options.own, label: "Making my own way" },
     ]);
     expect([seats.min_value, seats.max_value]).toEqual([1, 6]);
+    // Sent bare, stored as a one-item any (#1742).
     expect(seats.show_if).toEqual({
-      question_id: ids.gettingThere,
-      option_ids: [options.drive],
+      any: [{ question_id: ids.gettingThere, option_ids: [options.drive] }],
     });
     expect(leavingFrom.options).toEqual([]);
     expect(leavingFrom.help).toBeNull();
@@ -485,14 +496,26 @@ describe("save_event_registration_questions", () => {
     expect(
       await refusal([text(parent), { ...text(child), ...showIf(parent) }]),
     ).toBe("EVENT_QUESTIONS_CONDITION_INVALID");
-    // On a question that is conditional itself: one level only.
-    const grandparent = uuid();
+    // #1742. Naming a question twice, no clause, or not an object.
     expect(
       await refusal([
-        choice(grandparent),
-        choice(parent, "single_choice", showIf(grandparent)),
-        { ...text(child), ...showIf(parent) },
+        choice(parent),
+        {
+          ...text(child),
+          show_if: {
+            any: [
+              { question_id: parent, option_ids: [a] },
+              { question_id: parent, option_ids: [b] },
+            ],
+          },
+        },
       ]),
+    ).toBe("EVENT_QUESTIONS_CONDITION_INVALID");
+    expect(
+      await refusal([choice(parent), { ...text(child), show_if: { any: [] } }]),
+    ).toBe("EVENT_QUESTIONS_CONDITION_INVALID");
+    expect(
+      await refusal([choice(parent), { ...text(child), show_if: [parent] }]),
     ).toBe("EVENT_QUESTIONS_CONDITION_INVALID");
     // On itself, on nothing, on no option, and on an option it does not have.
     expect(
@@ -1076,6 +1099,8 @@ describe("who can read the tables", () => {
     ]);
     expect(Object.keys(data![0]).sort()).toEqual(
       [
+        // #1742
+        "allow_other",
         "event_id",
         "help",
         "id",
@@ -1121,5 +1146,321 @@ describe("who can read the tables", () => {
         .eq("event_id", hiddenEvent);
       expect(hidden ?? []).toEqual([]);
     }
+  });
+});
+
+// #1742. The rider profile's shape, as event questions: a discipline, a level
+// for each sport shown by it, and a park question shown when either level is
+// past first time; a mountain with "Other".
+describe("any-of conditions, option keys and hints, and Other (#1742)", () => {
+  async function profileEvent() {
+    const eventId = await event();
+    const o = {
+      ski: uuid(),
+      board: uuid(),
+      both: uuid(),
+      skiFirst: uuid(),
+      skiAdvanced: uuid(),
+      skiOld: uuid(),
+      boardFirst: uuid(),
+      boardAdvanced: uuid(),
+      hunter: uuid(),
+      belleayre: uuid(),
+    };
+    const ids = {
+      discipline: uuid(),
+      skiLevel: uuid(),
+      boardLevel: uuid(),
+      park: uuid(),
+      mountain: uuid(),
+    };
+    const questions: QuestionInput[] = [
+      {
+        id: ids.discipline,
+        kind: "single_choice",
+        prompt: "Discipline",
+        options: [
+          { id: o.ski, label: "Ski", key: "ski" },
+          { id: o.board, label: "Snowboard", key: "snowboard" },
+          { id: o.both, label: "Both", key: "both" },
+        ],
+      },
+      {
+        id: ids.skiLevel,
+        kind: "single_choice",
+        prompt: "Ski level",
+        options: [
+          { id: o.skiFirst, label: "First time", key: "first_time" },
+          {
+            id: o.skiAdvanced,
+            label: "Advanced",
+            key: "advanced",
+            hint: "  Blacks, any conditions ",
+          },
+          { id: o.skiOld, label: "Old level", archived: true },
+        ],
+        show_if: { question_id: ids.discipline, option_ids: [o.ski, o.both] },
+      },
+      {
+        id: ids.boardLevel,
+        kind: "single_choice",
+        prompt: "Snowboard level",
+        options: [
+          { id: o.boardFirst, label: "First time", key: "first_time" },
+          { id: o.boardAdvanced, label: "Advanced", key: "advanced" },
+        ],
+        show_if: {
+          any: [{ question_id: ids.discipline, option_ids: [o.board, o.both] }],
+        },
+      },
+      {
+        id: ids.park,
+        kind: "short_text",
+        prompt: "Park riding",
+        required: true,
+        show_if: {
+          any: [
+            { question_id: ids.skiLevel, option_ids: [o.skiAdvanced] },
+            { question_id: ids.boardLevel, option_ids: [o.boardAdvanced] },
+          ],
+        },
+      },
+      {
+        id: ids.mountain,
+        kind: "single_choice",
+        prompt: "Preferred mountain",
+        allow_other: true,
+        options: [
+          { id: o.hunter, label: "Hunter" },
+          { id: o.belleayre, label: "Belleayre" },
+        ],
+      },
+    ];
+    const { error } = await saveQuestions(eventId, questions);
+    if (error) throw error;
+    return { eventId, ids, o, questions };
+  }
+
+  test("saves keys, trimmed hints, archived options, Other and any-of over a conditional question", async () => {
+    const { eventId, ids, o } = await profileEvent();
+    const saved = await questionsOf(eventId);
+    const byId = new Map(saved.map((row) => [row.id, row]));
+
+    expect(byId.get(ids.skiLevel)!.options).toEqual([
+      { id: o.skiFirst, label: "First time", key: "first_time" },
+      {
+        id: o.skiAdvanced,
+        label: "Advanced",
+        key: "advanced",
+        hint: "Blacks, any conditions",
+      },
+      { id: o.skiOld, label: "Old level", archived: true },
+    ]);
+    expect(byId.get(ids.park)!.show_if).toEqual({
+      any: [
+        { question_id: ids.skiLevel, option_ids: [o.skiAdvanced] },
+        { question_id: ids.boardLevel, option_ids: [o.boardAdvanced] },
+      ],
+    });
+    const { data } = await adminClient
+      .from("event_registration_questions")
+      .select("id, allow_other")
+      .eq("event_id", eventId);
+    expect(
+      Object.fromEntries((data ?? []).map((row) => [row.id, row.allow_other])),
+    ).toMatchObject({ [ids.mountain]: true, [ids.discipline]: false });
+  });
+
+  test("refuses bad keys and hints, too few offered options, and Other off a single choice", async () => {
+    const eventId = await event();
+    const option = (label: string, extra: object = {}) => ({
+      id: uuid(),
+      label,
+      ...extra,
+    });
+    const choice = (options: unknown[], extra: object = {}) => [
+      {
+        id: uuid(),
+        kind: "single_choice",
+        prompt: "Pick",
+        options,
+        ...extra,
+      },
+    ];
+    const refusal = async (questions: unknown) =>
+      (await saveQuestions(eventId, questions)).error?.message;
+
+    for (const options of [
+      [option("A", { key: "same" }), option("B", { key: "same" })],
+      [option("A", { key: "Not A Code" }), option("B")],
+      [option("A", { key: "1st" }), option("B")],
+      [option("A", { hint: "x".repeat(121) }), option("B")],
+      [option("A", { archived: "yes" }), option("B")],
+      [option("A", { key: 7 }), option("B")],
+      [option("A"), option("B"), option("C", { archived: true })].map(
+        (item, i) => (i === 0 ? { ...item, archived: true } : item),
+      ),
+    ]) {
+      expect(await refusal(choice(options))).toBe(
+        "EVENT_QUESTIONS_OPTIONS_INVALID",
+      );
+    }
+    // Two offered and one archived is fine; Other is kept only on a single
+    // choice.
+    expect(
+      await refusal(
+        choice([option("A"), option("B"), option("C", { archived: true })]),
+      ),
+    ).toBeUndefined();
+    const multi = uuid();
+    expect(
+      await refusal([
+        {
+          id: multi,
+          kind: "multi_choice",
+          prompt: "Days",
+          allow_other: true,
+          options: [option("Sat"), option("Sun")],
+        },
+      ]),
+    ).toBeUndefined();
+    const { data } = await adminClient
+      .from("event_registration_questions")
+      .select("allow_other")
+      .eq("id", multi)
+      .single();
+    expect(data?.allow_other).toBe(false);
+  });
+
+  test("a hidden question counts as unanswered down the chain", async () => {
+    const { eventId, ids, o } = await profileEvent();
+
+    // Advanced on skis: park is shown, and required.
+    expect(
+      (
+        await register(eventId, {
+          [ids.discipline]: o.ski,
+          [ids.skiLevel]: o.skiAdvanced,
+        })
+      ).error?.message,
+    ).toBe("EVENT_ANSWERS_REQUIRED");
+    // Either sport counts.
+    const { data: both, error } = await register(eventId, {
+      [ids.discipline]: o.both,
+      [ids.skiLevel]: o.skiFirst,
+      [ids.boardLevel]: o.boardAdvanced,
+      [ids.park]: "Some",
+    });
+    expect(error).toBeNull();
+    expect(
+      (await answersOf(both as string)).map((row) => row.question_id),
+    ).toEqual([ids.discipline, ids.skiLevel, ids.boardLevel, ids.park]);
+
+    // Snowboard only, first time: the ski level sent anyway is hidden, so
+    // it neither shows park nor is kept, and park is not required.
+    const { data: board, error: boardError } = await register(eventId, {
+      [ids.discipline]: o.board,
+      [ids.skiLevel]: o.skiAdvanced,
+      [ids.boardLevel]: o.boardFirst,
+      [ids.park]: "Lots",
+    });
+    expect(boardError).toBeNull();
+    expect(
+      (await answersOf(board as string)).map((row) => row.question_id),
+    ).toEqual([ids.discipline, ids.boardLevel]);
+  });
+
+  test("an archived option is refused in a new answer and kept in one that had it", async () => {
+    const { eventId, ids, o } = await profileEvent();
+    const answers = { [ids.discipline]: o.ski, [ids.skiLevel]: o.skiOld };
+    expect((await register(eventId, answers)).error?.message).toBe(
+      "EVENT_ANSWERS_INVALID",
+    );
+
+    // An answer from before the option was archived.
+    const { data: registration, error } = await adminClient
+      .from("event_registrations")
+      .insert({ event_id: eventId, name: "Before", email: "", party_size: 1 })
+      .select("id")
+      .single();
+    if (error) throw error;
+    const { error: insertError } = await service
+      .from("event_registration_answers")
+      .insert({
+        tenant_id: tenantId,
+        registration_id: registration.id,
+        question_id: ids.skiLevel,
+        kind: "single_choice",
+        prompt_as_shown: "Ski level",
+        sort_order: 1,
+        value: o.skiOld,
+        answer_text: "Old level",
+      });
+    if (insertError) throw insertError;
+
+    const set = (next: unknown) =>
+      adminClient.rpc("set_registration_answers", {
+        p_registration_id: registration.id,
+        p_answers: next,
+      });
+    expect((await set(answers)).error).toBeNull();
+    expect(await answersOf(registration.id)).toContainEqual(
+      expect.objectContaining({
+        question_id: ids.skiLevel,
+        value: o.skiOld,
+        answer_text: "Old level",
+      }),
+    );
+    // Once changed away, it is gone for good.
+    expect(
+      (await set({ [ids.discipline]: o.ski, [ids.skiLevel]: o.skiFirst }))
+        .error,
+    ).toBeNull();
+    expect((await set(answers)).error?.message).toBe("EVENT_ANSWERS_INVALID");
+  });
+
+  test("Other is stored as its words where allowed, and refused elsewhere", async () => {
+    const { eventId, ids } = await profileEvent();
+    const { data: id, error } = await register(eventId, {
+      [ids.mountain]: { other: "  Jay Peak " },
+    });
+    expect(error).toBeNull();
+    expect(await answersOf(id as string)).toEqual([
+      expect.objectContaining({
+        question_id: ids.mountain,
+        value: { other: "Jay Peak" },
+        answer_text: "Jay Peak",
+      }),
+    ]);
+
+    for (const answers of [
+      { [ids.mountain]: { other: "x".repeat(201) } },
+      { [ids.mountain]: { other: 7 } },
+      { [ids.mountain]: { place_id: uuid() } },
+      { [ids.discipline]: { other: "Sledding" } },
+    ]) {
+      expect((await register(eventId, answers)).error?.message).toBe(
+        "EVENT_ANSWERS_INVALID",
+      );
+    }
+  });
+
+  test("a condition stored bare, before #1742, still applies", async () => {
+    const { eventId, ids, options: o } = await eventWithQuestions();
+    // Rewrite the stored any-of back to the bare form a pre-#1742 save wrote.
+    const { error } = await service
+      .from("event_registration_questions")
+      .update({
+        show_if: { question_id: ids.gettingThere, option_ids: [o.drive] },
+      })
+      .eq("id", ids.seats);
+    if (error) throw error;
+
+    expect(
+      (await register(eventId, { [ids.gettingThere]: o.drive })).error?.message,
+    ).toBe("EVENT_ANSWERS_REQUIRED");
+    expect(
+      (await register(eventId, { [ids.gettingThere]: o.ride })).error,
+    ).toBeNull();
   });
 });
