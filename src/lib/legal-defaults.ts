@@ -80,7 +80,7 @@ export type LegalOrgContext = {
  * Printed on every document here. Bump it in the same commit as any change to
  * the prose below: a stale date on a legal page is worse than none.
  */
-export const PLATFORM_LEGAL_LAST_UPDATED = "October 23, 2026";
+export const PLATFORM_LEGAL_LAST_UPDATED = "October 31, 2026";
 
 type Prose = (org: LegalOrgContext) => string[];
 
@@ -242,7 +242,7 @@ const PRIVACY: DocumentProse = {
           "**Vercel** — hosts this website and provides the aggregate traffic counts we use to see which pages get visited.",
           // The `form_analytics` module (#1480); see "cookies-and-analytics".
           org.surfaces.formAnalytics &&
-            "**PostHog** — counts page views and how far people get through our forms, in aggregate. It receives no names, contact details or form answers.",
+            "**PostHog** — counts page views, how far people get through our forms and a few clicks, such as a donate button, in aggregate. It receives no names, contact details or form answers.",
           "**Resend** — delivers the email this site sends, such as a confirmation or a reply to something you submitted.",
           // Unconditional, unlike Google below: errors happen on every page of
           // every deployment, and there is no per-tenant switch to read. The
@@ -266,9 +266,10 @@ const PRIVACY: DocumentProse = {
       // Keep in step with the PostHog options in
       // src/components/analytics/form-analytics.tsx (#1480): cookieless, no
       // person profiles, nothing captured but page views and named events
-      // whose properties are allowlisted in src/lib/analytics.
+      // whose properties are allowlisted in src/lib/analytics. The second
+      // sentence is the #1714 signals; keep it in step with `SiteEvents`.
       surfaces.formAnalytics
-        ? "We use Vercel Web Analytics to count page views, and PostHog to count how many people start and finish our forms, such as event registration, so we can see where a form is hard to finish. Both report in aggregate, set no cookies, store nothing on your device and don't follow you across other websites. Neither receives your name, your contact details or anything you type into a form. We don't run Google Analytics or any advertising analytics on this site."
+        ? "We use Vercel Web Analytics to count page views, and PostHog to count how many people start and finish our forms, such as event registration, so we can see where a form is hard to finish. PostHog also counts a few clicks and dead ends: a press of a donate button, a link followed to another website (which website, not which page), a page that could not be found (only the first part of its address) and which filter was used in a catalog (not what was picked). Both report in aggregate, set no cookies, store nothing on your device and don't follow you across other websites. Neither receives your name, your contact details or anything you type into a form. We don't run Google Analytics or any advertising analytics on this site."
         : "We use Vercel Web Analytics to count page views. It reports visits in aggregate, sets no cookies and stores nothing on your device, and doesn't follow you across other websites. We don't run Google Analytics or any advertising analytics on this site.",
     ],
     "other-sites": () => [

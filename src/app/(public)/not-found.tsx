@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { PageShell } from "@/components/page-shell";
 import { Button } from "@/components/ui/button";
+import { NotFoundEvent } from "@/components/analytics/not-found-event";
 
 export default function PublicNotFound() {
   return (
     <PageShell>
+      <NotFoundEvent />
       <div className="w-fit">
         <div className="rainbow-accent w-full" />
         <h1 className="brand-display mt-4 text-4xl font-semibold tracking-brand sm:text-5xl">
