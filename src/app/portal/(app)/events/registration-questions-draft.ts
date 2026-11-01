@@ -3,6 +3,8 @@ import {
   MAX_QUESTIONS,
   QUESTION_COLUMN_LABEL_MAX_LENGTH,
   MAX_QUESTION_OPTIONS,
+  QUESTION_OPTION_HINT_MAX_LENGTH,
+  QUESTION_OPTION_KEY_PATTERN,
   isChoiceKind,
   toRegistrationQuestion,
   type QuestionCondition,
@@ -38,11 +40,14 @@ export type QuestionDraft = {
   /** As typed; blank is unbounded. */
   min: string;
   max: string;
+  /** Any of its clauses shows it (#1742); a clause may still be missing options. */
   showIf: QuestionCondition | null;
   sharesContact: boolean;
   /** A place question's settings (#1699), kept while the kind is another. */
   placeGranularity: PlaceGranularity;
   placeAllowOther: boolean;
+  /** A single choice's "Other" (#1742), kept while the kind is another. */
+  allowOther: boolean;
 };
 
 /** The one form field the questions travel in, as JSON. */
@@ -60,7 +65,13 @@ export function toEventRegistrationQuestion(
 }
 
 export function newOption(): QuestionOption {
-  return { id: crypto.randomUUID(), label: "" };
+  return {
+    id: crypto.randomUUID(),
+    label: "",
+    key: null,
+    hint: null,
+    archived: false,
+  };
 }
 
 /** A blank question; a choice starts with the two options it needs. */
@@ -79,6 +90,7 @@ export function newQuestionDraft(): QuestionDraft {
     sharesContact: false,
     placeGranularity: "locality",
     placeAllowOther: true,
+    allowOther: false,
   };
 }
 
@@ -92,18 +104,27 @@ export function questionDrafts(
     help: question.help ?? "",
     columnLabel: question.column_label ?? "",
     required: question.required,
-    options: question.options.map((option) => ({ ...option })),
+    options: question.options.map((option) => ({
+      id: option.id,
+      label: option.label,
+      key: option.key ?? null,
+      hint: option.hint ?? null,
+      archived: option.archived === true,
+    })),
     min: question.min_value === null ? "" : String(question.min_value),
     max: question.max_value === null ? "" : String(question.max_value),
     showIf: question.show_if
       ? {
-          question_id: question.show_if.question_id,
-          option_ids: [...question.show_if.option_ids],
+          any: question.show_if.any.map((clause) => ({
+            question_id: clause.question_id,
+            option_ids: [...clause.option_ids],
+          })),
         }
       : null,
     sharesContact: question.shares_contact,
     placeGranularity: question.place?.granularity ?? "locality",
     placeAllowOther: question.place?.allow_other ?? true,
+    allowOther: question.allow_other === true,
   }));
 }
 
@@ -128,6 +149,9 @@ export function questionsPayload(drafts: readonly QuestionDraft[]) {
       ? draft.options.map((option) => ({
           id: option.id,
           label: option.label.trim(),
+          key: option.key?.trim() || null,
+          hint: option.hint?.trim() || null,
+          archived: option.archived === true,
         }))
       : [],
     min_value: draft.kind === "number" ? bound(draft.min) : null,
@@ -136,6 +160,7 @@ export function questionsPayload(drafts: readonly QuestionDraft[]) {
     shares_contact: draft.kind === "consent" && draft.sharesContact,
     place_granularity: draft.kind === "place" ? draft.placeGranularity : null,
     place_allow_other: draft.kind !== "place" || draft.placeAllowOther,
+    allow_other: draft.kind === "single_choice" && draft.allowOther,
   }));
 }
 
@@ -154,29 +179,31 @@ export function hasDependents(
   drafts: readonly QuestionDraft[],
   id: string,
 ): boolean {
-  return drafts.some((draft) => draft.showIf?.question_id === id);
+  return drafts.some((draft) =>
+    draft.showIf?.any.some((clause) => clause.question_id === id),
+  );
 }
 
 /**
- * The questions the one at `index` may be conditional on: earlier,
- * single-choice and always shown, one level only. None for a question
- * something else already depends on, since that would make two levels.
+ * The questions the one at `index` may be conditional on: any earlier
+ * single choice (#1742), conditional or not. Only earlier ones, so a cycle
+ * cannot be made.
  */
 export function conditionParents(
   drafts: readonly QuestionDraft[],
   index: number,
 ): QuestionDraft[] {
-  if (hasDependents(drafts, drafts[index].id)) return [];
   return drafts
     .slice(0, index)
-    .filter((draft) => draft.kind === "single_choice" && draft.showIf === null);
+    .filter((draft) => draft.kind === "single_choice");
 }
 
 /**
- * Drops what an edit made impossible: a condition on a question that was
- * removed, moved below, stopped being a single choice or became conditional
- * itself, and option ids that are no longer among its options. A condition
- * that loses every option stays, for the editor to ask for one.
+ * Drops what an edit made impossible: a clause naming a question that was
+ * removed, moved below or stopped being a single choice, and option ids that
+ * are no longer among its options. A condition left with no clause is
+ * dropped; a clause that loses every option stays, for the editor to ask for
+ * one.
  */
 export function normalizeConditions(
   drafts: readonly QuestionDraft[],
@@ -188,23 +215,28 @@ export function normalizeConditions(
       next.push(draft);
       continue;
     }
-    const parent = next.find(
-      (earlier) =>
-        earlier.id === condition.question_id &&
-        earlier.kind === "single_choice" &&
-        earlier.showIf === null,
-    );
-    if (!parent) {
-      next.push({ ...draft, showIf: null });
-      continue;
-    }
-    const optionIds = condition.option_ids.filter((id) =>
-      parent.options.some((option) => option.id === id),
-    );
+    const clauses = condition.any.flatMap((clause) => {
+      const parent = next.find(
+        (earlier) =>
+          earlier.id === clause.question_id && earlier.kind === "single_choice",
+      );
+      if (!parent) return [];
+      const optionIds = clause.option_ids.filter((id) =>
+        parent.options.some((option) => option.id === id),
+      );
+      return [
+        optionIds.length === clause.option_ids.length
+          ? clause
+          : { ...clause, option_ids: optionIds },
+      ];
+    });
+    const unchanged =
+      clauses.length === condition.any.length &&
+      clauses.every((clause, i) => clause === condition.any[i]);
     next.push(
-      optionIds.length === condition.option_ids.length
+      unchanged
         ? draft
-        : { ...draft, showIf: { ...condition, option_ids: optionIds } },
+        : { ...draft, showIf: clauses.length > 0 ? { any: clauses } : null },
     );
   }
   return next;
@@ -245,6 +277,26 @@ export function questionsDraftError(
       if (new Set(labels).size !== labels.length) {
         return `The options of “${name}” need different labels.`;
       }
+      if (draft.options.filter((option) => !option.archived).length < 2) {
+        return `“${name}” needs at least 2 options that are not archived.`;
+      }
+      const keys = draft.options.flatMap((option) =>
+        option.key?.trim() ? [option.key.trim()] : [],
+      );
+      if (keys.some((key) => !QUESTION_OPTION_KEY_PATTERN.test(key))) {
+        return `Option codes of “${name}” are lower-case letters, digits and underscores, starting with a letter.`;
+      }
+      if (new Set(keys).size !== keys.length) {
+        return `The options of “${name}” need different codes.`;
+      }
+      if (
+        draft.options.some(
+          (option) =>
+            (option.hint?.trim().length ?? 0) > QUESTION_OPTION_HINT_MAX_LENGTH,
+        )
+      ) {
+        return `An option hint of “${name}” can be at most ${QUESTION_OPTION_HINT_MAX_LENGTH} characters.`;
+      }
     }
     if (draft.kind === "number") {
       const min = bound(draft.min);
@@ -259,7 +311,7 @@ export function questionsDraftError(
         return `The minimum of “${name}” is above its maximum.`;
       }
     }
-    if (draft.showIf && draft.showIf.option_ids.length === 0) {
+    if (draft.showIf?.any.some((clause) => clause.option_ids.length === 0)) {
       return `Pick at least one answer that shows “${name}”.`;
     }
   }
@@ -289,16 +341,26 @@ export function copyQuestions(
       ...option,
       id: remap(option.id),
     })),
-    showIf:
-      draft.showIf && ids.has(draft.showIf.question_id)
-        ? {
-            question_id: remap(draft.showIf.question_id),
-            option_ids: draft.showIf.option_ids
-              .filter((id) => ids.has(id))
-              .map(remap),
-          }
-        : null,
+    showIf: copyCondition(draft.showIf, ids),
   }));
+}
+
+function copyCondition(
+  condition: QuestionCondition | null,
+  ids: ReadonlyMap<string, string>,
+): QuestionCondition | null {
+  const clauses = (condition?.any ?? []).flatMap((clause) => {
+    const questionId = ids.get(clause.question_id);
+    return questionId
+      ? [
+          {
+            question_id: questionId,
+            option_ids: clause.option_ids.flatMap((id) => ids.get(id) ?? []),
+          },
+        ]
+      : [];
+  });
+  return clauses.length > 0 ? { any: clauses } : null;
 }
 
 /**

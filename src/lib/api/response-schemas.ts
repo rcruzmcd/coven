@@ -210,21 +210,45 @@ const registrationQuestionSchema = z
     prompt: z.string(),
     help: z.union([z.string(), z.null()]),
     required: z.boolean(),
-    options: z.array(z.object({ id: z.string(), label: z.string() })),
+    options: z.array(
+      z.object({
+        id: z.string(),
+        label: z.string(),
+        key: z.union([z.string(), z.null()]).optional().meta({
+          description:
+            "A stable code for the option, unique within the question (#1742).",
+        }),
+        hint: z.union([z.string(), z.null()]).optional().meta({
+          description: "A short descriptor shown under the label.",
+        }),
+        archived: z.boolean().optional().meta({
+          description:
+            "Kept for answers that chose it; not offered, and refused in a new answer.",
+        }),
+      }),
+    ),
     min_value: z.union([z.int(), z.null()]),
     max_value: z.union([z.int(), z.null()]),
     show_if: z
       .union([
         z.object({
-          question_id: z.string(),
-          option_ids: z.array(z.string()),
+          any: z.array(
+            z.object({
+              question_id: z.string(),
+              option_ids: z.array(z.string()),
+            }),
+          ),
         }),
         z.null(),
       ])
       .meta({
         description:
-          "Asked only when the named earlier single_choice question is answered with one of these option ids.",
+          "Asked only when any clause holds: its earlier single_choice question was itself asked and answered with one of its option ids (#1742).",
       }),
+    allow_other: z.boolean().optional().meta({
+      description:
+        "For a single_choice question (#1742): whether {other: text} is accepted besides an option id.",
+    }),
     place: z
       .union([
         z.object({

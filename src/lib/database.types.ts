@@ -3817,6 +3817,7 @@ export type Database = {
       };
       event_registration_questions: {
         Row: {
+          allow_other: boolean;
           archived_at: string | null;
           column_label: string | null;
           created_at: string;
@@ -3838,6 +3839,7 @@ export type Database = {
           updated_at: string;
         };
         Insert: {
+          allow_other?: boolean;
           archived_at?: string | null;
           column_label?: string | null;
           created_at?: string;
@@ -3859,6 +3861,7 @@ export type Database = {
           updated_at?: string;
         };
         Update: {
+          allow_other?: boolean;
           archived_at?: string | null;
           column_label?: string | null;
           created_at?: string;
@@ -10734,6 +10737,7 @@ export type Database = {
       };
       public_event_registration_questions: {
         Row: {
+          allow_other: boolean | null;
           event_id: string | null;
           help: string | null;
           id: string | null;
@@ -12547,6 +12551,7 @@ export type Database = {
       my_registration_questions: {
         Args: { p_registration_id: string };
         Returns: {
+          allow_other: boolean;
           answer_text: string;
           editable: boolean;
           help: string;
@@ -12856,6 +12861,13 @@ export type Database = {
         Returns: number;
       };
       purge_rate_limit_hits: { Args: { p_as_of?: string }; Returns: number };
+      question_condition_clauses: {
+        Args: { p_show_if: Json };
+        Returns: {
+          option_ids: Json;
+          question_id: string;
+        }[];
+      };
       record_distribution_draft: {
         Args: {
           p_event_id?: string;

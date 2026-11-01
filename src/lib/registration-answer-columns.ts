@@ -14,7 +14,9 @@ import {
  * its answer is folded into its parent's cell -- "Can drive · 2 seats" -- with
  * the follow-up's label as the unit. The exception is a consent follow-up,
  * whose "Yes" or "No" means nothing after another answer, so it keeps a
- * column. Full prompts and answers stay in the detail sheet and the CSV.
+ * column, and so does a follow-up shown on answers to more than one question
+ * (#1742), or on a question that is itself folded into another's cell. Full
+ * prompts and answers stay in the detail sheet and the CSV.
  */
 
 export type AnswerColumn = {
@@ -36,32 +38,35 @@ export const PLACE_OTHER_FILTER = "other";
 /** How many answer columns a list shows before anybody picks. */
 export const DEFAULT_ANSWER_COLUMNS = 3;
 
-function foldsIntoParent(
+/** The question whose cell this one folds into, or null for its own column. */
+function foldParent(
   question: RegistrationQuestion,
-  ids: ReadonlySet<string>,
-): boolean {
-  return (
-    question.show_if !== null &&
-    question.kind !== "consent" &&
-    ids.has(question.show_if.question_id)
-  );
+  columns: ReadonlyMap<string, AnswerColumn>,
+): string | null {
+  const clauses = question.show_if?.any ?? [];
+  if (question.kind === "consent" || clauses.length !== 1) return null;
+  return columns.has(clauses[0].question_id) ? clauses[0].question_id : null;
 }
 
 /** The current questions as list columns, in the event's order. */
 export function answerColumns(
   questions: readonly RegistrationQuestion[],
 ): AnswerColumn[] {
-  const ids = new Set(questions.map((question) => question.id));
-  return questions
-    .filter((question) => !foldsIntoParent(question, ids))
-    .map((question) => ({
-      question,
-      followUps: questions.filter(
-        (other) =>
-          foldsIntoParent(other, ids) &&
-          other.show_if?.question_id === question.id,
-      ),
-    }));
+  // In order, so a parent is known to have a column before its follow-ups
+  // ask.
+  const columns: AnswerColumn[] = [];
+  const byId = new Map<string, AnswerColumn>();
+  for (const question of questions) {
+    const parent = foldParent(question, byId);
+    if (parent) {
+      byId.get(parent)?.followUps.push(question);
+      continue;
+    }
+    const column: AnswerColumn = { question, followUps: [] };
+    columns.push(column);
+    byId.set(question.id, column);
+  }
+  return columns;
 }
 
 /**

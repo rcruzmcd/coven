@@ -17,8 +17,8 @@ import {
   answersError,
   answersToDraft,
   draftToAnswers,
-  isQuestionVisible,
   sortAnswerRows,
+  visibleQuestions,
   type AnswerDraft,
   type RegistrationQuestion,
 } from "@/lib/registration-questions";
@@ -74,14 +74,15 @@ export function RegistrantAnswers({
   );
   // #1512. The same grouping as the list's columns: a follow-up reads
   // indented under the answer it depends on.
+  const visible = new Set(
+    visibleQuestions(questions, stored).map((question) => question.id),
+  );
   const shown = answerColumns(questions).flatMap(({ question, followUps }) =>
-    isQuestionVisible(question, stored)
+    visible.has(question.id)
       ? [
           {
             question,
-            followUps: followUps.filter((followUp) =>
-              isQuestionVisible(followUp, stored),
-            ),
+            followUps: followUps.filter((followUp) => visible.has(followUp.id)),
           },
         ]
       : [],

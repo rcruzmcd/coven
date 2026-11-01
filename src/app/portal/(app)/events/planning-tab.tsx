@@ -744,16 +744,20 @@ function QuestionsSummary({ questions }: { questions: QuestionDraft[] }) {
   return (
     <>
       {questions.map((question) => {
-        const parent = question.showIf
-          ? questions.find((other) => other.id === question.showIf?.question_id)
-          : undefined;
+        // #1742. Any of a few earlier questions.
+        const parents = (question.showIf?.any ?? []).flatMap(
+          (clause) =>
+            questions.find((other) => other.id === clause.question_id) ?? [],
+        );
         const details = [
           QUESTION_KIND_LABELS[question.kind],
           question.kind !== "consent" && question.required ? "required" : null,
           question.kind === "consent" && question.sharesContact
             ? "shares contact details in the answers export"
             : null,
-          parent ? `only after “${parent.prompt}”` : null,
+          parents.length > 0
+            ? `only after ${parents.map((parent) => `“${parent.prompt}”`).join(" or ")}`
+            : null,
         ].filter(Boolean);
         return (
           <span key={question.id} className="block">

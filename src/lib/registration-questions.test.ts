@@ -8,9 +8,12 @@ import {
   emptyAnswerDraft,
   formatAnswerRows,
   missingRequiredQuestions,
+  offeredOptions,
   parseAnswersField,
   setAnswersField,
+  toCondition,
   toRegistrationQuestion,
+  visibleQuestions,
   type RegistrationQuestion,
 } from "./registration-questions";
 
@@ -49,7 +52,7 @@ const seats = question({
   required: true,
   min_value: 1,
   max_value: 7,
-  show_if: { question_id: "getting", option_ids: ["drive"] },
+  show_if: { any: [{ question_id: "getting", option_ids: ["drive"] }] },
 });
 const leavingFrom = question({ id: "from", prompt: "Leaving from" });
 const share = question({
@@ -210,7 +213,7 @@ test("toRegistrationQuestion skips a kind it does not know", () => {
       options: [{ id: "a", label: "A" }, { bad: true }],
       show_if: null,
     })?.options,
-  ).toEqual([{ id: "a", label: "A" }]);
+  ).toEqual([{ id: "a", label: "A", key: null, hint: null, archived: false }]);
 });
 
 // #1699
@@ -291,5 +294,226 @@ describe("place questions", () => {
     expect(answers).toEqual({ from: brooklyn });
     expect(answersToDraft([from], answers)).toEqual({ from: brooklyn });
     expect(emptyAnswerDraft([from])).toEqual({ from: "" });
+  });
+});
+
+// #1742. The rider profile's park question: shown when either level, each
+// conditional on the discipline, is past first time.
+describe("any-of conditions over conditional questions (#1742)", () => {
+  const discipline = question({
+    id: "discipline",
+    kind: "single_choice",
+    options: [
+      { id: "ski", label: "Ski" },
+      { id: "board", label: "Snowboard" },
+      { id: "both", label: "Both" },
+    ],
+  });
+  const levels = [
+    { id: "first", label: "First time" },
+    { id: "beginner", label: "Beginner" },
+    { id: "advanced", label: "Advanced" },
+  ];
+  const skiLevel = question({
+    id: "ski_level",
+    kind: "single_choice",
+    options: levels,
+    show_if: {
+      any: [{ question_id: "discipline", option_ids: ["ski", "both"] }],
+    },
+  });
+  const boardLevel = question({
+    id: "board_level",
+    kind: "single_choice",
+    options: levels,
+    show_if: {
+      any: [{ question_id: "discipline", option_ids: ["board", "both"] }],
+    },
+  });
+  const park = question({
+    id: "park",
+    kind: "short_text",
+    required: true,
+    show_if: {
+      any: [
+        { question_id: "ski_level", option_ids: ["beginner", "advanced"] },
+        { question_id: "board_level", option_ids: ["beginner", "advanced"] },
+      ],
+    },
+  });
+  const PROFILE = [discipline, skiLevel, boardLevel, park];
+  const shown = (answers: Record<string, string>) =>
+    visibleQuestions(PROFILE, answers).map(({ id }) => id);
+
+  test("either clause shows it", () => {
+    expect(
+      shown({
+        discipline: "both",
+        ski_level: "first",
+        board_level: "advanced",
+      }),
+    ).toContain("park");
+    expect(shown({ discipline: "ski", ski_level: "beginner" })).toContain(
+      "park",
+    );
+    expect(
+      shown({ discipline: "both", ski_level: "first", board_level: "first" }),
+    ).not.toContain("park");
+  });
+
+  test("a hidden question counts as unanswered, however stale its draft", () => {
+    // Snowboard only: the ski level left in the draft no longer counts.
+    expect(
+      shown({
+        discipline: "board",
+        ski_level: "advanced",
+        board_level: "first",
+      }),
+    ).toEqual(["discipline", "board_level"]);
+    expect(
+      draftToAnswers(PROFILE, {
+        discipline: "board",
+        ski_level: "advanced",
+        board_level: "first",
+        park: "Yes",
+      }),
+    ).toEqual({ discipline: "board", board_level: "first" });
+  });
+
+  test("a required question behind a hidden chain is not required", () => {
+    expect(
+      answersError(PROFILE, { discipline: "ski", ski_level: "first" }),
+    ).toBeNull();
+    expect(
+      answersError(PROFILE, { discipline: "ski", ski_level: "advanced" })
+        ?.questionId,
+    ).toBe("park");
+  });
+
+  test("a bare condition from before #1742 reads as a one-item any", () => {
+    expect(toCondition({ question_id: "a", option_ids: ["x"] })).toEqual({
+      any: [{ question_id: "a", option_ids: ["x"] }],
+    });
+    expect(toCondition({ any: [] })).toBeNull();
+    expect(
+      toCondition({
+        any: [{ question_id: "a" }, { question_id: "b", option_ids: ["y", 3] }],
+      }),
+    ).toEqual({
+      any: [{ question_id: "b", option_ids: ["y"] }],
+    });
+  });
+});
+
+describe("option keys, hints and archiving (#1742)", () => {
+  const level = toRegistrationQuestion({
+    id: "level",
+    kind: "single_choice",
+    prompt: "Level",
+    options: [
+      { id: "a", label: "First time", key: "first_time" },
+      { id: "b", label: "Beginner", hint: "Linking turns on greens" },
+      { id: "c", label: "Old level", archived: true },
+    ],
+  })!;
+
+  test("reads key, hint and archived", () => {
+    expect(level.options).toEqual([
+      {
+        id: "a",
+        label: "First time",
+        key: "first_time",
+        hint: null,
+        archived: false,
+      },
+      {
+        id: "b",
+        label: "Beginner",
+        key: null,
+        hint: "Linking turns on greens",
+        archived: false,
+      },
+      { id: "c", label: "Old level", key: null, hint: null, archived: true },
+    ]);
+  });
+
+  test("an archived option is offered only to an answer that has it", () => {
+    expect(offeredOptions(level).map(({ id }) => id)).toEqual(["a", "b"]);
+    expect(offeredOptions(level, ["c"]).map(({ id }) => id)).toEqual([
+      "a",
+      "b",
+      "c",
+    ]);
+  });
+});
+
+describe("a single choice's Other (#1742)", () => {
+  const mountain = question({
+    id: "mountain",
+    kind: "single_choice",
+    prompt: "Preferred mountain",
+    options: [
+      { id: "hunter", label: "Hunter" },
+      { id: "belleayre", label: "Belleayre" },
+    ],
+    allow_other: true,
+  });
+
+  test("is read only for a single choice that allows it", () => {
+    expect(
+      toRegistrationQuestion({
+        id: "m",
+        kind: "single_choice",
+        prompt: "M",
+        allow_other: true,
+      })?.allow_other,
+    ).toBe(true);
+    expect(
+      toRegistrationQuestion({
+        id: "m",
+        kind: "multi_choice",
+        prompt: "M",
+        allow_other: true,
+      })?.allow_other,
+    ).toBe(false);
+  });
+
+  test("travels as {other}, trimmed, and reads as its text", () => {
+    const answers = draftToAnswers([mountain], {
+      mountain: { other: "  Jay Peak " },
+    });
+    expect(answers).toEqual({ mountain: { other: "Jay Peak" } });
+    expect(answerSummaryRows([mountain], answers)).toEqual([
+      { label: "Preferred mountain", value: "Jay Peak" },
+    ]);
+    expect(answersToDraft([mountain], answers)).toEqual({
+      mountain: { other: "Jay Peak" },
+    });
+    expect(draftToAnswers([mountain], { mountain: { other: "  " } })).toEqual(
+      {},
+    );
+  });
+
+  test("is refused where not allowed, or too long", () => {
+    expect(
+      answersError([{ ...mountain, allow_other: false }], {
+        mountain: { other: "Jay" },
+      })?.message,
+    ).toContain("Please pick");
+    expect(
+      answersError([mountain], { mountain: { other: "x".repeat(201) } })
+        ?.message,
+    ).toContain("at most 200");
+    expect(answersError([mountain], { mountain: { other: "Jay" } })).toBeNull();
+  });
+
+  test("does not meet a condition on the question", () => {
+    const follow = question({
+      id: "follow",
+      show_if: { any: [{ question_id: "mountain", option_ids: ["hunter"] }] },
+    });
+    expect(
+      visibleQuestions([mountain, follow], { mountain: { other: "hunter" } }),
+    ).toEqual([mountain]);
   });
 });
