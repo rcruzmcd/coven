@@ -527,20 +527,7 @@ export const PERMISSION_DOCS: Record<string, PermissionDoc> = {
     view: "Open the Calendar and read its items, categories and the events shown beside them.",
     manage:
       "Create and edit calendar items, run recurrence and the importer, manage categories, and work content opportunities.",
-    excludes: [
-      {
-        key: "content_calendar_reports",
-        covers: "the annual planning review report",
-      },
-      { key: "events", covers: "the events the calendar displays" },
-    ],
-  },
-  content_calendar_reports: {
-    view: "Run the annual planning review: the year-scoped rollup of Tier 1 decision coverage, on-time completion, overdue work and editorial-guardrail recordkeeping.",
-    manage: null,
-    notes: [
-      "Enforced entirely in the database, inside the annual-review function -- there is no route guard to find in the app code. A reporting resource, so Manage is the same as View.",
-    ],
+    excludes: [{ key: "events", covers: "the events the calendar displays" }],
   },
 
   // -------------------------------------------------------- Communications

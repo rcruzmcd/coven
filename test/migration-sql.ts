@@ -115,9 +115,10 @@ export type SeededResource = {
 };
 
 /**
- * Every row any migration has ever inserted into `public.resources`, in the
- * order the migrations run. First insert wins, which is what a fresh database
- * ends up with for `key`; later migrations amend other columns.
+ * Every row the migrations leave in `public.resources`, in the order they
+ * run: inserted by one, less any a later one deletes. First insert wins, which
+ * is what a fresh database ends up with for `key`; later migrations amend
+ * other columns.
  */
 export function seededResources(): Map<string, SeededResource> {
   const resources = new Map<string, SeededResource>();
@@ -148,6 +149,13 @@ export function seededResources(): Map<string, SeededResource> {
           migration: name,
         });
       }
+    }
+    // A resource a later migration retires is no longer in the catalog
+    // (20260918000000's content_calendar_reports, #1746's rider_profiles).
+    for (const match of sql.matchAll(
+      /delete from public\.resources\s+where key = '([a-z0-9_]+)'/g,
+    )) {
+      resources.delete(match[1]);
     }
   }
 
