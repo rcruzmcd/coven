@@ -145,6 +145,22 @@ export function OutcomesSection({
             value={formatNumber(derived.firstTimeOnSnow)}
           />
         )}
+        {/* The tenant's profile metric rows (#1745), by label. Qualified only
+            while fewer checked-in attendees answered than checked in. */}
+        {(derived.answerMetrics ?? []).map((metric) => (
+          <Figure
+            key={metric.id}
+            eventId={eventId}
+            card="registrants"
+            label={metric.label}
+            value={formatNumber(metric.count)}
+            caption={
+              metric.answered < derived.checkedIn
+                ? `Of ${formatNumber(metric.answered)} who answered`
+                : undefined
+            }
+          />
+        ))}
       </Section>
 
       {/* #1701. Only on an event whose place questions someone answered. The

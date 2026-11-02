@@ -10,6 +10,7 @@ import {
   type PlaceCountRow,
   type PlaceReach,
 } from "@/lib/places/place-breakdown";
+import type { PersonAnswerMetricCount } from "@/lib/person-answer-metrics";
 
 export type DistributedMovementRow = {
   quantity: number | string;
@@ -534,6 +535,11 @@ export type EventImpactDerivedInput = {
    * when they could not be read.
    */
   placeAnswers?: PlaceCountRow[] | null;
+  /**
+   * The tenant's profile metric rows, counted by the RPC (#1745). null when
+   * the caller lacks event_impact:view.
+   */
+  answerMetrics?: PersonAnswerMetricCount[] | null;
 };
 
 export type EventImpactDerived = {
@@ -562,6 +568,8 @@ export type EventImpactDerived = {
   discountValueOffered: DiscountValueOffered | null;
   /** Distinct places reached (#1701); null where no place answer was read. */
   placeReach: PlaceReach | null;
+  /** One figure per profile metric row, in order (#1745); null when not visible. */
+  answerMetrics: PersonAnswerMetricCount[] | null;
 };
 
 export function computeEventImpactDerived(
@@ -623,6 +631,7 @@ export function computeEventImpactDerived(
           )
         : null,
     placeReach: input.placeAnswers ? placeReach(input.placeAnswers) : null,
+    answerMetrics: input.answerMetrics ?? null,
   };
 }
 
@@ -655,6 +664,8 @@ export type ProgramImpactRollup = {
   repeatParticipants: number;
   /** Distinct places reached (#1701); null where no place answer was read. */
   placeReach: PlaceReach | null;
+  /** One figure per profile metric row, in order (#1745). */
+  answerMetrics: PersonAnswerMetricCount[];
 };
 
 export type ProgramImpactRollupInput = {
@@ -675,6 +686,8 @@ export type ProgramImpactRollupInput = {
   optionCounts: PricedOptionCountRow[];
   /** From get_program_place_reach() (#1701); null when it could not be read. */
   placeAnswers?: PlaceCountRow[] | null;
+  /** The tenant's profile metric rows, counted by the RPC (#1745). */
+  answerMetrics?: PersonAnswerMetricCount[];
 };
 
 export function computeProgramImpactRollup(
@@ -721,5 +734,6 @@ export function computeProgramImpactRollup(
     ),
     repeatParticipants: countRepeatParticipants(input.registrations),
     placeReach: input.placeAnswers ? placeReach(input.placeAnswers) : null,
+    answerMetrics: input.answerMetrics ?? [],
   };
 }

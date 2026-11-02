@@ -137,6 +137,7 @@ const derivedFigures: EventImpactDerived = {
   peopleServed: { distributed: 0, recipients: 0, value: 0 },
   discountValueOffered: null,
   placeReach: null,
+  answerMetrics: null,
 };
 
 // The detail sheet's messaging island imports its Server Actions, and through

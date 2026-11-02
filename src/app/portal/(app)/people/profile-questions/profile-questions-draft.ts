@@ -21,7 +21,7 @@ export type PersonQuestionDraft = QuestionDraft & {
   programIds: string[];
   askAfterRegistration: boolean;
   askOnMyDetails: boolean;
-  /** Kept as saved: nothing reads it until #1409's check-in snapshots. */
+  /** Copy the answer onto the registration at check-in (#1745). */
   snapshotAtCheckin: boolean;
 };
 
