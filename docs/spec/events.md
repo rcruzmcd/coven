@@ -344,7 +344,7 @@ Hard delete is unchanged: the `event_registrations delete` policy (`events: mana
 
 ### Rider profile (retired)
 
-The `rider_profile` add-on (#1408, #1415) -- four columns on `people`, three `*_at_event` snapshots on `event_registrations`, the mountain list, and its own module and resource -- moved onto profile questions in #1746: Chatter Snow's riding discipline, ski level, snowboard level and preferred mountain are four configured questions (keys `riding_discipline`, `ski_level`, `snowboard_level`, `preferred_mountain`), and its Beginner participants and First time on snow figures are two metric rows. See [people.md](people.md#profile-questions). The columns stay for one release, unread and unwritten, before a follow-up drops them.
+The `rider_profile` add-on (#1408, #1415) -- four columns on `people`, three `*_at_event` snapshots on `event_registrations`, the mountain list, and its own module and resource -- moved onto profile questions in #1746: Chatter Snow's riding discipline, ski level, snowboard level and preferred mountain are four configured questions (keys `riding_discipline`, `ski_level`, `snowboard_level`, `preferred_mountain`), and its Beginner participants and First time on snow figures are two metric rows. See [people.md](people.md#profile-questions). The columns stayed for one release, unread and unwritten, and were dropped in #1747.
 
 ### Sponsor and partner selection
 
