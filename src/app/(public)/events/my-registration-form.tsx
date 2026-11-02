@@ -64,15 +64,6 @@ import {
   contactSummaryRows,
   eventSummaryRows,
 } from "./registration-summary";
-import {
-  EMPTY_RIDING,
-  RidingFields,
-  ridingSummaryRows,
-  ridingValuesFromPerson,
-  setRidingFields,
-  type RidingValues,
-} from "./riding-fields";
-import type { PublicRiderProfile } from "@/lib/rider-profile";
 
 /**
  * Registering as yourself (#1165).
@@ -87,9 +78,9 @@ import type { PublicRiderProfile } from "@/lib/rider-profile";
  *
  * The rest is about this one attendance and travels on the registration alone:
  * a phone number corrected here reaches the organizer of this event and does
- * not silently rewrite the record. The one exception is the riding answers
- * (#1415), which describe the person rather than this attendance: they start
- * from the record and are written back to it.
+ * not silently rewrite the record. The one exception is the profile
+ * questions (#1744), which describe the person rather than this attendance:
+ * they start from the record and are written back to it.
  */
 export function MyEventRegistrationForm({
   eventId,
@@ -107,7 +98,6 @@ export function MyEventRegistrationForm({
   registrationQuestions = [],
   profileQuestions = [],
   profileAnswers: storedProfileAnswers = {},
-  riderProfile = null,
 }: {
   eventId: string;
   person: MyContactDetails;
@@ -182,11 +172,6 @@ export function MyEventRegistrationForm({
    */
   profileQuestions?: RegistrationQuestion[];
   profileAnswers?: RegistrationAnswers;
-  /**
-   * The riding questions on step 2 (#1415), as on the anonymous form. Null on
-   * a tenant without the rider_profile module.
-   */
-  riderProfile?: PublicRiderProfile | null;
 }) {
   const [phone, setPhone] = useState(person.phone ?? "");
   const [pronouns, setPronouns] = useState(person.pronouns ?? "");
@@ -210,13 +195,6 @@ export function MyEventRegistrationForm({
   // #1417. Unticked, always, as on the anonymous form.
   const [adultsOnlyConfirmed, setAdultsOnlyConfirmed] = useState(false);
   const [notes, setNotes] = useState("");
-  // #1415. Filled in from their own record -- this reader is signed in and
-  // linked to it, which is the only case where prefilling discloses nothing.
-  const [riding, setRiding] = useState<RidingValues>(() =>
-    riderProfile
-      ? ridingValuesFromPerson(person, riderProfile.mountains)
-      : EMPTY_RIDING,
-  );
   // #1407, starting empty as on the anonymous form.
   const [optionCounts, setOptionCountsState] = useState<OptionCounts>({});
   // #1501. Nothing chosen and every box unticked: a preselected answer is one
@@ -225,7 +203,8 @@ export function MyEventRegistrationForm({
     emptyAnswerDraft(registrationQuestions),
   );
   const answers = draftToAnswers(registrationQuestions, answerDraft);
-  // #1744. From their own record, as the riding answers are.
+  // #1744. From their own record -- this reader is signed in and linked to
+  // it, which is the only case where prefilling discloses nothing.
   const [profileDraft, setProfileDraft] = useState<AnswerDraft>(() =>
     answersToDraft(profileQuestions, storedProfileAnswers),
   );
@@ -285,7 +264,6 @@ export function MyEventRegistrationForm({
     if (adultsOnly && adultsOnlyConfirmed) {
       formData.set(ADULTS_ONLY_CONFIRMED_FIELD, "on");
     }
-    if (riderProfile) setRidingFields(formData, riding);
     if (registrationOptions) setOptionCounts(formData, optionCounts);
     if (registrationQuestions.length > 0) setAnswersField(formData, answers);
     if (profileQuestions.length > 0) {
@@ -368,7 +346,6 @@ export function MyEventRegistrationForm({
       error={error}
       isPending={isPending}
       onSubmit={handleSubmit}
-      eventLegend={riderProfile ? "Your riding" : undefined}
       about={
         <>
           <p className="app-muted text-sm leading-relaxed">
@@ -469,15 +446,6 @@ export function MyEventRegistrationForm({
               disabled={isPending}
             />
           )}
-          {riderProfile && (
-            <RidingFields
-              idPrefix="my-registration"
-              mountains={riderProfile.mountains}
-              values={riding}
-              onChange={setRiding}
-              disabled={isPending}
-            />
-          )}
 
           {registrationOptions && (
             <RegistrationOptionCountsField
@@ -535,7 +503,6 @@ export function MyEventRegistrationForm({
           partyIncludesMinor,
           minorContacts,
           adultsOnlyConfirmed: adultsOnly && adultsOnlyConfirmed,
-          riding: riderProfile ? ridingSummaryRows(riding) : [],
           registrationOptions,
           optionCounts,
           answers: [

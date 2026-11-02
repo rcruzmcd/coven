@@ -83,7 +83,6 @@ export function RegistrationSteps({
   isPending,
   onSubmit,
   submitVariant = "default",
-  eventLegend = LEGENDS.event,
 }: {
   /** The event being registered for, which every funnel event names (#1480). */
   eventId: string;
@@ -108,11 +107,6 @@ export function RegistrationSteps({
   /** Called once every field on every step is valid. */
   onSubmit: () => void;
   submitVariant?: "default" | "rainbow";
-  /**
-   * The second step's name. "Your riding" where the tenant asks the riding
-   * questions there (#1415), which then make up most of it.
-   */
-  eventLegend?: string;
 }) {
   const [step, setStep] = useState<RegistrationStep>("about");
   const close = useCloseRegistration();
@@ -124,7 +118,6 @@ export function RegistrationSteps({
   const startTracking = useFormStarted("event_registration", {
     event_id: eventId,
   });
-  const legends = { ...LEGENDS, event: eventLegend };
   const index = REGISTRATION_STEPS.indexOf(step);
   const isLast = index === REGISTRATION_STEPS.length - 1;
 
@@ -220,7 +213,7 @@ export function RegistrationSteps({
           Step {REGISTRATION_STEPS.indexOf(owner) + 1} of{" "}
           {REGISTRATION_STEPS.length}
         </span>
-        {legends[owner]}
+        {LEGENDS[owner]}
       </FieldLegend>
       {errorAlert(owner)}
       <FieldGroup>{children}</FieldGroup>
@@ -240,7 +233,7 @@ export function RegistrationSteps({
           id={`registration-summary-${owner}`}
           className="text-sm font-medium"
         >
-          {legends[owner]}
+          {LEGENDS[owner]}
         </h3>
         <Button
           type="button"
@@ -249,7 +242,7 @@ export function RegistrationSteps({
           className="h-auto p-0"
           onClick={() => goTo(owner)}
           disabled={isPending}
-          aria-label={`Edit ${legends[owner].toLowerCase()}`}
+          aria-label={`Edit ${LEGENDS[owner].toLowerCase()}`}
         >
           Edit
         </Button>

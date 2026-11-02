@@ -467,6 +467,7 @@ export const errorResponseSchema = z
         "rate_limited",
         "origin_not_allowed",
         "conflict",
+        "gone",
         "server_error",
       ]),
       message: z.string().meta({

@@ -10892,13 +10892,9 @@ export type Database = {
           notification_email_token_expires_at: string | null;
           person_type: string | null;
           phone: string | null;
-          preferred_mountain: string | null;
           preferred_name: string | null;
           primary_contact_person_id: string | null;
           pronouns: string | null;
-          riding_discipline: string | null;
-          ski_experience_level: string | null;
-          snowboard_experience_level: string | null;
           source_type: string | null;
           tenant_id: string | null;
           updated_at: string | null;
@@ -11377,12 +11373,6 @@ export type Database = {
         };
         Relationships: [];
       };
-      public_rider_profile_settings: {
-        Row: {
-          mountains: Json | null;
-        };
-        Relationships: [];
-      };
       public_site_content: {
         Row: {
           key: string | null;
@@ -11639,17 +11629,6 @@ export type Database = {
         };
         Returns: undefined;
       };
-      apply_registration_rider_profile: {
-        Args: {
-          p_person_id: string;
-          p_preferred_mountain: string;
-          p_riding_discipline: string;
-          p_ski_experience_level: string;
-          p_snowboard_experience_level: string;
-          p_tenant_id: string;
-        };
-        Returns: undefined;
-      };
       approve_event_expense: {
         Args: { p_id: string };
         Returns: {
@@ -11746,6 +11725,10 @@ export type Database = {
           key: string;
           name: string;
         }[];
+      };
+      backfill_person_answer_snapshots: {
+        Args: { p_registration_ids: string[] };
+        Returns: string[];
       };
       bulk_import_monetary_donations: {
         Args: { p_processor_label?: string; p_rows: Json };
@@ -11965,8 +11948,12 @@ export type Database = {
         Args: { p_prize_id: string };
         Returns: undefined;
       };
-      delete_rider_profile: {
-        Args: { p_person_id: string; p_reason?: string };
+      delete_person_answers: {
+        Args: {
+          p_person_id: string;
+          p_question_ids?: string[];
+          p_reason?: string;
+        };
         Returns: undefined;
       };
       delete_sponsor_inventory_items: {
@@ -12752,12 +12739,8 @@ export type Database = {
           name: string;
           person_id: string;
           phone: string;
-          preferred_mountain: string;
           preferred_name: string;
           pronouns: string;
-          riding_discipline: string;
-          ski_experience_level: string;
-          snowboard_experience_level: string;
         }[];
       };
       my_contact_person_id: { Args: never; Returns: string };
@@ -13218,6 +13201,11 @@ export type Database = {
         };
         Returns: string;
       };
+      prune_hidden_person_answers: {
+        Args: { p_person_id: string; p_tenant_id: string };
+        Returns: undefined;
+      };
+      public_asks_profile_questions: { Args: never; Returns: boolean };
       public_event_media: {
         Args: { p_event_id: string; p_tenant_id: string };
         Returns: {
@@ -13507,6 +13495,10 @@ export type Database = {
       };
       registration_requires_instagram: { Args: never; Returns: boolean };
       registration_service_area: { Args: never; Returns: Json };
+      registrations_needing_answer_backfill: {
+        Args: { p_person_ids: string[] };
+        Returns: string[];
+      };
       reject_event_expense: {
         Args: { p_id: string; p_reason: string };
         Returns: {
@@ -13934,7 +13926,6 @@ export type Database = {
         Args: { p_membership_id: string };
         Returns: undefined;
       };
-      rider_profile_mountains: { Args: never; Returns: Json };
       run_retention_purge: {
         Args: {
           p_as_of?: string;
@@ -14000,6 +13991,15 @@ export type Database = {
         Returns: undefined;
       };
       save_registrant_person_answers: {
+        Args: {
+          p_answers: Json;
+          p_honeypot?: string;
+          p_ip_address?: unknown;
+          p_registration_id: string;
+        };
+        Returns: undefined;
+      };
+      save_registrant_person_answers_by_key: {
         Args: {
           p_answers: Json;
           p_honeypot?: string;
@@ -14144,12 +14144,8 @@ export type Database = {
           p_address_region: string;
           p_instagram_handle: string;
           p_phone: string;
-          p_preferred_mountain: string;
           p_preferred_name: string;
           p_pronouns: string;
-          p_riding_discipline: string;
-          p_ski_experience_level: string;
-          p_snowboard_experience_level: string;
         };
         Returns: undefined;
       };
@@ -14241,16 +14237,6 @@ export type Database = {
         Args: { p_answers: Json; p_registration_id: string };
         Returns: undefined;
       };
-      set_registrant_rider_profile: {
-        Args: {
-          p_preferred_mountain?: string;
-          p_registration_id: string;
-          p_riding_discipline: string;
-          p_ski_experience_level?: string;
-          p_snowboard_experience_level?: string;
-        };
-        Returns: undefined;
-      };
       set_registration_answers: {
         Args: { p_answers: Json; p_registration_id: string };
         Returns: undefined;
@@ -14287,10 +14273,6 @@ export type Database = {
       };
       set_retention_policy_mode: {
         Args: { p_mode: string; p_policy_key: string };
-        Returns: undefined;
-      };
-      set_rider_profile_mountains: {
-        Args: { p_mountains: string[] };
         Returns: undefined;
       };
       show_limit: { Args: never; Returns: number };
@@ -14461,6 +14443,7 @@ export type Database = {
         Returns: boolean;
       };
       tenant_asks_photo_consent: { Args: never; Returns: boolean };
+      tenant_asks_profile_questions: { Args: never; Returns: boolean };
       tenant_data_snapshot: { Args: { p_tenant_id: string }; Returns: Json };
       tenant_event_media_retention_days: {
         Args: { p_tenant_id: string };

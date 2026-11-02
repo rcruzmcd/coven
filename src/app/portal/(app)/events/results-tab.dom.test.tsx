@@ -58,9 +58,6 @@ const derived: EventImpactDerived = {
   firstTimeParticipants: 12,
   recurringParticipants: 18,
   volunteerParticipants: 6,
-  beginnerParticipants: 9,
-  firstTimeOnSnow: 4,
-  profiledAttendees: 30,
   discountCodesAssigned: 5,
   rentalSubsidies: 3,
   assistance: {
@@ -402,8 +399,8 @@ describe("ResultsTab", () => {
       name: "Participation",
     });
     expect(participation).toHaveTextContent("42");
-    expect(participation).toHaveTextContent("First time on snow");
-    // #1745: a tenant's metric row, by label, qualified while coverage is short.
+    // #1745: a tenant's metric row, by label, qualified while coverage is
+    // short -- Chatter Snow's two snow figures since #1746.
     expect(participation).toHaveTextContent("Beginner participants");
     expect(participation).toHaveTextContent("Of 20 who answered");
     expect(
@@ -434,8 +431,6 @@ describe("ResultsTab", () => {
         event={makeEvent()}
         derived={{
           ...derived,
-          beginnerParticipants: null,
-          firstTimeOnSnow: null,
           discountCodesAssigned: null,
           rentalSubsidies: null,
           assistance: null,

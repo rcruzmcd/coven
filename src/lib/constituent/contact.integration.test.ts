@@ -28,7 +28,6 @@ import {
   anonClient,
   enableModule,
   seededTenantId,
-  setModule as setSharedModule,
   serviceRoleClient,
   signIn,
   uniqueEmail,
@@ -57,10 +56,6 @@ const EMPTY_ARGS = {
   p_phone: null,
   p_pronouns: null,
   p_instagram_handle: null,
-  p_preferred_mountain: null,
-  p_riding_discipline: null,
-  p_ski_experience_level: null,
-  p_snowboard_experience_level: null,
   p_address_line1: null,
   p_address_line2: null,
   p_address_city: null,
@@ -115,11 +110,6 @@ async function readPerson(personId: string) {
     .single();
   if (error) throw new Error(error.message);
   return data;
-}
-
-/** The rider module for the seeded tenant, handing back the undo. */
-function withRiderModule(enabled: boolean): Promise<() => Promise<void>> {
-  return setSharedModule(tenantId, "rider_profile", enabled);
 }
 
 async function setModule(key: string, enabled: boolean) {
@@ -252,51 +242,14 @@ describe("the allowlist", () => {
     expect(result.error).not.toBeNull();
   });
 
-  test("without the rider_profile module, the rider answers are left as stored (#1408)", async () => {
-    // The first test's record, which the tests after this one read on from;
-    // every call here sends it whole, so this leaves Alice exactly as found.
-    const record = {
+  // #1746. The rider columns left the allowlist: the function takes ten
+  // arguments, and an eleventh is no argument at all.
+  test("takes no rider answers any more", async () => {
+    const { error } = await alice.client.rpc("set_my_contact_details", {
       ...EMPTY_ARGS,
-      p_preferred_name: "Al",
-      p_phone: "555-0100",
-      p_pronouns: "they/them",
-      p_instagram_handle: "al.rides",
-      p_address_line1: "12 Ridge Road",
-      p_address_city: "Hunter",
-      p_address_region: "NY",
-      p_address_postal_code: "12442",
-      p_address_country: "USA",
-    };
-    const seed = await alice.client.rpc("set_my_contact_details", {
-      ...record,
       p_riding_discipline: "ski",
-      p_ski_experience_level: "beginner",
-      p_preferred_mountain: "Hunter",
-    });
-    expect(seed.error).toBeNull();
-
-    const restore = await withRiderModule(false);
-    try {
-      // What /my/details sends with the group hidden is the stored values,
-      // but a blank -- or a value the module would refuse -- must not land
-      // either: "off" is frozen, and the rest of the form still saves.
-      const { error } = await alice.client.rpc("set_my_contact_details", {
-        ...record,
-        p_riding_discipline: "unicycle",
-      });
-      expect(error).toBeNull();
-
-      const person = await readPerson(alice.personId);
-      expect(person.riding_discipline).toBe("ski");
-      expect(person.ski_experience_level).toBe("beginner");
-      expect(person.preferred_mountain).toBe("Hunter");
-    } finally {
-      await restore();
-    }
-
-    // Back to no rider answers, as the first test left it.
-    const reset = await alice.client.rpc("set_my_contact_details", record);
-    expect(reset.error).toBeNull();
+    } as never);
+    expect(error).not.toBeNull();
   });
 
   test("the area being off is refused at the database, not at the page", async () => {

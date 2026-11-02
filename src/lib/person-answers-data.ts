@@ -62,3 +62,42 @@ export async function loadPersonAnswers(
   }
   return byPerson;
 }
+
+/** One check-in snapshot as the portal reads it (#1745): the words only. */
+export type PersonAnswerSnapshotRow = {
+  question_id: string;
+  answer_text: string;
+};
+
+/** Each registration's check-in snapshots, by registration id (#1746). */
+export async function loadAnswerSnapshots(
+  supabase: SupabaseClient,
+  registrationIds: readonly string[],
+): Promise<Map<string, PersonAnswerSnapshotRow[]>> {
+  const byRegistration = new Map<string, PersonAnswerSnapshotRow[]>();
+  const ids = [...new Set(registrationIds)];
+  const chunks: string[][] = [];
+  for (let i = 0; i < ids.length; i += ID_CHUNK) {
+    chunks.push(ids.slice(i, i + ID_CHUNK));
+  }
+  const results = await Promise.all(
+    chunks.map((chunk) =>
+      supabase
+        .from("person_answer_snapshots")
+        .select("registration_id, question_id, answer_text")
+        .in("registration_id", chunk),
+    ),
+  );
+  for (const row of results.flatMap(
+    (result) => result.data ?? [],
+  ) as (PersonAnswerSnapshotRow & {
+    registration_id: string;
+  })[]) {
+    const { registration_id, ...snapshot } = row;
+    byRegistration.set(registration_id, [
+      ...(byRegistration.get(registration_id) ?? []),
+      snapshot,
+    ]);
+  }
+  return byRegistration;
+}

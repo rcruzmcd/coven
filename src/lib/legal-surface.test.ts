@@ -27,6 +27,7 @@ const NO_MODULES: Record<string, boolean> = {
   artwork: false,
   constituent_accounts: false,
   form_analytics: false,
+  person_questions: false,
 };
 
 describe("collectionSurface", () => {
@@ -38,6 +39,7 @@ describe("collectionSurface", () => {
       contact: true,
       volunteerApplications: true,
       eventRegistrations: true,
+      profileQuestions: true,
       gearRequests: true,
       artworkSubmissions: true,
       constituentAccounts: true,
@@ -96,6 +98,7 @@ describe("collectionSurface", () => {
       contact: false,
       volunteerApplications: false,
       eventRegistrations: false,
+      profileQuestions: false,
       gearRequests: false,
       artworkSubmissions: false,
       constituentAccounts: false,
@@ -137,12 +140,23 @@ describe("SURFACE_GATES", () => {
   });
 });
 
+describe("profileQuestions (#1746)", () => {
+  test("needs the module and a question actually asked", () => {
+    expect(collectionSurface({}, {}).profileQuestions).toBe(true);
+    expect(collectionSurface({}, {}, false).profileQuestions).toBe(false);
+    expect(
+      collectionSurface({}, { person_questions: false }, true).profileQuestions,
+    ).toBe(false);
+  });
+});
+
 describe("surfaceKeys", () => {
   test("lists what is on, sorted", () => {
     const surface: CollectionSurface = {
       contact: true,
       volunteerApplications: false,
       eventRegistrations: true,
+      profileQuestions: false,
       gearRequests: false,
       artworkSubmissions: false,
       constituentAccounts: false,
@@ -164,6 +178,7 @@ describe("surfaceKeys", () => {
         contact: false,
         volunteerApplications: false,
         eventRegistrations: false,
+        profileQuestions: false,
         gearRequests: false,
         artworkSubmissions: false,
         constituentAccounts: false,

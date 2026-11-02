@@ -44,7 +44,7 @@ function registrant(overrides: Partial<EventRegistrant>): EventRegistrant {
     group_chat_added_at: null,
     group_chat_added_by_name: null,
     minorContacts: null,
-    rider: null,
+    profileSummary: null,
     ...overrides,
   };
 }

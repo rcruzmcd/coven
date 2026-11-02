@@ -98,7 +98,7 @@ function registrant(
     group_chat_added_at: null,
     group_chat_added_by_name: null,
     minorContacts: null,
-    rider: null,
+    profileSummary: null,
     ...overrides,
   };
 }
@@ -130,7 +130,6 @@ function payload(
     registrationOptions: null,
     registrationQuestions: [],
     photoConsentInForce: false,
-    riderMountains: null,
     groupChat: null,
     ...overrides,
   };

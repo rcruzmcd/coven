@@ -11,6 +11,7 @@ import type { LegalOrgContext } from "@/lib/legal-defaults";
 import { collectionSurface } from "@/lib/legal-surface";
 import {
   getPageVisibility,
+  getPublicAsksProfileQuestions,
   getPublicTenantModules,
 } from "@/lib/page-visibility";
 import {
@@ -135,16 +136,17 @@ export async function legalOrg(
   supabase: SupabaseClient,
   site: PublicSite,
 ): Promise<LegalOrgContext> {
-  const [visibility, modules] = await Promise.all([
+  const [visibility, modules, asksProfileQuestions] = await Promise.all([
     getPageVisibility(supabase),
     getPublicTenantModules(supabase),
+    getPublicAsksProfileQuestions(supabase),
   ]);
   return {
     name: site.name ?? site.content.text("org.short_name"),
     emailGeneral: site.content.text("org.email_general"),
     emailPrivacy: site.content.text("org.email_privacy"),
     emailConduct: site.content.text("org.email_conduct"),
-    surfaces: collectionSurface(visibility, modules),
+    surfaces: collectionSurface(visibility, modules, asksProfileQuestions),
     // Already resolved for this host (#896): the site read it to name the nav
     // and the content slots, so the terms of use naming what this organization
     // gives away costs nothing extra (#1367).

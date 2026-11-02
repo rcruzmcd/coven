@@ -154,23 +154,6 @@ export const PERMISSION_DOCS: Record<string, PermissionDoc> = {
       },
     ],
   },
-  rider_profiles: {
-    view: "See how a person skis or snowboards, their experience level and home mountain, wherever the surrounding screen is already open to you: the Rides column and rider block on an event's registrants (which also need Events at Manage), the person record, and the Beginners and First time on snow figures in the Outcomes on an event's Results card and in the program impact report.",
-    manage:
-      "Edit those answers — at the door from an event's registrants, and on the person form — and edit the list of mountains the rider profile offers, from the Mountains button on the Events page.",
-    excludes: [
-      {
-        key: "events",
-        covers: "the registrants list the door dialog opens from",
-      },
-      { key: "people", covers: "the rest of a person's record" },
-    ],
-    notes: [
-      "Belongs to the Rider Profile module, which is off unless the platform turns it on for an organization. Without it this row grants nothing at any level, and the rider questions, columns and figures do not appear anywhere.",
-      "Seeded from each role's existing access so nothing changed when it arrived: Manage where the role managed Events or People, View where it could see Events, People or Impact tracking.",
-      "Deleting a rider profile on request is not gated on this: it stays with People or Events at Manage, so a deletion request can always be honoured.",
-    ],
-  },
   artwork_submissions: {
     view: "Open the Artwork section: the open calls for community artwork and the submissions that have come in.",
     manage:
@@ -393,9 +376,10 @@ export const PERMISSION_DOCS: Record<string, PermissionDoc> = {
     notes: [
       "One permission for every question; there is no per-question restriction yet.",
       "The figures defined from answers show on the Results card and the Program Impact Report under Event impact or Program reports alone: a count is not an answer.",
-      "In an event's registrant sheet, answers show only alongside Events at Manage, as the rider profile did; Events at View (a door shift reading a party size) does not see them.",
+      "In an event's registrants -- the Profile column, the registrant sheet and the answers export -- answers show only alongside Events at Manage; Events at View (a door shift reading a party size) does not see them.",
       "Belongs to the Profile questions module, which is on for every organization. An organization with no questions asks nobody anything.",
-      "Seeded from each role's Rider profiles access, which it will replace, so nobody's access changed when it arrived.",
+      "Seeded from each role's Rider profiles access, which it replaced (#1746), so nobody's access changed when it arrived.",
+      "Deleting a person's answers on request is not gated on this: it stays with People or Events at Manage, so a deletion request can always be honoured.",
       "A person answering on their own (after registering for an event, or on their details page) needs no permission: those paths check the registration or the signed-in account instead.",
     ],
   },
@@ -543,20 +527,7 @@ export const PERMISSION_DOCS: Record<string, PermissionDoc> = {
     view: "Open the Calendar and read its items, categories and the events shown beside them.",
     manage:
       "Create and edit calendar items, run recurrence and the importer, manage categories, and work content opportunities.",
-    excludes: [
-      {
-        key: "content_calendar_reports",
-        covers: "the annual planning review report",
-      },
-      { key: "events", covers: "the events the calendar displays" },
-    ],
-  },
-  content_calendar_reports: {
-    view: "Run the annual planning review: the year-scoped rollup of Tier 1 decision coverage, on-time completion, overdue work and editorial-guardrail recordkeeping.",
-    manage: null,
-    notes: [
-      "Enforced entirely in the database, inside the annual-review function -- there is no route guard to find in the app code. A reporting resource, so Manage is the same as View.",
-    ],
+    excludes: [{ key: "events", covers: "the events the calendar displays" }],
   },
 
   // -------------------------------------------------------- Communications

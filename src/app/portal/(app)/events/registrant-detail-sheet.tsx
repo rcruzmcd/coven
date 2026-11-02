@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef } from "react";
-import { ArrowLeft, Ban, Check, Snowflake, Undo2 } from "lucide-react";
+import { ArrowLeft, Ban, Check, Undo2 } from "lucide-react";
 import type { EventRegistrant } from "./registrants-actions";
 import { RegistrantMessageActions } from "./registrant-message-actions";
 import { RegistrantAnswers } from "./registrant-answers";
@@ -48,10 +48,6 @@ import { REGISTRANT_MESSAGE_ERRORS } from "./registrant-messaging";
 import { attendedBeforeLabel } from "@/lib/attended-before";
 import { formatOptionCounts } from "@/lib/registration-options";
 import { formatCodeWithPin } from "@/lib/discount-codes";
-import {
-  experienceLevelLabel,
-  ridingDisciplineLabel,
-} from "@/lib/rider-profile";
 import { formatDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -63,14 +59,11 @@ export const REGISTRANT_PARAM = "registrant";
 
 /**
  * The row actions, for the phone check-in sheet (#1558), whose rows carry
- * only the check-in button: the rider profile and cancelling a registration
- * live here instead, with Cancel at the bottom and well away from Check in.
+ * only the check-in button: cancelling a registration lives here instead, with Cancel at the bottom and well away from Check in.
  */
 export type RegistrantDoorActions = {
   pending: boolean;
   onToggleCheckIn: () => void;
-  /** Absent where the registration has no person record to hang one off. */
-  onRiderProfile?: () => void;
   /** Absent without `events: manage`, and once they are through the door. */
   onCancel?: () => void;
 };
@@ -79,16 +72,16 @@ export type RegistrantDoorActions = {
  * One registration, in full, and the correspondence about it (#1317).
  *
  * There was no registrant detail surface before this: the tab is a table whose
- * only per-row affordances are check-in and the rider profile dialog. A
+ * only per-row affordance was check-in. A
  * composer on its own would have reintroduced the problem it exists to fix --
  * a message sent with nowhere to see what was already sent is a message that
  * lives in somebody's sent items again -- so the history comes with it.
  *
  * Two audiences, deliberately. Door staff hold `events: view`, open this to
  * read a party size or a note, and see no messaging controls at all; the
- * organizer holds `events: manage` and sees the whole thing. The rider block
- * follows the same gate it already had -- `rider` comes back null from
- * listEventRegistrantsAction() for a viewer who is not cleared for it -- so
+ * organizer holds `events: manage` and sees the whole thing. The profile
+ * answers follow their own gate -- they come back absent from
+ * listEventRegistrantsAction() for a viewer who is not cleared for them -- so
  * this sheet cannot become a second place that data leaks from.
  */
 export function RegistrantDetailSheet({
@@ -184,27 +177,6 @@ export function RegistrantDetailSheet({
   // the tooltip-wrapped Close, whose tooltip would open on focus and swallow
   // the first Escape, leaving the sheet up.
   const popupRef = useRef<HTMLDivElement>(null);
-
-  const rider = registrant.rider;
-  const disciplineLabel = ridingDisciplineLabel(
-    rider?.riding_discipline_at_event ?? rider?.riding_discipline ?? null,
-  );
-  const levels = [
-    [
-      "Ski",
-      rider?.ski_experience_level_at_event ?? rider?.ski_experience_level,
-    ],
-    [
-      "Snowboard",
-      rider?.snowboard_experience_level_at_event ??
-        rider?.snowboard_experience_level,
-    ],
-  ]
-    .map(([sport, level]) => {
-      const label = experienceLevelLabel(level ?? null);
-      return label ? `${sport}: ${label}` : null;
-    })
-    .filter((line): line is string => line !== null);
 
   return (
     <Sheet
@@ -500,34 +472,6 @@ export function RegistrantDetailSheet({
             <ReadOnlyField label="Notes" htmlFor="registrant-notes">
               {registrant.notes || "—"}
             </ReadOnlyField>
-
-            {/* Null for a viewer who is not cleared for rider data, which is
-                decided in listEventRegistrantsAction() rather than here. */}
-            {rider && (disciplineLabel || levels.length > 0) ? (
-              <ReadOnlyField label="Rides" htmlFor="registrant-rider">
-                <span className="block">{disciplineLabel ?? "—"}</span>
-                {levels.map((line) => (
-                  <span key={line} className="app-muted block text-xs">
-                    {line}
-                  </span>
-                ))}
-                {rider.preferred_mountain ? (
-                  <span className="app-muted block text-xs">
-                    {`Prefers ${rider.preferred_mountain}`}
-                  </span>
-                ) : null}
-              </ReadOnlyField>
-            ) : null}
-            {door?.onRiderProfile && (
-              <Button
-                type="button"
-                variant="outline"
-                className="h-11 self-start"
-                onClick={door.onRiderProfile}
-              >
-                <Snowflake /> Edit rider profile
-              </Button>
-            )}
           </FieldGroup>
 
           {profileQuestions &&

@@ -5,10 +5,6 @@ import { parseRegistrationMinors, type MinorContacts } from "@/lib/minors";
 import { parsePronouns } from "@/lib/pronouns";
 import { eventHasEnded } from "@/lib/time";
 import {
-  parseRegistrationRiding,
-  type RiderProfileFormData,
-} from "@/lib/rider-profile-form";
-import {
   parseOptionCounts,
   type OptionCounts,
 } from "@/lib/registration-options";
@@ -78,11 +74,6 @@ export type EventRegistrationFormData = {
    * the form showed none. Whether they are complete is the RPC's to say.
    */
   answers: RegistrationAnswers | null;
-  /**
-   * The riding answers (#1415), or null where the form did not ask them.
-   * Written to the person, not the registration.
-   */
-  riding: RiderProfileFormData | null;
 } & MinorContacts &
   /**
    * The Instagram handle, or the no-Instagram contact where the tenant
@@ -128,9 +119,6 @@ export function parseEventRegistrationForm(
   const minors = parseRegistrationMinors(formData);
   if ("error" in minors) return minors;
 
-  const riding = parseRegistrationRiding(formData);
-  if ("error" in riding) return riding;
-
   const answers = parseAnswersField(formData);
   if ("error" in answers) return { ...answers, field: "answers" };
 
@@ -150,7 +138,6 @@ export function parseEventRegistrationForm(
       adults_only_confirmed: parseAdultsOnlyConfirmed(formData),
       option_counts: parseOptionCounts(formData),
       answers: answers.answers,
-      riding: riding.data,
     },
   };
 }

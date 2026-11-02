@@ -7,14 +7,6 @@
 // action and the tests agree on the same field names and the same messages,
 // and so that a person is told what is wrong with a handle before a round trip
 // reports it as a failure.
-import {
-  isExperienceLevel,
-  isRidingDiscipline,
-  ridesSki,
-  ridesSnowboard,
-  type ExperienceLevel,
-  type RidingDiscipline,
-} from "@/lib/rider-profile";
 import { parsePronouns } from "@/lib/pronouns";
 import {
   INSTAGRAM_HANDLE_ERROR,
@@ -38,10 +30,6 @@ export type MyContactDetails = {
   phone: string | null;
   pronouns: string | null;
   instagram_handle: string | null;
-  preferred_mountain: string | null;
-  riding_discipline: RidingDiscipline | null;
-  ski_experience_level: ExperienceLevel | null;
-  snowboard_experience_level: ExperienceLevel | null;
   address_line1: string | null;
   address_line2: string | null;
   address_city: string | null;
@@ -56,10 +44,6 @@ export type ContactDetailsArgs = {
   p_phone: string | null;
   p_pronouns: string | null;
   p_instagram_handle: string | null;
-  p_preferred_mountain: string | null;
-  p_riding_discipline: string | null;
-  p_ski_experience_level: string | null;
-  p_snowboard_experience_level: string | null;
   p_address_line1: string | null;
   p_address_line2: string | null;
   p_address_city: string | null;
@@ -72,12 +56,11 @@ export type ContactDetailsArgs = {
  * The form fields a parse error can be pinned to, named as the form names them
  * rather than as the RPC does (#1181).
  *
- * The three here are the three this module can refuse. Everything else on the
+ * The two here are the two this module can refuse. Everything else on the
  * allowlist is free text the database takes as given, so there is nothing to
  * say about it before the round trip.
  */
-export type ContactFieldName =
-  "pronouns" | "instagramHandle" | "ridingDiscipline";
+export type ContactFieldName = "pronouns" | "instagramHandle";
 
 export type ContactFieldErrors = Partial<Record<ContactFieldName, string>>;
 
@@ -96,8 +79,6 @@ export const MULTIPLE_CONTACT_PROBLEMS_ERROR =
 /** Re-exported so this module stays the one place a contact form imports. */
 export { INSTAGRAM_HANDLE_ERROR };
 
-export const RIDING_DISCIPLINE_ERROR = "Select a valid riding discipline.";
-
 function field(formData: FormData, name: string): string {
   return String(formData.get(name) ?? "").trim();
 }
@@ -109,11 +90,7 @@ function field(formData: FormData, name: string): string {
  * Every field is optional. This is a record somebody else created about a
  * person, and a form that refuses to save until they have filled in a postal
  * address is a form that loses the corrected phone number they came to give.
- *
- * A level for a discipline the person does not ride is dropped rather than
- * refused, which is what the staff form does and what the database's own
- * people_ski_level_requires_ski check would otherwise turn into an error about
- * a field the person never touched.
+ * The profile questions are a form of their own (#1744, #1746).
  */
 export function parseMyContactForm(formData: FormData): ParsedMyContactForm {
   // Every problem is collected rather than returned at the first one: the form
@@ -130,14 +107,6 @@ export function parseMyContactForm(formData: FormData): ParsedMyContactForm {
     fieldErrors.instagramHandle = INSTAGRAM_HANDLE_ERROR;
   }
 
-  const ridingDisciplineRaw = field(formData, "ridingDiscipline");
-  if (ridingDisciplineRaw && !isRidingDiscipline(ridingDisciplineRaw)) {
-    fieldErrors.ridingDiscipline = RIDING_DISCIPLINE_ERROR;
-  }
-  const ridingDiscipline = isRidingDiscipline(ridingDisciplineRaw)
-    ? ridingDisciplineRaw
-    : null;
-
   const messages = Object.values(fieldErrors);
   if (messages.length > 0) {
     return {
@@ -147,25 +116,12 @@ export function parseMyContactForm(formData: FormData): ParsedMyContactForm {
     };
   }
 
-  const skiLevel = field(formData, "skiExperienceLevel");
-  const snowboardLevel = field(formData, "snowboardExperienceLevel");
-
   return {
     args: {
       p_preferred_name: field(formData, "preferredName") || null,
       p_phone: field(formData, "phone") || null,
       p_pronouns: pronounsValue,
       p_instagram_handle: instagramHandle || null,
-      p_preferred_mountain: field(formData, "preferredMountain") || null,
-      p_riding_discipline: ridingDiscipline,
-      p_ski_experience_level:
-        ridesSki(ridingDiscipline) && isExperienceLevel(skiLevel)
-          ? skiLevel
-          : null,
-      p_snowboard_experience_level:
-        ridesSnowboard(ridingDiscipline) && isExperienceLevel(snowboardLevel)
-          ? snowboardLevel
-          : null,
       p_address_line1: field(formData, "addressLine1") || null,
       p_address_line2: field(formData, "addressLine2") || null,
       p_address_city: field(formData, "addressCity") || null,

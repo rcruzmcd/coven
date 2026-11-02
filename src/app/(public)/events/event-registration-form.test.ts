@@ -153,41 +153,8 @@ describe("parseEventRegistrationForm", () => {
         emergency_contact_phone: null,
         // No question on the form, so no answer to send (#1407).
         option_counts: null,
-        // Nor riding questions (#1415).
-        riding: null,
         // Nor event questions (#1501).
         answers: null,
-      },
-    });
-  });
-
-  // #1415. Required once the form asked, and refused on the step it is on.
-  test("requires the riding answers when the form asked them", () => {
-    const base = {
-      name: "Jane",
-      email: "jane@example.com",
-      partyIncludesMinor: "no",
-      ridingAsked: "on",
-    };
-    expect(parseEventRegistrationForm(formData(base))).toMatchObject({
-      field: "riding",
-    });
-    expect(
-      parseEventRegistrationForm(
-        formData({
-          ...base,
-          ridingDiscipline: "snowboard",
-          snowboardExperienceLevel: "advanced",
-        }),
-      ),
-    ).toMatchObject({
-      data: {
-        riding: {
-          riding_discipline: "snowboard",
-          ski_experience_level: null,
-          snowboard_experience_level: "advanced",
-          preferred_mountain: null,
-        },
       },
     });
   });

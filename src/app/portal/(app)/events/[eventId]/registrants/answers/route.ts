@@ -6,6 +6,11 @@ import {
 } from "@/lib/auth/permissions";
 import { checkEventAccess } from "@/lib/auth/event-access";
 import {
+  loadAnswerSnapshots,
+  loadCurrentPersonQuestions,
+  loadPersonAnswers,
+} from "@/lib/person-answers-data";
+import {
   registrantAnswersCsv,
   registrantAnswersCsvFilename,
   type AnswersCsvRegistration,
@@ -24,46 +29,16 @@ import {
  * partner, not for the door. Cancelled registrations are left out, as the tab
  * keeps them out of its list.
  *
- * Rides, Ski level and Snowboard level are added for a reader who also holds
- * `rider_profiles: view`, the same gate the registrants list puts on its
- * Rides column -- and, through it, the rider_profile module.
+ * The profile questions' columns (#1746) are added for a reader who also
+ * holds `person_answers: view`, the gate the registrants list puts on its
+ * Profile column -- and, through it, the person_questions module.
  */
 const REGISTRATION_COLUMNS =
-  "name, email, phone, instagram_handle, preferred_contact_method, preferred_contact_detail, party_size, answers_changed_at, answers:event_registration_answers(question_id, answer_text, value)";
-const RIDER_COLUMNS =
-  "riding_discipline_at_event, ski_experience_level_at_event, snowboard_experience_level_at_event, person:people(riding_discipline, ski_experience_level, snowboard_experience_level)";
-
-type RegistrationRow = Omit<AnswersCsvRegistration, "rider"> & {
-  riding_discipline_at_event?: string | null;
-  ski_experience_level_at_event?: string | null;
-  snowboard_experience_level_at_event?: string | null;
-  person?: {
-    riding_discipline: string | null;
-    ski_experience_level: string | null;
-    snowboard_experience_level: string | null;
-  } | null;
+  "id, person_id, name, email, phone, instagram_handle, preferred_contact_method, preferred_contact_detail, party_size, answers_changed_at, answers:event_registration_answers(question_id, answer_text, value)";
+type RegistrationRow = Omit<AnswersCsvRegistration, "profile"> & {
+  id: string;
+  person_id: string | null;
 };
-
-function toCsvRow({
-  riding_discipline_at_event,
-  ski_experience_level_at_event,
-  snowboard_experience_level_at_event,
-  person,
-  ...registration
-}: RegistrationRow): AnswersCsvRegistration {
-  return {
-    ...registration,
-    rider: {
-      riding_discipline_at_event: riding_discipline_at_event ?? null,
-      ski_experience_level_at_event: ski_experience_level_at_event ?? null,
-      snowboard_experience_level_at_event:
-        snowboard_experience_level_at_event ?? null,
-      riding_discipline: person?.riding_discipline ?? null,
-      ski_experience_level: person?.ski_experience_level ?? null,
-      snowboard_experience_level: person?.snowboard_experience_level ?? null,
-    },
-  };
-}
 
 export async function GET(
   _request: Request,
@@ -80,9 +55,9 @@ export async function GET(
     return NextResponse.json({ error: denied.error }, { status: 403 });
   }
 
-  const riders = hasPermission(
+  const withProfile = hasPermission(
     await getCurrentUserPermissions(supabase),
-    "rider_profiles",
+    "person_answers",
     "view",
   );
 
@@ -96,11 +71,7 @@ export async function GET(
       .order("sort_order", { ascending: true }),
     supabase
       .from("event_registrations")
-      .select(
-        riders
-          ? `${REGISTRATION_COLUMNS}, ${RIDER_COLUMNS}`
-          : REGISTRATION_COLUMNS,
-      )
+      .select(REGISTRATION_COLUMNS)
       .eq("event_id", eventId)
       .is("cancelled_at", null)
       .order("created_at", { ascending: true }),
@@ -116,10 +87,31 @@ export async function GET(
     return NextResponse.json({ error: "Event not found." }, { status: 404 });
   }
 
+  const rows = (registrations.data ?? []) as unknown as RegistrationRow[];
+  const [profileQuestions, snapshots, answers] = withProfile
+    ? await Promise.all([
+        loadCurrentPersonQuestions(supabase),
+        loadAnswerSnapshots(
+          supabase,
+          rows.map((row) => row.id),
+        ),
+        loadPersonAnswers(
+          supabase,
+          rows.flatMap((row) => (row.person_id ? [row.person_id] : [])),
+        ),
+      ])
+    : [[], new Map(), new Map()];
+
   const csv = registrantAnswersCsv(
     questions.data ?? [],
-    ((registrations.data ?? []) as unknown as RegistrationRow[]).map(toCsvRow),
-    { riders },
+    rows.map(({ id, person_id, ...registration }) => ({
+      ...registration,
+      profile: {
+        snapshots: snapshots.get(id) ?? [],
+        answers: (person_id && answers.get(person_id)) || [],
+      },
+    })),
+    { profileQuestions },
   );
   const filename = registrantAnswersCsvFilename(
     event.data.name,

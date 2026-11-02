@@ -4,7 +4,7 @@
  *
  * `platformLegalDocument()` used to publish, as fact, that every site running
  * this application takes volunteer applications, event registrations, rider
- * profiles, gear requests, artwork submissions and contact messages. A tenant
+ * profiles (now profile questions, #1746), gear requests, artwork submissions and contact messages. A tenant
  * running a contact form and nothing else published all six under its own name,
  * hedged by one sentence saying some of the forms above may not exist. That is
  * an honest dodge rather than an accurate policy, and the privacy policy is the
@@ -30,7 +30,14 @@ export type CollectionSurface = {
   contact: boolean;
   volunteerApplications: boolean;
   eventRegistrations: boolean;
-  /** Covers rider profiles too: the profile is part of the registration form. */
+  /**
+   * Whether the tenant asks a person its own profile questions (#1746), after
+   * registering or on `/my/details`: a current question with either switch on.
+   * Not the module alone, which is on for every tenant: one asking nothing
+   * collects nothing. Replaces the rider profile, which rode on
+   * `eventRegistrations`.
+   */
+  profileQuestions: boolean;
   gearRequests: boolean;
   artworkSubmissions: boolean;
   /**
@@ -108,6 +115,8 @@ export const SURFACE_GATES: Readonly<
     module: "volunteers",
   },
   eventRegistrations: { slot: "events", module: "events" },
+  // And a question actually asked: `collectionSurface()`'s third argument.
+  profileQuestions: { slot: null, module: "person_questions" },
   gearRequests: { slot: "gears", module: "inventory" },
   artworkSubmissions: { slot: null, module: "artwork" },
   constituentAccounts: { slot: null, module: "constituent_accounts" },
@@ -146,11 +155,15 @@ function live(
 export function collectionSurface(
   visibility: Record<string, boolean>,
   modules: Record<string, boolean>,
+  /** From `get*AsksProfileQuestions()`; open, like everything else here. */
+  asksProfileQuestions = true,
 ): CollectionSurface {
   return {
     contact: live("contact", visibility, modules),
     volunteerApplications: live("volunteerApplications", visibility, modules),
     eventRegistrations: live("eventRegistrations", visibility, modules),
+    profileQuestions:
+      live("profileQuestions", visibility, modules) && asksProfileQuestions,
     gearRequests: live("gearRequests", visibility, modules),
     artworkSubmissions: live("artworkSubmissions", visibility, modules),
     constituentAccounts: live("constituentAccounts", visibility, modules),
@@ -193,6 +206,10 @@ export const SURFACE_LABELS: Readonly<
     collects: "volunteer applications",
   },
   eventRegistrations: { subject: "Events", collects: "event registrations" },
+  profileQuestions: {
+    subject: "Profile questions",
+    collects: "answers to your profile questions",
+  },
   gearRequests: { subject: "Inventory", collects: "item requests" },
   artworkSubmissions: { subject: "Artwork", collects: "artwork submissions" },
   constituentAccounts: {

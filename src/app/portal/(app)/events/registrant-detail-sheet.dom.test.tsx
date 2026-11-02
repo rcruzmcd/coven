@@ -41,7 +41,7 @@ const REGISTRANT: EventRegistrant = {
   answers_changed_at: null,
   group_chat_added_at: null,
   group_chat_added_by_name: null,
-  rider: null,
+  profileSummary: null,
   minorContacts: null,
 };
 
@@ -141,30 +141,6 @@ describe("RegistrantDetailSheet", () => {
     expect(
       screen.getByText("Outbound email is switched off for this organization."),
     ).toBeInTheDocument();
-  });
-
-  test("rider data appears only when the list handed it over", () => {
-    // `rider` comes back null from listEventRegistrantsAction() for a viewer
-    // who is not cleared for it, so this sheet cannot become a second place it
-    // leaks from -- the gate is upstream and this only honours it.
-    renderSheet();
-    expect(screen.queryByText("Rides")).toBeNull();
-
-    renderSheet({
-      registrant: {
-        rider: {
-          riding_discipline_at_event: "snowboard",
-          ski_experience_level_at_event: null,
-          snowboard_experience_level_at_event: "beginner",
-          riding_discipline: "both",
-          ski_experience_level: "advanced",
-          snowboard_experience_level: "advanced",
-          preferred_mountain: "Hunter",
-        },
-      },
-    });
-    expect(screen.getAllByText("Rides").length).toBeGreaterThan(0);
-    expect(screen.getByText("Prefers Hunter")).toBeInTheDocument();
   });
 
   // #686. Three states, and the difference between the last two is the whole

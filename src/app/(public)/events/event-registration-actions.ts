@@ -88,9 +88,6 @@ const ERROR_MESSAGES: Record<string, string> = {
     "The agreement was updated while you were filling this in. Reload the page, read it again, and register.",
   WAIVER_UNAVAILABLE:
     "This organization's participant agreement could not be loaded, so we can't take your registration right now. Please try again shortly.",
-  // #1415. The form checks these before sending, so reaching this means a
-  // client that did not.
-  INVALID_RIDER_PROFILE: "Please check your riding answers and try again.",
   RATE_LIMITED: "Too many attempts — please try again in a few minutes.",
   // #1407
   ...REGISTRATION_OPTION_ERROR_MESSAGES,
@@ -122,7 +119,6 @@ export async function registerForEventAction(
   const ipAddress = await getClientIp();
 
   const supabase = await createSupabaseServerClient();
-  const riding = parsed.data.riding;
 
   const { data, error } = await supabase.rpc("register_for_event", {
     p_event_id: eventId,
@@ -171,13 +167,6 @@ export async function registerForEventAction(
     p_answers: parsed.data.answers ?? undefined,
     // #1417. Sent as ticked; the RPC ignores it on an event that is not 18+.
     p_adults_only_confirmed: parsed.data.adults_only_confirmed,
-    // #1415. `undefined` when the form did not ask, so nothing is written;
-    // the RPC ignores them on a tenant without the rider_profile module.
-    p_riding_discipline: riding?.riding_discipline,
-    p_ski_experience_level: riding?.ski_experience_level ?? undefined,
-    p_snowboard_experience_level:
-      riding?.snowboard_experience_level ?? undefined,
-    p_preferred_mountain: riding?.preferred_mountain ?? undefined,
     // No `p_photo_consent` (#1376). The parameter is still there, declared
     // `default null`, and the RPC is unchanged -- but the form has no box, so
     // there is nothing to send and `null` is the correct resting state: no

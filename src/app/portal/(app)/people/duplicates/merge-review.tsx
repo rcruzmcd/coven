@@ -29,7 +29,6 @@ const FIELD_LABELS: Record<MergeableField, string> = {
   website: "Website",
   person_type: "Type",
   source_type: "Source",
-  preferred_mountain: "Home mountain",
   address_line1: "Address line 1",
   address_line2: "Address line 2",
   address_city: "City",

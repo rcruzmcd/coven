@@ -929,3 +929,166 @@ export async function seededTenantId(): Promise<string> {
   if (error) throw new Error(`seeded tenant: ${error.message}`);
   return data.id as string;
 }
+
+const RIDER_KEYS = [
+  "riding_discipline",
+  "ski_level",
+  "snowboard_level",
+  "preferred_mountain",
+] as const;
+
+/**
+ * Makes sure the seeded tenant has the four rider questions and two metric
+ * rows supabase/seed.sql gives it (#1746). Another suite may have replaced
+ * the tenant's questions -- they are tenant-wide -- so a suite that relies on
+ * them calls this rather than trusting the seed survived.
+ */
+export async function ensureRiderQuestions() {
+  const { data: present } = await adminClient
+    .from("person_questions")
+    .select("key")
+    .in("key", [...RIDER_KEYS])
+    .is("archived_at", null);
+  const { data: metrics } = await adminClient
+    .from("person_answer_metrics")
+    .select("key")
+    .in("key", ["beginner_participants", "first_time_on_snow"]);
+  if ((present?.length ?? 0) === 4 && (metrics?.length ?? 0) === 2) return;
+
+  const tenantId = await seededTenantId();
+  const service = serviceRoleClient();
+  await service.from("person_answers").delete().eq("tenant_id", tenantId);
+  await service
+    .from("person_answer_metrics")
+    .delete()
+    .eq("tenant_id", tenantId);
+  await service.from("person_questions").delete().eq("tenant_id", tenantId);
+
+  const option = (key: string, label: string) => ({
+    id: crypto.randomUUID(),
+    key,
+    label,
+  });
+  const disciplines = [
+    option("ski", "Skis"),
+    option("snowboard", "Snowboard"),
+    option("both", "Both"),
+  ];
+  const levels = (first: string) => [
+    option("first_time", first),
+    option("beginner", "Beginner"),
+    option("intermediate", "Intermediate"),
+    option("advanced", "Advanced"),
+  ];
+  const discipline = crypto.randomUUID();
+  const ski = crypto.randomUUID();
+  const snowboard = crypto.randomUUID();
+  const where = { ask_after_registration: true, ask_on_my_details: true };
+  const on = (keys: string[]) => ({
+    question_id: discipline,
+    option_ids: disciplines
+      .filter((o) => keys.includes(o.key))
+      .map((o) => o.id),
+  });
+  const saved = await adminClient.rpc("save_person_questions", {
+    p_questions: [
+      {
+        id: discipline,
+        key: "riding_discipline",
+        kind: "single_choice",
+        prompt: "Do you ski or ride?",
+        column_label: "Rides",
+        options: disciplines,
+        snapshot_at_checkin: true,
+        ...where,
+      },
+      {
+        id: ski,
+        key: "ski_level",
+        kind: "single_choice",
+        prompt: "How would you describe your skiing?",
+        column_label: "Ski level",
+        required: true,
+        options: levels("First time on skis"),
+        show_if: on(["ski", "both"]),
+        snapshot_at_checkin: true,
+        ...where,
+      },
+      {
+        id: snowboard,
+        key: "snowboard_level",
+        kind: "single_choice",
+        prompt: "How would you describe your snowboarding?",
+        column_label: "Board level",
+        required: true,
+        options: levels("First time on a snowboard"),
+        show_if: on(["snowboard", "both"]),
+        snapshot_at_checkin: true,
+        ...where,
+      },
+      {
+        id: crypto.randomUUID(),
+        key: "preferred_mountain",
+        kind: "single_choice",
+        prompt: "Which mountain do you usually ride?",
+        column_label: "Mountain",
+        allow_other: true,
+        options: [option("hunter", "Hunter"), option("windham", "Windham")],
+        ...where,
+      },
+    ],
+  });
+  if (saved.error) throw saved.error;
+  const metricsSaved = await adminClient.rpc("save_person_answer_metrics", {
+    p_metrics: [
+      {
+        id: crypto.randomUUID(),
+        key: "beginner_participants",
+        label: "Beginner participants",
+        rule: "any",
+        question_ids: [ski, snowboard],
+        option_keys: ["beginner"],
+      },
+      {
+        id: crypto.randomUUID(),
+        key: "first_time_on_snow",
+        label: "First time on snow",
+        rule: "any",
+        question_ids: [ski, snowboard],
+        option_keys: ["first_time"],
+      },
+    ],
+  });
+  if (metricsSaved.error) throw metricsSaved.error;
+}
+
+/**
+ * Sets a person's answers to the seeded tenant's profile questions (#1746,
+ * seeded like Chatter Snow's rider profile), by question key and option key,
+ * through set_person_answers() as the admin -- which clears any question it is
+ * not sent, so pass the whole set.
+ */
+export async function setProfileAnswers(
+  personId: string,
+  answers: Record<string, string>,
+) {
+  await ensureRiderQuestions();
+  const { data: questions, error: questionError } = await adminClient
+    .from("person_questions")
+    .select("id, key, options")
+    .in("key", Object.keys(answers));
+  if (questionError) throw questionError;
+  const byId: Record<string, string> = {};
+  for (const question of questions ?? []) {
+    const option = (question.options as { id: string; key?: string }[]).find(
+      (row) => row.key === answers[question.key as string],
+    );
+    if (!option) throw new Error(`no option ${answers[question.key]}`);
+    byId[question.id as string] = option.id;
+  }
+  const { error } = await adminClient.rpc("set_person_answers", {
+    p_person_id: personId,
+    p_answers: byId,
+  });
+  if (error) throw error;
+}

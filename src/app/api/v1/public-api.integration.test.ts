@@ -83,6 +83,8 @@ const { POST: postGearRequest } =
   await import("./t/[tenant]/gear-requests/route");
 const { POST: postRiderProfile } =
   await import("./t/[tenant]/rider-profile/route");
+const { POST: postPersonAnswers } =
+  await import("./t/[tenant]/person-answers/route");
 
 const AUTHOR = SEEDED_USER_IDS.admin;
 const service = serviceRoleClient();
@@ -508,24 +510,133 @@ describe("writes", () => {
         tenantParams(),
       );
 
-    // A tenant provisioned on any plan starts without the rider_profile
-    // add-on (#1408), and a section it does not offer is a 404.
-    expect((await riderProfile()).status).toBe(404);
+    // #1746. The v1 contract maps onto the questions keyed as Chatter
+    // Snow's are; a tenant without them -- every new one -- is told it is gone.
+    expect((await riderProfile()).status).toBe(410);
 
+    const option = (key: string, label: string) => ({
+      id: crypto.randomUUID(),
+      key,
+      label,
+    });
+    const disciplines = [
+      option("ski", "Skis"),
+      option("snowboard", "Snowboard"),
+      option("both", "Both"),
+    ];
+    const levels = () => [
+      option("first_time", "First time"),
+      option("beginner", "Beginner"),
+      option("intermediate", "Intermediate"),
+      option("advanced", "Advanced"),
+    ];
+    const disciplineId = crypto.randomUUID();
+    const on = (keys: string[]) => ({
+      any: [
+        {
+          question_id: disciplineId,
+          option_ids: disciplines
+            .filter((o) => keys.includes(o.key))
+            .map((o) => o.id),
+        },
+      ],
+    });
+    const question = (
+      id: string,
+      key: string,
+      options: unknown[],
+      extra: Record<string, unknown> = {},
+    ) => ({
+      id,
+      tenant_id: tenantId,
+      key,
+      kind: "single_choice",
+      prompt: key,
+      options,
+      // One shape for every row: a bulk insert fills a missing key with null.
+      allow_other: false,
+      show_if: null,
+      ...extra,
+    });
     await must(
-      service
-        .from("tenant_modules")
-        .upsert(
-          { tenant_id: tenantId, module_key: "rider_profile", enabled: true },
-          { onConflict: "tenant_id,module_key" },
+      service.from("person_questions").insert([
+        question(disciplineId, "riding_discipline", disciplines, {
+          sort_order: 0,
+        }),
+        question(crypto.randomUUID(), "ski_level", levels(), {
+          sort_order: 1,
+          show_if: on(["ski", "both"]),
+        }),
+        question(crypto.randomUUID(), "snowboard_level", levels(), {
+          sort_order: 2,
+          show_if: on(["snowboard", "both"]),
+        }),
+        question(
+          crypto.randomUUID(),
+          "preferred_mountain",
+          [option("hunter", "Hunter"), option("windham", "Windham")],
+          { sort_order: 3, allow_other: true },
         ),
-      "enable rider_profile",
+      ]),
+      "seed the rider questions",
     );
 
     const profile = await riderProfile();
-
     expect(profile.status).toBe(201);
     expect(await profile.json()).toEqual({ saved: true });
+
+    const { data: stored } = await service
+      .from("person_answers")
+      .select("answer_text, question:person_questions(key)")
+      .eq("registration_id", id);
+    expect(
+      Object.fromEntries(
+        (stored ?? []).map((row) => [
+          (row.question as unknown as { key: string }).key,
+          row.answer_text,
+        ]),
+      ),
+    ).toEqual({ riding_discipline: "Skis", ski_level: "Intermediate" });
+
+    // The general route, keyed by question key and option key.
+    const answers = await postPersonAnswers(
+      apiRequest(`/api/v1/t/${SLUG}/person-answers`, {
+        method: "POST",
+        body: JSON.stringify({
+          registration_id: id,
+          answers: {
+            riding_discipline: "snowboard",
+            snowboard_level: "beginner",
+          },
+        }),
+      }),
+      tenantParams(),
+    );
+    expect(answers.status).toBe(201);
+    const { data: after } = await service
+      .from("person_answers")
+      .select("answer_text, question:person_questions(key)")
+      .eq("registration_id", id);
+    expect(
+      Object.fromEntries(
+        (after ?? []).map((row) => [
+          (row.question as unknown as { key: string }).key,
+          row.answer_text,
+        ]),
+      ),
+    ).toEqual({ riding_discipline: "Snowboard", snowboard_level: "Beginner" });
+
+    const unknown = await postPersonAnswers(
+      apiRequest(`/api/v1/t/${SLUG}/person-answers`, {
+        method: "POST",
+        body: JSON.stringify({
+          registration_id: id,
+          answers: { shoe_size: "9" },
+        }),
+      }),
+      tenantParams(),
+    );
+    expect(unknown.status).toBe(422);
   });
 
   test("a gear request reserves the item", async () => {
