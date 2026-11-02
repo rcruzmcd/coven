@@ -31,21 +31,21 @@ export async function sayNoMinors(scope: Locator) {
 }
 
 /**
- * Answers the riding questions (#1415), which the seeded tenant asks on step 2
- * because it has the rider_profile module. Required once shown, so every spec
- * that submits a registration answers them; one discipline and one level is
- * the shortest complete answer. The mountain is optional and left alone.
+ * Answers the riding questions, which the seeded tenant asks on step 2 as
+ * profile questions (#1746, seeded like Chatter Snow's). The discipline is
+ * optional but its level is required once shown, so one discipline and one
+ * level is the shortest complete answer. The mountain is left alone.
  */
 export async function answerRiding(scope: Locator) {
   const page = scope.page();
-  await scope
-    .getByRole("combobox", { name: /Do you ski or snowboard\?/ })
-    .click();
+  await scope.getByRole("combobox", { name: /Do you ski or ride\?/ }).click();
   await page.getByRole("option", { name: "Snowboard", exact: true }).click();
   await scope
-    .getByRole("combobox", { name: /Experience on a snowboard/ })
+    .getByRole("combobox", {
+      name: /How would you describe your snowboarding\?/,
+    })
     .click();
-  await page.getByRole("option", { name: "Beginner" }).click();
+  await page.getByRole("option", { name: /^Beginner/ }).click();
 }
 
 /**
@@ -56,9 +56,7 @@ export async function answerRiding(scope: Locator) {
  */
 export async function continueToThisEvent(scope: Locator) {
   await scope.getByRole("button", { name: "Next", exact: true }).click();
-  await expect(
-    scope.getByRole("group", { name: /This event|Your riding/ }),
-  ).toBeVisible();
+  await expect(scope.getByRole("group", { name: /This event/ })).toBeVisible();
 }
 
 /** From either earlier step to "Review and agree". */

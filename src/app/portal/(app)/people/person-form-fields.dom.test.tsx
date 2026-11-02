@@ -3,7 +3,6 @@ import { useState } from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { labelText } from "../../../../../test/labels";
-import { PortalRiderProfileProvider } from "@/lib/portal/rider-profile-context";
 import {
   PersonFormFields,
   emptyPersonForm,
@@ -121,28 +120,21 @@ describe("PersonFormFields", () => {
     expect(latest?.sponsorWallPublic).toBe(true);
   });
 
-  test("the rider profile is for individuals, the logo and website for organizations", async () => {
+  test("the logo and website are for organizations", async () => {
     const user = userEvent.setup();
     render(<ControlledForm />);
 
-    expect(screen.getByLabelText("Rides")).toBeInTheDocument();
     expect(screen.queryByLabelText("Logo URL")).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("combobox", { name: "Type" }));
     await user.click(screen.getByRole("option", { name: "Organization" }));
 
     expect(screen.getByLabelText("Logo URL")).toBeInTheDocument();
-    expect(screen.queryByLabelText("Rides")).not.toBeInTheDocument();
   });
 
-  test("no rider fields for a reader who may not edit rider profiles", () => {
-    // Which is everyone on a tenant without the rider_profile module (#1408).
-    render(
-      <PortalRiderProfileProvider access={{ canView: true, canManage: false }}>
-        <ControlledForm />
-      </PortalRiderProfileProvider>,
-    );
-
+  // #1746. What a person rides is a profile question, on the Profile card.
+  test("asks nothing about riding", () => {
+    render(<ControlledForm />);
     expect(screen.queryByLabelText("Rides")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Home mountain")).not.toBeInTheDocument();
   });

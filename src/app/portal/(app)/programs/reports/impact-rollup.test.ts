@@ -271,9 +271,6 @@ const EMPTY = {
   discountCodes: [],
   eventVolunteers: [],
   volunteerHourPeople: [],
-  beginnerAttendees: [],
-  firstTimeAttendees: [],
-  profiledAttendees: [],
   assistanceExpenses: [],
   offeredCodes: [],
   optionCounts: [],
@@ -320,7 +317,6 @@ describe("computeProgramImpactRollup", () => {
       { event_id: "e2", registration_id: null },
     ];
     const assistanceExpenses = [{ event_id: "e2", amount: "100" }];
-    const firstTimeAttendees = [{ event_id: "e2", person_id: "p1" }];
     // p3 both signed up and logged hours on e1, so he counts once there.
     const eventVolunteers = [
       { event_id: "e1", person_id: "p3" },
@@ -329,11 +325,6 @@ describe("computeProgramImpactRollup", () => {
     const volunteerHourPeople = [
       { event_id: "e1", person_id: "p3" },
       { event_id: "e1", person_id: "p5" },
-    ];
-    const beginnerAttendees = [{ event_id: "e2", person_id: "p1" }];
-    const profiledAttendees = [
-      { event_id: "e2", person_id: "p1" },
-      { event_id: "e1", person_id: "p2" },
     ];
     // e2's shared code takes 50% off the $80 option p1's party of two chose.
     const offeredCodes = [
@@ -366,9 +357,6 @@ describe("computeProgramImpactRollup", () => {
         discountCodes,
         eventVolunteers,
         volunteerHourPeople,
-        beginnerAttendees,
-        firstTimeAttendees,
-        profiledAttendees,
         assistanceExpenses,
         offeredCodes,
         optionCounts,
@@ -378,9 +366,6 @@ describe("computeProgramImpactRollup", () => {
       participants: 13, // e1: 12 (manual) + e2: 1 (checked-in) = 13
       checkedIn: 1, // only p1 on e2 is marked in at the door
       firstTimeParticipants: 1, // p1's only checked-in event ever
-      beginnerParticipants: 1,
-      firstTimeOnSnow: 1,
-      profiledAttendees: 2,
       volunteerParticipants: 3, // e1: p3 + p5 (p3 deduped across both sources), e2: p4
       assistedParticipants: 1, // the one assigned code; typed notes are archived (#1588)
       rentalSubsidies: 1,
@@ -406,6 +391,7 @@ describe("computeProgramImpactRollup", () => {
       },
       repeatParticipants: 1,
       placeReach: null,
+      answerMetrics: [],
     });
   });
 

@@ -13,6 +13,7 @@ import {
   type LegalPublishApproval,
 } from "@/lib/legal-approval";
 import {
+  getTenantAsksProfileQuestions,
   getTenantModules,
   getTenantPageVisibility,
 } from "@/lib/page-visibility";
@@ -180,6 +181,7 @@ export async function publishSiteContentAction(
             ...(await Promise.all([
               getTenantPageVisibility(supabase),
               getTenantModules(supabase),
+              getTenantAsksProfileQuestions(supabase),
             ])),
           ),
         ),

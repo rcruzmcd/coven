@@ -179,7 +179,10 @@ describe("submitContactMessageAction (integration)", () => {
       }),
     );
 
-    expect(result).toEqual({ error: "A valid email is required." });
+    expect(result).toEqual({
+      error: "A valid email is required.",
+      code: "INVALID_EMAIL",
+    });
     expect(await findContactMessages("jamie@example")).toHaveLength(0);
   });
 
@@ -212,6 +215,7 @@ describe("submitContactMessageAction (integration)", () => {
 
     expect(limited).toEqual({
       error: "Too many attempts — please try again in a few minutes.",
+      code: "RATE_LIMITED",
     });
     expect(await findContactMessages(email)).toHaveLength(5);
   });

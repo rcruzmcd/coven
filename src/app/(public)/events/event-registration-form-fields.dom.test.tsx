@@ -9,7 +9,12 @@ mock.module("server-only", () => ({}));
 
 type RegisterForEventResult =
   | { error: string; step: "about" | "event" | "review" }
-  | { success: true; registrationId: string; answersPath: string | null };
+  | {
+      success: true;
+      registrationId: string;
+      answersPath: string | null;
+      profileAnswersError?: string | null;
+    };
 
 const registerForEventActionMock = mock<
   (eventId: string, formData: FormData) => Promise<RegisterForEventResult>
@@ -36,7 +41,7 @@ type Clicker = { click: (element: Element) => Promise<unknown> };
  * case can call it without knowing which step it is on.
  */
 async function toThisEvent(user: Clicker = userEvent) {
-  if (screen.queryByRole("group", { name: /This event|Your riding/ })) return;
+  if (screen.queryByRole("group", { name: /This event/ })) return;
   await user.click(screen.getByRole("button", { name: "Next" }));
 }
 
@@ -698,96 +703,6 @@ describe("EventRegistrationForm and the minors question", () => {
   });
 });
 
-// #1415. The riding questions are step 2 where the tenant has the module, and
-// the follow-up after the confirmation is gone.
-describe("EventRegistrationForm and the riding questions", () => {
-  const RIDER_PROFILE = { mountains: ["Whistler", "Mount Hood"] };
-
-  beforeEach(() => {
-    registerForEventActionMock.mockClear();
-  });
-
-  test("a tenant without the module is asked nothing about riding", async () => {
-    const user = userEvent.setup();
-    render(<EventRegistrationForm eventId="event-1" />);
-
-    await fillAboutYou(user);
-    await toThisEvent(user);
-    expect(screen.getByRole("group", { name: /This event/ })).toBeVisible();
-    expect(
-      screen.queryByText(/Do you ski or snowboard/),
-    ).not.toBeInTheDocument();
-
-    await sayNoMinors(user);
-    await submit(user);
-    expect(lastSubmission()).not.toHaveProperty("ridingAsked");
-    expect(await screen.findByText(/You're registered/)).toBeVisible();
-    expect(
-      screen.queryByText(/Do you ski or snowboard/),
-    ).not.toBeInTheDocument();
-  });
-
-  test('step 2 is "Your riding", and the discipline is required', async () => {
-    const user = userEvent.setup();
-    render(
-      <EventRegistrationForm eventId="event-1" riderProfile={RIDER_PROFILE} />,
-    );
-
-    await fillAboutYou(user);
-    await toThisEvent(user);
-    expect(screen.getByRole("group", { name: /Your riding/ })).toBeVisible();
-
-    await sayNoMinors(user);
-    await user.click(screen.getByRole("button", { name: "Next" }));
-    // Unanswered, so Next stays on the step.
-    expect(screen.getByRole("group", { name: /Your riding/ })).toBeVisible();
-    expect(registerForEventActionMock).not.toHaveBeenCalled();
-  });
-
-  test("posts the answers, shows them on review, and asks nothing after", async () => {
-    const user = userEvent.setup();
-    render(
-      <EventRegistrationForm eventId="event-1" riderProfile={RIDER_PROFILE} />,
-    );
-
-    await fillAboutYou(user);
-    await sayNoMinors(user);
-    await user.click(
-      screen.getByRole("combobox", { name: /ski or snowboard/ }),
-    );
-    await user.click(screen.getByRole("option", { name: "Skis" }));
-    await user.click(
-      screen.getByRole("combobox", { name: /Experience on skis/ }),
-    );
-    await user.click(screen.getByRole("option", { name: "Advanced" }));
-    await user.click(screen.getByRole("combobox", { name: /mountain/ }));
-    await user.click(screen.getByRole("option", { name: "Mount Hood" }));
-    await user.click(screen.getByRole("button", { name: "Next" }));
-
-    const review = screen.getByRole("group", { name: /Review and agree/ });
-    expect(review).toHaveTextContent("Skis or snowboard");
-    expect(review).toHaveTextContent("Mount Hood");
-    expect(
-      screen.getByRole("button", { name: "Edit your riding" }),
-    ).toBeInTheDocument();
-
-    await user.click(
-      screen.getByRole("button", { name: "Complete registration" }),
-    );
-    expect(lastSubmission()).toMatchObject({
-      ridingAsked: "on",
-      ridingDiscipline: "ski",
-      skiExperienceLevel: "advanced",
-      preferredMountain: "Mount Hood",
-    });
-    expect(await screen.findByText(/You're registered/)).toBeVisible();
-    expect(screen.queryByText("One more thing")).not.toBeInTheDocument();
-    expect(
-      screen.queryByText(/Do you ski or snowboard/),
-    ).not.toBeInTheDocument();
-  });
-});
-
 describe("EventRegistrationForm on an adults-only event (#1417)", () => {
   beforeEach(() => registerForEventActionMock.mockClear());
 
@@ -879,7 +794,7 @@ describe("EventRegistrationForm and the event's questions (#1501)", () => {
       options: [],
       min_value: 1,
       max_value: 7,
-      show_if: { question_id: "getting", option_ids: ["drive"] },
+      show_if: { any: [{ question_id: "getting", option_ids: ["drive"] }] },
     },
     {
       id: "share",
@@ -1060,5 +975,112 @@ describe("EventRegistrationForm on a carpool event (#1650)", () => {
         hidden: true,
       }),
     ).toBeNull();
+  });
+});
+
+describe("EventRegistrationForm and profile questions (#1744)", () => {
+  beforeEach(() => {
+    registerForEventActionMock.mockClear();
+    registerForEventActionMock.mockImplementation(async () => ({
+      success: true,
+      registrationId: "reg-1",
+      answersPath: null,
+    }));
+  });
+
+  const level: RegistrationQuestion = {
+    id: "level",
+    kind: "single_choice",
+    prompt: "Experience level",
+    help: null,
+    required: true,
+    options: [
+      { id: "new", label: "First time" },
+      { id: "some", label: "A few times" },
+    ],
+    min_value: null,
+    max_value: null,
+    show_if: null,
+  };
+  const household: RegistrationQuestion = {
+    ...level,
+    id: "household",
+    kind: "number",
+    prompt: "Household size",
+    required: true,
+    options: [],
+    min_value: 1,
+  };
+
+  test("a tenant asking none shows and posts nothing", async () => {
+    render(<EventRegistrationForm eventId="event-1" />);
+    await fillAboutYou();
+    await sayNoMinors();
+    expect(
+      screen.queryByRole("group", { name: "A few questions about you" }),
+    ).toBeNull();
+    await submit();
+    expect(lastSubmission().profileAnswers).toBeUndefined();
+  });
+
+  test("the group is skippable, required or not", async () => {
+    render(
+      <EventRegistrationForm
+        eventId="event-1"
+        profileQuestions={[level, household]}
+      />,
+    );
+    await fillAboutYou();
+    await sayNoMinors();
+    expect(
+      screen.getByRole("group", { name: "A few questions about you" }),
+    ).toBeTruthy();
+    await submit();
+    expect(JSON.parse(lastSubmission().profileAnswers)).toEqual({});
+  });
+
+  test("answering anything holds the shown questions to required", async () => {
+    const user = userEvent.setup();
+    render(
+      <EventRegistrationForm
+        eventId="event-1"
+        profileQuestions={[level, household]}
+      />,
+    );
+    await fillAboutYou(user);
+    await sayNoMinors(user);
+    await user.click(screen.getByLabelText(/Experience level/));
+    await user.click(screen.getByRole("option", { name: "First time" }));
+    await submit(user);
+    expect(registerForEventActionMock).not.toHaveBeenCalled();
+    expect(
+      await screen.findByText("Please answer “Household size”."),
+    ).toBeTruthy();
+
+    await toThisEvent(user);
+    await user.type(screen.getByLabelText(/Household size/), "3");
+    await submit(user);
+    expect(JSON.parse(lastSubmission().profileAnswers)).toEqual({
+      level: "new",
+      household: 3,
+    });
+  });
+
+  test("says so when the registration saved but the answers did not", async () => {
+    registerForEventActionMock.mockImplementation(async () => ({
+      success: true,
+      registrationId: "reg-1",
+      answersPath: null,
+      profileAnswersError: "Your answers could not be saved.",
+    }));
+    render(
+      <EventRegistrationForm eventId="event-1" profileQuestions={[level]} />,
+    );
+    await fillAboutYou();
+    await sayNoMinors();
+    await submit();
+    expect(
+      await screen.findByText("Your answers could not be saved."),
+    ).toBeTruthy();
   });
 });

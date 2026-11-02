@@ -4,10 +4,7 @@ import {
   computeEventImpactDerived,
   computeParticipantAssistance,
   computePeopleServed,
-  countBeginnerParticipants,
   countCheckedIn,
-  countFirstTimeOnSnow,
-  countProfiledAttendees,
   countRentalSubsidies,
   countVolunteerParticipants,
 } from "./impact-metrics";
@@ -56,27 +53,6 @@ describe("countVolunteerParticipants", () => {
         [],
       ),
     ).toBe(0);
-  });
-});
-
-describe("countBeginnerParticipants / countProfiledAttendees", () => {
-  test("counts distinct beginners per event", () => {
-    expect(
-      countBeginnerParticipants([
-        { event_id: "e1", person_id: "p1" },
-        { event_id: "e1", person_id: "p2" },
-      ]),
-    ).toBe(2);
-  });
-
-  test("the denominator counts everyone with a profile, beginners included", () => {
-    expect(
-      countProfiledAttendees([
-        { event_id: "e1", person_id: "p1" },
-        { event_id: "e1", person_id: "p2" },
-        { event_id: "e1", person_id: "p3" },
-      ]),
-    ).toBe(3);
   });
 });
 
@@ -156,17 +132,11 @@ describe("computeEventImpactDerived", () => {
     const result = computeEventImpactDerived({
       ...baseInput,
       discountCodes: null,
-      beginnerAttendees: null,
-      firstTimeAttendees: null,
-      profiledAttendees: null,
       assistanceExpenses: null,
     });
     expect(result.discountCodesAssigned).toBeNull();
     expect(result.rentalSubsidies).toBeNull();
     expect(result.assistance).toBeNull();
-    expect(result.beginnerParticipants).toBeNull();
-    expect(result.firstTimeOnSnow).toBeNull();
-    expect(result.profiledAttendees).toBeNull();
     // Figures the viewer is allowed to see still compute.
     expect(result.participants).toBe(30);
   });
@@ -187,9 +157,8 @@ describe("computeEventImpactDerived", () => {
   });
 
   // #1588: the four typed figures, derived.
-  test("derives first time on snow, rental subsidies and assistance", () => {
+  test("derives rental subsidies and assistance", () => {
     const result = computeEventImpactDerived(baseInput);
-    expect(result.firstTimeOnSnow).toBe(1);
     expect(result.rentalSubsidies).toBe(1);
     expect(result.assistance).toEqual({
       discountCodes: 45,
@@ -213,18 +182,6 @@ describe("computeEventImpactDerived", () => {
       expenses: 100,
       total: 140,
     });
-  });
-});
-
-describe("countFirstTimeOnSnow", () => {
-  test("counts distinct first-timers per event", () => {
-    expect(
-      countFirstTimeOnSnow([
-        { event_id: "e1", person_id: "p1" },
-        { event_id: "e1", person_id: "p1" },
-        { event_id: "e2", person_id: "p1" },
-      ]),
-    ).toBe(2);
   });
 });
 
@@ -548,9 +505,6 @@ describe("computeDiscountValueOffered", () => {
       eventVolunteers: [],
       volunteerHourPeople: [],
       discountCodes: [],
-      beginnerAttendees: null,
-      firstTimeAttendees: null,
-      profiledAttendees: null,
       autoAssignDiscountCodes: false,
       distributions: [],
       assistanceExpenses: [],
@@ -564,9 +518,6 @@ describe("computeDiscountValueOffered", () => {
       eventVolunteers: [],
       volunteerHourPeople: [],
       discountCodes: [],
-      beginnerAttendees: null,
-      firstTimeAttendees: null,
-      profiledAttendees: null,
       autoAssignDiscountCodes: false,
       distributions: [],
       assistanceExpenses: [],
@@ -594,9 +545,6 @@ describe("computeDiscountValueOffered", () => {
       eventVolunteers: [],
       volunteerHourPeople: [],
       discountCodes: null,
-      beginnerAttendees: null,
-      firstTimeAttendees: null,
-      profiledAttendees: null,
       autoAssignDiscountCodes: false,
       distributions: [],
       assistanceExpenses: null,

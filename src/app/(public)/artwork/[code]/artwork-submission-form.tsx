@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState, useTransition } from "react";
+import { FormEvent, useEffect, useState, useTransition } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -18,6 +18,7 @@ import {
 } from "@/components/public/artwork-upload-field";
 import { PrivacyNotice } from "@/components/privacy-notice";
 import { RequiredFieldsNote } from "@/components/required-fields-note";
+import { trackForm, useFormStarted } from "@/lib/analytics/form-events";
 import { submitArtworkAction } from "./artwork-actions";
 
 const STATEMENT_MAX = 2000;
@@ -47,6 +48,13 @@ export function ArtworkSubmissionForm({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [isPending, startTransition] = useTransition();
+  // No call code on any event (#1713): the code in this page's address is
+  // what lets somebody submit at all.
+  const startTracking = useFormStarted("artwork_submission", {});
+
+  useEffect(() => {
+    trackForm("artwork_submission", "form_viewed", {});
+  }, []);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -56,6 +64,7 @@ export function ArtworkSubmissionForm({
       setError("Add at least one image of your work.");
       return;
     }
+    trackForm("artwork_submission", "form_submitted", {});
 
     const formData = new FormData();
     formData.set("name", name);
@@ -78,8 +87,12 @@ export function ArtworkSubmissionForm({
       const result = await submitArtworkAction(code, formData);
       if ("error" in result) {
         setError(result.error);
+        trackForm("artwork_submission", "form_failed", {
+          error_code: result.code ?? "INVALID_FORM",
+        });
         return;
       }
+      if (!company) trackForm("artwork_submission", "form_completed", {});
       setSuccess(true);
     });
   }
@@ -99,7 +112,7 @@ export function ArtworkSubmissionForm({
   const creditedAs = creditName.trim() || name.trim();
 
   return (
-    <form onSubmit={handleSubmit}>
+    <form onSubmit={handleSubmit} {...startTracking}>
       <FieldGroup>
         <RequiredFieldsNote />
         <ArtworkUploadField

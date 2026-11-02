@@ -25,6 +25,7 @@ import { getPublicGearRequestOptions } from "@/lib/gear-request-options";
 import { getPublicLexicon } from "@/lib/lexicon";
 import type { PublicGearRequestOptions } from "@/lib/gear-requests";
 import { loadConstituentViewer } from "@/lib/constituent/viewer";
+import { rpcErrorCode } from "@/lib/analytics/error-code";
 import {
   parseGearRequestDelivery,
   parseGearRequestForm,
@@ -33,7 +34,9 @@ import {
 export type RequestGearItemsResult =
   // `passphraseRequired` tells the cart to ask again (#1536): the tenant
   // changed the passphrase since this browser unlocked, or it never did.
-  | { error: string; passphraseRequired?: true }
+  // `code` is the RPC's refusal, for the funnel (#1711); absent where the
+  // form parser refused.
+  | { error: string; passphraseRequired?: true; code?: string }
   // The id comes back so the receipt can offer to keep the request (#1359).
   // For a filled honeypot it is the throwaway uuid the RPC mints with no row
   // behind it, and that is fine: everything the offer leads to is silent, so
@@ -150,13 +153,15 @@ export async function requestGearItemsAction(
 }
 
 type Submitted =
-  { error: string; passphraseRequired?: true } | { requestId: string };
+  | { error: string; passphraseRequired?: true; code?: string }
+  | { requestId: string };
 
 function rpcFailed(message: string): Submitted {
   return {
     error:
       ERROR_MESSAGES[message] ??
       "Could not submit your request. Please try again.",
+    code: rpcErrorCode(message),
     ...(message === "PASSPHRASE_REQUIRED"
       ? { passphraseRequired: true as const }
       : {}),
@@ -236,7 +241,9 @@ async function submitAsMe(
   return error ? rpcFailed(error.message) : { requestId: data as string };
 }
 
-export type CheckGearPassphraseResult = { success: true } | { error: string };
+/** `wrong` tells the funnel a passphrase was refused, not merely unchecked (#1711). */
+export type CheckGearPassphraseResult =
+  { success: true } | { error: string; wrong?: true };
 
 /**
  * The passphrase dialog's check (#1536). Rate-limited per address in the
@@ -247,7 +254,7 @@ export type CheckGearPassphraseResult = { success: true } | { error: string };
 export async function checkGearPassphraseAction(
   passphrase: string,
 ): Promise<CheckGearPassphraseResult> {
-  if (!passphrase.trim()) return { error: GEAR_PASSPHRASE_WRONG };
+  if (!passphrase.trim()) return { error: GEAR_PASSPHRASE_WRONG, wrong: true };
 
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.rpc("check_gear_request_passphrase", {
@@ -263,7 +270,7 @@ export async function checkGearPassphraseAction(
           : "Could not check the passphrase. Please try again.",
     };
   }
-  if (data !== true) return { error: GEAR_PASSPHRASE_WRONG };
+  if (data !== true) return { error: GEAR_PASSPHRASE_WRONG, wrong: true };
   await setGearPassphraseCookie(passphrase.trim());
   return { success: true };
 }

@@ -13,7 +13,6 @@ import {
   ChevronDown,
   MoreHorizontal,
   Search,
-  Snowflake,
   Ban,
   MessageCircle,
   MessageCircleOff,
@@ -45,7 +44,6 @@ import {
   registrantInstagramColumns,
 } from "../../registrants-tab";
 import { useRegistrantRowActions } from "../../use-registrant-row-actions";
-import { levelTotal, riderStats, type LevelCounts } from "../../rider-stats";
 import {
   filterRegistrants,
   isFiltered,
@@ -60,7 +58,6 @@ import {
   hasAnyAttendedBeforeAnswer,
 } from "@/lib/attended-before";
 import type { RegistrationQuestion } from "@/lib/registration-questions";
-import { EXPERIENCE_LEVELS } from "@/lib/rider-profile";
 import {
   answerColumnLabel,
   answerColumns,
@@ -126,45 +123,6 @@ function Meter({ value, max }: { value: number; max: number }) {
   return (
     <div aria-hidden className="h-1.5 overflow-hidden rounded-full bg-muted">
       <div className="h-full bg-primary" style={{ width: `${percent}%` }} />
-    </div>
-  );
-}
-
-/**
- * One discipline's card in the Riders breakdown: everybody who rides that way,
- * "both" included, split by level.
- */
-function RiderLevels({
-  label,
-  levels,
-}: {
-  label: string;
-  levels: LevelCounts;
-}) {
-  const total = levelTotal(levels);
-  return (
-    <div className="flex flex-col gap-2 rounded-lg border px-3 py-2 text-sm">
-      <div className="flex items-baseline justify-between gap-2">
-        <h3 className="font-medium">{label}</h3>
-        <span className="text-lg font-semibold tabular-nums">{total}</span>
-      </div>
-      <dl className="flex flex-col gap-1.5">
-        {EXPERIENCE_LEVELS.map((level) => (
-          <div key={level.value} className="flex flex-col gap-1">
-            <div className="flex justify-between gap-2">
-              <dt className="app-muted">{level.label}</dt>
-              <dd className="tabular-nums">{levels[level.value]}</dd>
-            </div>
-            <Meter value={levels[level.value]} max={total} />
-          </div>
-        ))}
-        {levels.unknown > 0 && (
-          <div className="app-muted flex justify-between gap-2 text-xs">
-            <dt>Level not given</dt>
-            <dd className="tabular-nums">{levels.unknown}</dd>
-          </div>
-        )}
-      </dl>
     </div>
   );
 }
@@ -263,7 +221,6 @@ export function RegistrantsPage({
   const { toggleCheckIn, restore, isRowPending } =
     useRegistrantRowActions(refreshAll);
 
-  const [riderTarget, setRiderTarget] = useState<EventRegistrant | null>(null);
   const [cancelTarget, setCancelTarget] = useState<EventRegistrant | null>(
     null,
   );
@@ -378,10 +335,8 @@ export function RegistrantsPage({
     0,
   );
   const showAttendedBefore = hasAnyAttendedBeforeAnswer(list);
-  // Null on every row means this viewer isn't cleared for rider answers, or
-  // the tenant doesn't have the rider_profile module (#1408).
-  const riders = list.flatMap((row) => (row.rider ? [row.rider] : []));
-  const riderBreakdown = riders.length > 0 ? riderStats(riders) : null;
+  // #1746. The answers export carries the profile answers too.
+  const hasProfileQuestions = (data?.profileQuestions?.length ?? 0) > 0;
   const missingCount = asksRequired
     ? list.filter((row) => isMissingRequired(row, questions)).length
     : 0;
@@ -575,7 +530,6 @@ export function RegistrantsPage({
                   registrant={registrant}
                   pending={isRowPending(registrant)}
                   onUndoCheckIn={() => toggleCheckIn(registrant)}
-                  onRider={() => setRiderTarget(registrant)}
                   onCancel={() => setCancelTarget(registrant)}
                   groupChat={groupChat}
                   groupChatPending={groupChatPending}
@@ -656,7 +610,7 @@ export function RegistrantsPage({
             {messaging && <DropdownMenuSeparator />}
             {/* A real link: it is a file download, and should behave as one.
                 Gated on `events: manage` in the route handler too. */}
-            {(questions.length > 0 || riderBreakdown) && (
+            {(questions.length > 0 || hasProfileQuestions) && (
               <DropdownMenuItem
                 render={<a href={registrantAnswersCsvHref(eventId)} download />}
               >
@@ -750,35 +704,6 @@ export function RegistrantsPage({
               )}
             </dl>
           </section>
-
-          {/* Who is coming on skis and who on a snowboard, and at what
-              level -- per registration, since the rider answers are the
-              registrant's own and nobody asked about the rest of a party. */}
-          {riderBreakdown && (
-            <section
-              aria-labelledby="registrants-riders-heading"
-              className="flex flex-col gap-2"
-            >
-              <div className="app-muted flex flex-wrap justify-between gap-2 text-xs">
-                <h2 id="registrants-riders-heading" className="font-normal">
-                  Riders · {riderBreakdown.disciplines.ski} skis,{" "}
-                  {riderBreakdown.disciplines.snowboard} snowboard,{" "}
-                  {riderBreakdown.disciplines.both} both
-                </h2>
-                <span>
-                  {riderBreakdown.answered} of {list.length} registrations
-                  answered
-                </span>
-              </div>
-              <div className="grid gap-2 sm:grid-cols-2">
-                <RiderLevels label="Skis" levels={riderBreakdown.ski} />
-                <RiderLevels
-                  label="Snowboard"
-                  levels={riderBreakdown.snowboard}
-                />
-              </div>
-            </section>
-          )}
 
           {/* #1407. The figures tickets and gear are ordered from, and the
               quickest way to the parties behind one. */}
@@ -1171,8 +1096,6 @@ export function RegistrantsPage({
         onDetailClosed={() => {}}
         cancelTarget={cancelTarget}
         onCancelClosed={() => setCancelTarget(null)}
-        riderTarget={riderTarget}
-        onRiderClosed={() => setRiderTarget(null)}
         onChanged={refreshAll}
         onRegistrantsChanged={refreshRegistrants}
       />
@@ -1274,15 +1197,14 @@ function GroupChatBulkBar({
 }
 
 /**
- * The row's less frequent actions (#1511): undo a check-in, the rider
- * profile, the group chat (#1648), cancel. Check-in itself is the labelled
+ * The row's less frequent actions (#1511): undo a check-in, the group chat
+ * (#1648), cancel. Check-in itself is the labelled
  * button beside it.
  */
 function RowMenu({
   registrant,
   pending,
   onUndoCheckIn,
-  onRider,
   onCancel,
   groupChat,
   groupChatPending,
@@ -1291,16 +1213,12 @@ function RowMenu({
   registrant: EventRegistrant;
   pending: boolean;
   onUndoCheckIn: () => void;
-  onRider: () => void;
   onCancel: () => void;
   groupChat: EventGroupChat;
   groupChatPending: boolean;
   onToggleGroupChat: () => void;
 }) {
   const checkedIn = registrant.checked_in_at !== null;
-  // The profile hangs off the person record, so a registration never linked
-  // to one has nowhere to put it.
-  const canRider = registrant.rider !== null && registrant.person_id !== null;
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -1320,11 +1238,6 @@ function RowMenu({
         {checkedIn && (
           <DropdownMenuItem onClick={onUndoCheckIn}>
             <Undo2 /> Undo check-in
-          </DropdownMenuItem>
-        )}
-        {canRider && (
-          <DropdownMenuItem onClick={onRider}>
-            <Snowflake /> Rider profile
           </DropdownMenuItem>
         )}
         {groupChat && (

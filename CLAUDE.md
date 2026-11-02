@@ -74,6 +74,8 @@ Issues are tracked on the `RcmLabsWeb` GitHub Project (owner `rcruzmcd`, project
 - make sure to always start from latest development
 - When starting work on a ticket (e.g. creating/checking out its branch), move the linked issue's `Status` to `In progress`.
 - When a PR for that ticket is opened, move it to `In review`.
+- Sub-issues go on the project too, so each keeps its own `Status`. The board view filters `no:parent-issue` and shows a parent's `Sub-issue progress` instead, and a separate view of `In progress` / `In review` shows the sub-issues being worked. Follow an epic's children with `gh issue view <parent>`.
+- Never close a parent while it has open sub-issues: the parent-only view hides them, so they'd drop off the board. Before closing one, check `gh issue view <parent>`; close it only when its last sub-issue closes, or move the open ones to another parent first.
 - Don't run the full `bun run test:integration` or `bun run test:e2e` suites while working a ticket — they're slow and cover far more than the ticket touches. Run targeted tests for the files/routes you changed instead; leave the full suites to CI.
 
 ## Portal navigation

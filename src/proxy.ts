@@ -381,9 +381,34 @@ async function refreshSession(
   return refreshedResponse;
 }
 
+/**
+ * The path without its trailing slash, or null when it has none (#1708).
+ *
+ * Next's own trailing-slash 308 is off (`skipTrailingSlashRedirect` in
+ * `next.config.ts`) because it runs ahead of the `vercel.json` rewrites:
+ * posthog-js posts every event to `/ph/i/v0/e/`, so each one took a 308 to
+ * the slashless path before the rewrite to PostHog could match -- an extra
+ * round trip per event, and a redirect a beacon or keepalive request may not
+ * follow. The redirect lives here instead, where `ph/` is outside the matcher,
+ * so the ingest is the one path that keeps its slash. It stays a 308 like
+ * Next's, so a POST is replayed with its body.
+ */
+export function trailingSlashRedirect(pathname: string): string | null {
+  if (pathname === "/" || !pathname.endsWith("/")) return null;
+  return pathname.replace(/\/+$/, "") || "/";
+}
+
 export async function proxy(request: NextRequest) {
   const hostname = request.headers.get("host") ?? "";
   const { pathname } = request.nextUrl;
+
+  const slashless = trailingSlashRedirect(pathname);
+  if (slashless) {
+    const url = request.nextUrl.clone();
+    url.pathname = slashless;
+    return NextResponse.redirect(url, 308);
+  }
+
   // HEAD is a page load with the body left off -- crawlers probe with it -- so
   // it takes the same redirects a GET does.
   const isRead = request.method === "GET" || request.method === "HEAD";
@@ -486,7 +511,8 @@ export async function proxy(request: NextRequest) {
 export const CDN_CACHE_CONTROL_HEADER = "Vercel-CDN-Cache-Control";
 
 // `ph/` is PostHog's ingest (#1480), rewritten to PostHog in `vercel.json`.
-// Excluded so an analytics request never costs a proxy invocation (#1467).
+// Excluded so an analytics request never costs a proxy invocation (#1467), and
+// so it never meets the trailing-slash redirect above (#1708).
 export const config = {
   matcher: ["/((?!_next/static|_next/image|favicon.ico|icon.png|ph/).*)"],
 };

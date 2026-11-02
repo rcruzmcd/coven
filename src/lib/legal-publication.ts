@@ -28,6 +28,7 @@ import {
   type LegalDocumentDrift,
 } from "@/lib/legal-surface";
 import {
+  getTenantAsksProfileQuestions,
   getTenantModules,
   getTenantPageVisibility,
 } from "@/lib/page-visibility";
@@ -219,16 +220,17 @@ export const getTenantLegalSurfaces = cache(
 export async function getLegalDocumentDrift(
   supabase: SupabaseClient,
 ): Promise<Record<string, LegalDocumentDrift>> {
-  const [publication, ownDocuments, fingerprints, visibility, modules] =
+  const [publication, ownDocuments, fingerprints, visibility, modules, asks] =
     await Promise.all([
       getTenantLegalPublication(supabase),
       getTenantOwnLegalDocuments(supabase),
       getTenantLegalSurfaces(supabase),
       getTenantPageVisibility(supabase),
       getTenantModules(supabase),
+      getTenantAsksProfileQuestions(supabase),
     ]);
 
-  const current = surfaceKeys(collectionSurface(visibility, modules));
+  const current = surfaceKeys(collectionSurface(visibility, modules, asks));
   const state: Record<string, LegalDocumentDrift> = {};
 
   for (const document of LEGAL_DOCUMENTS) {

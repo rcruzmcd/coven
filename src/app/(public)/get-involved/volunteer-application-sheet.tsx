@@ -10,6 +10,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import { trackForm } from "@/lib/analytics/form-events";
 import { VolunteerApplicationForm } from "./volunteer-application-form-fields";
 
 export function VolunteerApplicationSheet({
@@ -19,8 +20,14 @@ export function VolunteerApplicationSheet({
 }) {
   const [open, setOpen] = useState(false);
 
+  // The form is shown when the sheet opens (#1713), not when the page loads.
+  function handleOpenChange(next: boolean) {
+    setOpen(next);
+    if (next) trackForm("volunteer_application", "form_viewed", {});
+  }
+
   return (
-    <Sheet open={open} onOpenChange={setOpen}>
+    <Sheet open={open} onOpenChange={handleOpenChange}>
       <SheetTrigger render={<Button />}>Apply to volunteer</SheetTrigger>
       <SheetContent side="right">
         <SheetHeader>

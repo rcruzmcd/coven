@@ -43,8 +43,6 @@ const getEventImpactDerivedActionMock = mock(async () => ({
     firstTimeParticipants: 0,
     recurringParticipants: 0,
     volunteerParticipants: 0,
-    beginnerParticipants: 0,
-    profiledAttendees: 0,
     discountCodesAssigned: 0,
     autoAssignDiscountCodes: false,
     peopleServed: { distributed: 0, recipients: 0, value: 0 },

@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState, useTransition } from "react";
+import { FormEvent, useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { requestGearItemsAction } from "./gear-cart-request-actions";
 import {
@@ -20,6 +20,7 @@ import {
   type DeliveryMethod,
   type PublicGearRequestOptions,
 } from "@/lib/gear-requests";
+import { trackForm, useFormStarted } from "@/lib/analytics/form-events";
 import { GEAR_AS_IS_CONSENT_LABEL } from "@/lib/gear-as-is";
 import { applyLexicon, DEFAULT_LEXICON, type Lexicon } from "@/lib/lexicon";
 import { MY_PATH_PREFIX } from "@/lib/constituent/paths";
@@ -82,6 +83,13 @@ export function GearCartCheckoutForm({
   const [asIsAcknowledged, setAsIsAcknowledged] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const startTracking = useFormStarted("gear_request", {});
+
+  // The gear request funnel's checkout (#1711): shown once the cart holds
+  // something, which is when this form mounts.
+  useEffect(() => {
+    trackForm("gear_request", "form_viewed", {});
+  }, []);
 
   // A reader with a record of their own requests as that record (#1359):
   // `request_gear_items_as_me()` takes the person from the session, so the
@@ -95,6 +103,9 @@ export function GearCartCheckoutForm({
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
+    trackForm("gear_request", "form_submitted", {
+      item_count: String(itemIds.length),
+    });
 
     const formData = new FormData();
     if (!requestingAsSelf) {
@@ -122,15 +133,21 @@ export function GearCartCheckoutForm({
       const result = await requestGearItemsAction(itemIds, formData);
       if ("error" in result) {
         setError(result.error);
+        trackForm("gear_request", "form_failed", {
+          error_code: result.code ?? "INVALID_FORM",
+        });
         if (result.passphraseRequired) onPassphraseRejected?.(result.error);
         return;
       }
+      // A filled honeypot "succeeds" with no row behind it, so a bot is not
+      // counted as a request.
+      if (!company) trackForm("gear_request", "form_completed", {});
       onSuccess(deliveryMethod, result.requestId);
     });
   }
 
   return (
-    <form onSubmit={handleSubmit}>
+    <form onSubmit={handleSubmit} {...startTracking}>
       <FieldGroup>
         {requestingAsSelf ? (
           <p className="app-muted text-sm leading-relaxed">

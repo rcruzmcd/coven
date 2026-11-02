@@ -185,6 +185,7 @@ describe("requestGearItemsAction (integration)", () => {
 
     expect(result).toEqual({
       error: "One of the items in your cart could not be found.",
+      code: "ITEM_NOT_FOUND",
     });
     expect(await getInventoryItemStatus(gearItem)).toBe("available");
     expect(await getInventoryItemStatus(giveawayItem)).toBe("available");
@@ -243,6 +244,7 @@ describe("requestGearItemsAction (integration)", () => {
     expect(result).toEqual({
       error:
         "Sorry, one of the items in your cart was just requested by someone else. Remove it and try again.",
+      code: "ITEM_ALREADY_REQUESTED",
     });
     expect(await getInventoryItemStatus(available)).toBe("available");
     expect(await getInventoryItemStatus(alreadyTaken)).toBe("reserved");
@@ -382,6 +384,7 @@ describe("requestGearItemsAction (integration)", () => {
 
     expect(result).toEqual({
       error: "One of the items in your cart could not be found.",
+      code: "ITEM_NOT_FOUND",
     });
     expect(await getInventoryItemStatus(available)).toBe("available");
   });
@@ -420,6 +423,7 @@ describe("requestGearItemsAction (integration)", () => {
     );
     expect(limited).toEqual({
       error: "Too many attempts — please try again in a few minutes.",
+      code: "RATE_LIMITED",
     });
     expect(await getInventoryItemStatus(items[8])).toBe("available");
   });
@@ -697,6 +701,7 @@ describe("requestGearItemsAction under concurrency", () => {
       {
         error:
           "Sorry, one of the items in your cart was just requested by someone else. Remove it and try again.",
+        code: "ITEM_ALREADY_REQUESTED",
       },
     ]);
 
@@ -733,6 +738,7 @@ describe("requestGearItemsAction under concurrency", () => {
     expect(winnerIsA ? second : first).toEqual({
       error:
         "Sorry, one of the items in your cart was just requested by someone else. Remove it and try again.",
+      code: "ITEM_ALREADY_REQUESTED",
     });
     expect(winnerIsA ? first : second).toEqual({
       success: true,
@@ -951,6 +957,7 @@ describe("requesting gear as yourself (integration)", () => {
       expect(refused).toEqual({
         error: GEAR_PASSPHRASE_EXPIRED,
         passphraseRequired: true,
+        code: "PASSPHRASE_REQUIRED",
       });
       expect(await getInventoryItemStatus(item)).toBe("available");
 
@@ -1018,6 +1025,7 @@ describe("the tenant's passphrase (integration)", () => {
       expect(result).toEqual({
         error: GEAR_PASSPHRASE_EXPIRED,
         passphraseRequired: true,
+        code: "PASSPHRASE_REQUIRED",
       });
     }
 
@@ -1064,6 +1072,7 @@ describe("the tenant's passphrase (integration)", () => {
     expect(result).toEqual({
       error: GEAR_PASSPHRASE_EXPIRED,
       passphraseRequired: true,
+      code: "PASSPHRASE_REQUIRED",
     });
     // The stale word is dropped, so the page renders this browser locked.
     expect(passphraseCookie).toBeNull();
@@ -1085,6 +1094,7 @@ describe("the tenant's passphrase (integration)", () => {
     expect(result).toEqual({
       error: GEAR_PASSPHRASE_EXPIRED,
       passphraseRequired: true,
+      code: "PASSPHRASE_REQUIRED",
     });
   });
 
@@ -1094,6 +1104,7 @@ describe("the tenant's passphrase (integration)", () => {
 
     expect(await checkGearPassphraseAction("Redbird")).toEqual({
       error: expect.stringContaining("doesn't match"),
+      wrong: true,
     });
     expect(passphraseCookie).toBeNull();
     for (let i = 0; i < 9; i++) await checkGearPassphraseAction("Redbird");

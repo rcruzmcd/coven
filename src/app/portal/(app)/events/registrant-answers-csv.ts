@@ -17,17 +17,14 @@
  * "Text message" says nothing about anybody. The number or address behind it
  * is a contact detail like the phone, and follows the same consent.
  *
- * Rider answers -- how a registrant rides and at what level -- are not
+ * Profile answers (#1744) -- how a registrant rides, at what level -- are not
  * contact details, so they are not under that consent. They appear for a
- * reader cleared for them (`rider_profiles`, which carries the rider_profile
- * module, #1408) and are read the way the Rides column reads them.
+ * reader cleared for them (`person_answers: view`, which carries the
+ * person_questions module), one column per current question, read the way
+ * every figure reads them (#1746): a snapshotted question as of check-in
+ * where the registration was snapshotted, as it stands now where it was not.
  */
 
-import {
-  experienceLevelLabel,
-  ridingDisciplineLabel,
-} from "@/lib/rider-profile";
-import { effectiveRider, type RiderAnswers } from "./rider-stats";
 import { preferredContactMethodLabel } from "@/lib/registration-contact";
 
 export type AnswersCsvQuestion = {
@@ -35,6 +32,16 @@ export type AnswersCsvQuestion = {
   prompt: string;
   shares_contact: boolean;
 };
+
+/** A current profile question, as the export heads and reads it. */
+export type AnswersCsvProfileQuestion = {
+  id: string;
+  prompt: string;
+  column_label?: string | null;
+  snapshot_at_checkin: boolean;
+};
+
+type ProfileAnswerWords = { question_id: string | null; answer_text: string };
 
 export type AnswersCsvRegistration = {
   name: string;
@@ -50,8 +57,14 @@ export type AnswersCsvRegistration = {
    * (#1591), or null where they never have.
    */
   answers_changed_at?: string | null;
-  /** Only read when the file is built with `riders`. */
-  rider?: RiderAnswers | null;
+  /**
+   * Only read when the file is built with profile questions: the
+   * registration's check-in snapshots and the person's current answers.
+   */
+  profile?: {
+    snapshots: readonly ProfileAnswerWords[];
+    answers: readonly ProfileAnswerWords[];
+  };
   answers: {
     question_id: string | null;
     answer_text: string;
@@ -101,8 +114,8 @@ export function csvField(value: string | number | null): string {
  * Name, party size, one column per current question in the event's order
  * (each its answer in words, blank where unanswered), then Answers changed --
  * the instant the registrant last changed them after registering, in UTC
- * (ISO 8601), blank where they never have (#1591) -- then Rides, Ski level
- * and Snowboard level with `riders`, then Instagram and Preferred contact on
+ * (ISO 8601), blank where they never have (#1591) -- then one column per
+ * profile question it is given (#1746), then Instagram and Preferred contact on
  * every row, then Email, Phone and Contact detail only where the event has a
  * `shares_contact` question -- filled only on the rows that agreed. CRLF line endings, as RFC 4180 and Excel
  * expect.
@@ -110,7 +123,9 @@ export function csvField(value: string | number | null): string {
 export function registrantAnswersCsv(
   questions: readonly AnswersCsvQuestion[],
   registrations: readonly AnswersCsvRegistration[],
-  { riders = false }: { riders?: boolean } = {},
+  {
+    profileQuestions = [],
+  }: { profileQuestions?: readonly AnswersCsvProfileQuestion[] } = {},
 ): string {
   const withContact = questions.some((question) => question.shares_contact);
   const header = [
@@ -118,7 +133,9 @@ export function registrantAnswersCsv(
     "Party size",
     ...questions.map((question) => question.prompt),
     "Answers changed",
-    ...(riders ? ["Rides", "Ski level", "Snowboard level"] : []),
+    ...profileQuestions.map(
+      (question) => question.column_label ?? question.prompt,
+    ),
     "Instagram",
     "Preferred contact",
     ...(withContact ? ["Email", "Phone", "Contact detail"] : []),
@@ -132,20 +149,23 @@ export function registrantAnswersCsv(
       ]),
     );
     const shares = withContact && sharesContact(questions, registration);
-    const rider =
-      riders && registration.rider ? effectiveRider(registration.rider) : null;
+    const snapshots = registration.profile?.snapshots ?? [];
+    const current = registration.profile?.answers ?? [];
     return [
       registration.name,
       registration.party_size,
       ...questions.map((question) => byQuestion.get(question.id) ?? null),
       registration.answers_changed_at ?? null,
-      ...(riders
-        ? [
-            ridingDisciplineLabel(rider?.discipline ?? null),
-            experienceLevelLabel(rider?.ski ?? null),
-            experienceLevelLabel(rider?.snowboard ?? null),
-          ]
-        : []),
+      ...profileQuestions.map((question) => {
+        const source =
+          question.snapshot_at_checkin && snapshots.length > 0
+            ? snapshots
+            : current;
+        return (
+          source.find((answer) => answer.question_id === question.id)
+            ?.answer_text ?? null
+        );
+      }),
       // Bare, as stored: an `@` prefix would come out as `'@` from
       // csvField's formula guard.
       registration.instagram_handle || null,

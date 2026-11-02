@@ -10,7 +10,12 @@ import { getRequestOrigin } from "@/lib/request-origin";
 import { notifyNewPersonClaim } from "@/lib/notifications/person-claim-notifications";
 import { MY_PATH_PREFIX } from "@/lib/constituent/paths";
 
-export type ClaimActionResult = { error: string } | { submitted: true };
+/**
+ * `code` is the failure, for the funnel (#1713): the request's own, never
+ * anything about who is in the directory.
+ */
+export type ClaimActionResult =
+  { error: string; code?: string } | { submitted: true };
 
 /**
  * Ask to be linked to a directory record (#1162).
@@ -39,7 +44,7 @@ export async function submitClaimAction(
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) {
-    return { error: "Please sign in again." };
+    return { error: "Please sign in again.", code: "NOT_SIGNED_IN" };
   }
 
   // The form no longer prefills the Email field with the verified address
@@ -69,9 +74,13 @@ export async function submitClaimAction(
     if (error.message.includes("RATE_LIMITED")) {
       return {
         error: "Too many requests just now. Try again in a little while.",
+        code: "RATE_LIMITED",
       };
     }
-    return { error: "We could not send that just now. Please try again." };
+    return {
+      error: "We could not send that just now. Please try again.",
+      code: "UNKNOWN",
+    };
   }
 
   await announceClaim(supabase);

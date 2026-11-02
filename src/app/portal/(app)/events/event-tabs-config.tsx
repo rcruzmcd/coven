@@ -23,6 +23,7 @@ import { AttendanceTab } from "./attendance-tab";
 import { RegistrantsTab } from "./registrants-tab";
 import { CarpoolsTab } from "./carpools-tab";
 import { PlaceBreakdownTab } from "./place-breakdown-tab";
+import { AnswerBreakdownTab } from "./answer-breakdown-tab";
 import { DiscountCodesTab } from "./discount-codes-tab";
 import { DonationsTab } from "./donations-tab";
 import { CashDonationsTab } from "./cash-donations-tab";
@@ -66,6 +67,7 @@ export type TabValue =
   | "registrants"
   | "carpools"
   | "places"
+  | "answers"
   | "discount-codes"
   | "distributions"
   | "incidents"
@@ -264,6 +266,19 @@ export const TAB_CONFIG: readonly TabConfigEntry[] = [
         questions={ctx.event.registration_questions ?? []}
       />
     ),
+  },
+  {
+    // #1745, replacing the rider-only Riders breakdown. Only where the tenant
+    // copies a choice profile question at check-in; answers need
+    // `person_answers: view`, which no per-event grant gives, so no `area`.
+    value: "answers",
+    label: "Profile answers",
+    keywords: ["level", "experience", "riders", "discipline", "breakdown"],
+    group: "guests",
+    kind: "plain",
+    access: [{ resource: "person_answers", level: "view" }],
+    shownWhen: "hasSnapshotQuestion",
+    render: (ctx) => <AnswerBreakdownTab eventId={ctx.event.id} />,
   },
   {
     value: "attendance",
@@ -739,6 +754,11 @@ export type EventGroupOptions = {
   carpoolsEnabled?: boolean;
   /** The event asks a current `place` question (#1701). */
   hasPlaceQuestion?: boolean;
+  /**
+   * The tenant copies a current choice profile question at check-in (#1745).
+   * Read under `person_answers: view`, so false for a reader without it.
+   */
+  hasSnapshotQuestion?: boolean;
 };
 
 export function eventGroups(

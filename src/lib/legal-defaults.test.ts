@@ -36,6 +36,7 @@ const NOTHING: CollectionSurface = {
   contact: false,
   volunteerApplications: false,
   eventRegistrations: false,
+  profileQuestions: false,
   gearRequests: false,
   artworkSubmissions: false,
   constituentAccounts: false,
@@ -364,6 +365,9 @@ describe("the collection surface", () => {
     const on = readable("legal.privacy");
     expect(on).toContain("PostHog — counts page views");
     expect(on).toContain("and PostHog to count how many people start");
+    // #1714: the clicks and dead ends, each as narrow as its allowlist.
+    expect(on).toContain("which website, not which page");
+    expect(on).toContain("only the first part of its address");
     const off = readable(
       "legal.privacy",
       withSurfaces({ ...EVERYTHING, formAnalytics: false }),

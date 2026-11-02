@@ -10,10 +10,12 @@ import {
   notifyNewVolunteerApplication,
   notifyVolunteerApplicationConfirmation,
 } from "@/lib/notifications/submission-notifications";
+import { rpcErrorCode } from "@/lib/analytics/error-code";
 import { parseVolunteerApplicationForm } from "./volunteer-application-form";
 
+/** `code` is the RPC's refusal, for the funnel (#1713); absent where the form parser refused. */
 export type SubmitVolunteerApplicationResult =
-  { error: string } | { success: true; referenceCode: string };
+  { error: string; code?: string } | { success: true; referenceCode: string };
 
 const ERROR_MESSAGES: Record<string, string> = {
   NAME_REQUIRED: "Name is required.",
@@ -58,6 +60,7 @@ export async function submitVolunteerApplicationAction(
       error:
         ERROR_MESSAGES[error.message] ??
         "Could not submit your application. Please try again.",
+      code: rpcErrorCode(error.message),
     };
   }
 

@@ -53,15 +53,15 @@ export function contactSummaryRows(
 }
 
 /**
- * Party size, the under-18 answer and its contacts, the riding answers where
- * they were asked (#1415), options, the event's questions (#1501), and notes -- the order step 2 asks them in.
+ * Party size, the under-18 answer and its contacts, options, the event's
+ * questions (#1501) and profile questions (#1744), and notes -- the order
+ * step 2 asks them in.
  */
 export function eventSummaryRows({
   partySize,
   partyIncludesMinor,
   minorContacts,
   adultsOnlyConfirmed = false,
-  riding = [],
   registrationOptions,
   optionCounts,
   answers = [],
@@ -72,7 +72,6 @@ export function eventSummaryRows({
   minorContacts: MinorContactValues;
   /** #1417. Shown as confirmed only where the event asked and it was ticked. */
   adultsOnlyConfirmed?: boolean;
-  riding?: RegistrationSummaryRow[];
   registrationOptions: RegistrationOptionsQuestion | null;
   optionCounts: OptionCounts;
   /** #1501. The answered questions, from `answerSummaryRows`. */
@@ -109,8 +108,6 @@ export function eventSummaryRows({
   if (adultsOnlyConfirmed) {
     rows.push({ label: "Ages", value: ADULTS_ONLY_CONFIRMATION_LABEL });
   }
-
-  rows.push(...riding);
 
   if (registrationOptions) {
     const chosen = registrationOptions.options

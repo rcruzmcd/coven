@@ -27,7 +27,6 @@ import {
   parseRegistrationContact,
   REGISTRATION_CONTACT_ERROR_MESSAGES,
 } from "@/lib/registration-contact";
-import { parseRegistrationRiding } from "@/lib/rider-profile-form";
 import {
   MINOR_CONTACTS_REQUIRED_CODE,
   MINOR_CONTACTS_REQUIRED_ERROR,
@@ -35,6 +34,10 @@ import {
 } from "@/lib/minors";
 import { MY_PATH_PREFIX } from "@/lib/constituent/paths";
 import { publicEventPath } from "./event-path";
+import {
+  parseProfileAnswers,
+  saveRegistrationProfileAnswers,
+} from "./registration-profile-answers";
 import {
   registrationErrorCode,
   registrationErrorStep,
@@ -44,7 +47,12 @@ import {
 /** `step` and `code` as on `RegisterForEventResult` (#1403, #1480). */
 export type RegisterMyselfResult =
   | { error: string; step: RegistrationStep; code?: string }
-  | { success: true; registrationId: string };
+  | {
+      success: true;
+      registrationId: string;
+      /** #1744, as on `RegisterForEventResult`. */
+      profileAnswersError: string | null;
+    };
 
 const ERROR_MESSAGES: Record<string, string> = {
   EVENT_NOT_FOUND: "This event could not be found.",
@@ -71,9 +79,6 @@ const ERROR_MESSAGES: Record<string, string> = {
     "The agreement was updated while you were filling this in. Reload the page, read it again, and register.",
   WAIVER_UNAVAILABLE:
     "This organization's participant agreement could not be loaded, so we can't take your registration right now. Please try again shortly.",
-  // #1415. The form checks these before sending, so reaching this means a
-  // client that did not.
-  INVALID_RIDER_PROFILE: "Please check your riding answers and try again.",
   RATE_LIMITED: "Too many attempts — please try again in a few minutes.",
   // #1407
   ...REGISTRATION_OPTION_ERROR_MESSAGES,
@@ -115,16 +120,13 @@ export async function registerMyselfForEventAction(
   if ("error" in minors) return { error: minors.error, step: "event" };
   const minorContacts = minors.data;
 
-  // #1415, and parsed as the anonymous form parses it.
-  const parsedRiding = parseRegistrationRiding(formData);
-  if ("error" in parsedRiding) {
-    return { error: parsedRiding.error, step: "event" };
-  }
-  const riding = parsedRiding.data;
-
   // #1501, as on the anonymous path.
   const answers = parseAnswersField(formData);
   if ("error" in answers) return { error: answers.error, step: "event" };
+
+  // #1744, as on the anonymous path.
+  const profile = parseProfileAnswers(formData);
+  if ("error" in profile) return { error: profile.error, step: "event" };
 
   // #1647, as on the anonymous path.
   const contact = parseRegistrationContact(formData);
@@ -177,13 +179,6 @@ export async function registerMyselfForEventAction(
     p_answers: answers.answers ?? undefined,
     // #1417. The RPC ignores it on an event that is not 18+.
     p_adults_only_confirmed: parseAdultsOnlyConfirmed(formData),
-    // #1415. `undefined` when the form did not ask, so nothing is written;
-    // the RPC ignores them on a tenant without the rider_profile module.
-    p_riding_discipline: riding?.riding_discipline,
-    p_ski_experience_level: riding?.ski_experience_level ?? undefined,
-    p_snowboard_experience_level:
-      riding?.snowboard_experience_level ?? undefined,
-    p_preferred_mountain: riding?.preferred_mountain ?? undefined,
     // No `p_photo_consent` (#1376). The parameter is still there, declared
     // `default null`, and the RPC is unchanged -- but this form has no box, so
     // there is no answer to send and `null` is the correct resting state: no
@@ -210,6 +205,14 @@ export async function registerMyselfForEventAction(
 
   const registrationId = String(data);
 
+  // #1744. Through the same day-old credential as the anonymous path: the
+  // registration just made is this person's own.
+  const profileAnswersError = await saveRegistrationProfileAnswers(supabase, {
+    registrationId,
+    answers: profile.answers,
+    ipAddress: await getClientIp(),
+  });
+
   // After the response, never before it (#742), and through the same sender
   // the anonymous path uses -- a registration is a registration, and the
   // receipt should not depend on how it was made. It honours an opt-out now
@@ -234,5 +237,5 @@ export async function registerMyselfForEventAction(
     });
   });
 
-  return { success: true, registrationId };
+  return { success: true, registrationId, profileAnswersError };
 }

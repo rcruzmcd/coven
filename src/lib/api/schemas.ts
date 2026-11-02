@@ -221,7 +221,7 @@ export const eventRegistrationSchema = z
       .optional()
       .meta({
         description:
-          "Answers to the event's registration_questions, keyed by question id, once for the whole registration: an option id for single_choice, an array of option ids for multi_choice, text for short_text, a whole number for number, true or false for consent, {place_id} for place (or {other: text} where the question allows it). Leave out a question whose show_if is not met. Required when any visible question is required.",
+          "Answers to the event's registration_questions, keyed by question id, once for the whole registration: an option id for single_choice (or {other: text} where allow_other is true), an array of option ids for multi_choice, text for short_text, a whole number for number, true or false for consent, {place_id} for place (or {other: text} where the question allows it). Leave out a question whose show_if is not met; an archived option is refused. Required when any visible question is required.",
       }),
   })
   .meta({ id: "EventRegistration" });
@@ -307,6 +307,22 @@ export const riderProfileSchema = z
   })
   .meta({ id: "RiderProfile" });
 
+// #1746. The post-registration profile questions, keyed by question key:
+// a consumer cannot read the questions' ids. A choice is named by its option
+// key (or id); every other kind is the value the site's form sends.
+export const personAnswersSchema = z
+  .object({
+    registration_id: z.uuid().meta({
+      description:
+        "The id returned by a registration, within a day of making it.",
+    }),
+    answers: z.record(z.string().max(40), z.json()).meta({
+      description:
+        'Answers by question key. A single choice is an option key, or {"other": text} where the question offers Other; a multiple choice is a list of option keys; a number, short text or place is what the question takes. A question left out leaves the stored answer alone; a question without a key cannot be answered here.',
+    }),
+  })
+  .meta({ id: "PersonAnswers" });
+
 export type ContactMessageBody = z.infer<typeof contactMessageSchema>;
 export type VolunteerApplicationBody = z.infer<
   typeof volunteerApplicationSchema
@@ -317,3 +333,4 @@ export type VolunteerStatusLookupBody = z.infer<
 export type EventRegistrationBody = z.infer<typeof eventRegistrationSchema>;
 export type GearRequestBody = z.infer<typeof gearRequestSchema>;
 export type RiderProfileBody = z.infer<typeof riderProfileSchema>;
+export type PersonAnswersBody = z.infer<typeof personAnswersSchema>;

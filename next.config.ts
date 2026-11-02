@@ -4,6 +4,10 @@ import { withSentryConfig } from "@sentry/nextjs/config";
 const nextConfig: NextConfig = {
   /* config options here */
   reactCompiler: false,
+  // The trailing-slash 308 is `src/proxy.ts`'s job (#1708). Next's own runs
+  // before the `vercel.json` rewrites, so it bounced every PostHog event at
+  // `/ph/i/v0/e/` before the `/ph` rewrite could match it.
+  skipTrailingSlashRedirect: true,
   // Playwright's default baseURL is 127.0.0.1, which Next.js dev treats as a
   // different origin than localhost and blocks HMR/static chunk requests
   // from by default, silently breaking all client-side interactivity.

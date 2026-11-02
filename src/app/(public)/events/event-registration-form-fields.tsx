@@ -4,19 +4,12 @@ import { useState, useTransition } from "react";
 import { registerForEventAction } from "./event-registration-actions";
 import type { RegistrationStep } from "./registration-step";
 import { RegistrationSteps } from "./registration-steps";
-import { trackRegistration } from "@/lib/analytics/registration-events";
+import { trackForm } from "@/lib/analytics/form-events";
 import {
   attendedBeforeRows,
   contactSummaryRows,
   eventSummaryRows,
 } from "./registration-summary";
-import {
-  EMPTY_RIDING,
-  RidingFields,
-  ridingSummaryRows,
-  setRidingFields,
-  type RidingValues,
-} from "./riding-fields";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -40,6 +33,11 @@ import { CarpoolCostNotice } from "@/components/carpool-cost-notice";
 import { waiverAcceptanceLabel } from "@/lib/photo-consent";
 import { RegistrationOptionCountsField } from "@/components/registration-option-counts-field";
 import { RegistrationQuestionsFields } from "@/components/registration-questions-fields";
+import { ProfileQuestionsFieldset } from "@/components/profile-questions-fieldset";
+import {
+  PROFILE_ANSWERS_FIELD,
+  profileAnswersError,
+} from "@/lib/person-questions";
 import {
   answerSummaryRows,
   answersError,
@@ -70,7 +68,6 @@ import {
   type AccountOffer,
 } from "@/components/record-account-offer";
 import type { EventViewerAccount } from "./my-registration";
-import type { PublicRiderProfile } from "@/lib/rider-profile";
 
 /**
  * The anonymous registration form, optionally prefilled from the caller's own
@@ -103,7 +100,7 @@ export function EventRegistrationForm({
   carpoolCostNotice = [],
   registrationOptions = null,
   registrationQuestions = [],
-  riderProfile = null,
+  profileQuestions = [],
 }: {
   eventId: string;
   account?: EventViewerAccount | null;
@@ -183,15 +180,12 @@ export function EventRegistrationForm({
    */
   registrationQuestions?: RegistrationQuestion[];
   /**
-   * The riding questions on step 2 (#1415), and the mountains they offer.
-   * Null -- the default -- on every tenant without the rider_profile module
-   * (#1408), which leaves step 2 "This event" and asks nothing about riding.
-   *
-   * Never prefilled here, even for a signed-in account: this form's reader has
-   * no linked record, and the only other source would be the record a typed
-   * email matches -- which would show anybody's answers to whoever typed it.
+   * The organization's profile questions asked after registering for this
+   * event (#1744), answered about the person rather than the registration.
+   * Never pre-filled, for the reason given below.
+   * Empty for a tenant asking none.
    */
-  riderProfile?: PublicRiderProfile | null;
+  profileQuestions?: RegistrationQuestion[];
 }) {
   const [name, setName] = useState(account?.name ?? "");
   const [email, setEmail] = useState(account?.email ?? "");
@@ -211,7 +205,6 @@ export function EventRegistrationForm({
   // #1417. Unticked, always, for the reason the waiver's box is.
   const [adultsOnlyConfirmed, setAdultsOnlyConfirmed] = useState(false);
   const [notes, setNotes] = useState("");
-  const [riding, setRiding] = useState<RidingValues>(EMPTY_RIDING);
   // #1407. Every option starts at nothing: a preselected answer is one the
   // form gave on their behalf.
   const [optionCounts, setOptionCountsState] = useState<OptionCounts>({});
@@ -221,6 +214,14 @@ export function EventRegistrationForm({
     emptyAnswerDraft(registrationQuestions),
   );
   const answers = draftToAnswers(registrationQuestions, answerDraft);
+  // #1744. Empty, always: see `profileQuestions`.
+  const [profileDraft, setProfileDraft] = useState<AnswerDraft>(() =>
+    emptyAnswerDraft(profileQuestions),
+  );
+  const profileAnswers = draftToAnswers(profileQuestions, profileDraft);
+  const [profileAnswersNotSaved, setProfileAnswersNotSaved] = useState<
+    string | null
+  >(null);
   const [company, setCompany] = useState("");
   // Starts unticked, always. A pre-ticked box is not an acceptance, and this
   // is the one control on the form where that matters (#686).
@@ -261,6 +262,15 @@ export function EventRegistrationForm({
       return;
     }
 
+    const profileProblem = profileAnswersError(
+      profileQuestions,
+      profileAnswers,
+    );
+    if (profileProblem) {
+      setError({ message: profileProblem.message, step: "event" });
+      return;
+    }
+
     const formData = new FormData();
     formData.set("name", name);
     formData.set("email", email);
@@ -283,9 +293,11 @@ export function EventRegistrationForm({
     if (adultsOnly && adultsOnlyConfirmed) {
       formData.set(ADULTS_ONLY_CONFIRMED_FIELD, "on");
     }
-    if (riderProfile) setRidingFields(formData, riding);
     if (registrationOptions) setOptionCounts(formData, optionCounts);
     if (registrationQuestions.length > 0) setAnswersField(formData, answers);
+    if (profileQuestions.length > 0) {
+      setAnswersField(formData, profileAnswers, PROFILE_ANSWERS_FIELD);
+    }
     formData.set("notes", notes);
     formData.set("company", company);
     if (waiver) {
@@ -297,7 +309,7 @@ export function EventRegistrationForm({
       const result = await registerForEventAction(eventId, formData);
       if ("error" in result) {
         setError({ message: result.error, step: result.step });
-        trackRegistration("registration_failed", {
+        trackForm("event_registration", "form_failed", {
           event_id: eventId,
           step: result.step,
           error_code: result.code ?? "INVALID_FORM",
@@ -307,9 +319,12 @@ export function EventRegistrationForm({
       // A filled honeypot "succeeds" with an id that has no row behind it,
       // so a bot is not counted as a registration (#1480).
       if (!company) {
-        trackRegistration("registration_completed", { event_id: eventId });
+        trackForm("event_registration", "form_completed", {
+          event_id: eventId,
+        });
       }
       setAnswersPath(result.answersPath);
+      setProfileAnswersNotSaved(result.profileAnswersError);
       setRegistrationId(result.registrationId);
     });
   }
@@ -345,6 +360,11 @@ export function EventRegistrationForm({
             )}
           </AlertDescription>
         </Alert>
+        {profileAnswersNotSaved && (
+          <Alert className="mt-4">
+            <AlertDescription>{profileAnswersNotSaved}</AlertDescription>
+          </Alert>
+        )}
         {accountOffer && (
           <div className="mt-6">
             <RecordAccountOffer
@@ -364,7 +384,6 @@ export function EventRegistrationForm({
       isPending={isPending}
       onSubmit={handleSubmit}
       submitVariant="rainbow"
-      eventLegend={riderProfile ? "Your riding" : undefined}
       about={
         <>
           {account?.email && (
@@ -403,7 +422,7 @@ export function EventRegistrationForm({
             />
           </Field>
           {/* Instagram and pronouns stay here (#1403): they are about the
-              person, and "Your riding" (#1415) is about how they ride. */}
+              person. */}
           <InstagramOrContactFields
             idPrefix="registration"
             values={contact}
@@ -495,15 +514,6 @@ export function EventRegistrationForm({
               disabled={isPending}
             />
           )}
-          {riderProfile && (
-            <RidingFields
-              idPrefix="registration"
-              mountains={riderProfile.mountains}
-              values={riding}
-              onChange={setRiding}
-              disabled={isPending}
-            />
-          )}
           {registrationOptions && (
             <RegistrationOptionCountsField
               idPrefix="registration"
@@ -520,6 +530,14 @@ export function EventRegistrationForm({
             draft={answerDraft}
             onChange={setAnswerDraft}
             disabled={isPending}
+          />
+          <ProfileQuestionsFieldset
+            idPrefix="registration"
+            questions={profileQuestions}
+            draft={profileDraft}
+            onChange={setProfileDraft}
+            disabled={isPending}
+            skippable
           />
           <CarpoolCostNotice paragraphs={carpoolCostNotice} />
           <Field>
@@ -547,10 +565,12 @@ export function EventRegistrationForm({
           partyIncludesMinor,
           minorContacts,
           adultsOnlyConfirmed: adultsOnly && adultsOnlyConfirmed,
-          riding: riderProfile ? ridingSummaryRows(riding) : [],
           registrationOptions,
           optionCounts,
-          answers: answerSummaryRows(registrationQuestions, answers),
+          answers: [
+            ...answerSummaryRows(registrationQuestions, answers),
+            ...answerSummaryRows(profileQuestions, profileAnswers),
+          ],
           notes,
         }),
       }}

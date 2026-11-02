@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { safeMyDestination } from "@/lib/constituent/paths";
 import { navigateAfterSessionChange } from "@/lib/constituent/session-navigation";
+import { trackForm, useFormStarted } from "@/lib/analytics/form-events";
 
 type Mode = "sign-in" | "sign-up";
 
@@ -49,6 +50,13 @@ export function SignInForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
+  // The funnel (#1713). Still no identify() once signed in: a signed-in
+  // visitor is counted exactly like an anonymous one.
+  const startTracking = useFormStarted("my_sign_in", {});
+
+  useEffect(() => {
+    trackForm("my_sign_in", "form_viewed", {});
+  }, []);
 
   function switchMode(next: Mode) {
     setMode(next);
@@ -61,6 +69,9 @@ export function SignInForm() {
     setError(null);
     setNotice(null);
     setIsSubmitting(true);
+    trackForm("my_sign_in", "form_submitted", {
+      method: mode === "sign-up" ? "sign_up" : "password",
+    });
 
     const supabase = createSupabaseBrowserClient();
 
@@ -79,8 +90,12 @@ export function SignInForm() {
         // from "weak password", and the first of those answers "does this
         // address have an account here?" for anyone who asks.
         setError("We could not create that account. Please try again.");
+        trackForm("my_sign_in", "form_failed", {
+          error_code: "SIGN_UP_FAILED",
+        });
         return;
       }
+      trackForm("my_sign_in", "form_completed", {});
 
       // No session back means confirmation is on and the link has been sent.
       // The same wording covers an address that already had an account, which
@@ -104,8 +119,10 @@ export function SignInForm() {
     if (signInError) {
       setError("Those sign-in details could not be verified.");
       setIsSubmitting(false);
+      trackForm("my_sign_in", "form_failed", { error_code: "SIGN_IN_FAILED" });
       return;
     }
+    trackForm("my_sign_in", "form_completed", {});
 
     navigateAfterSessionChange(router, destination);
   }
@@ -114,6 +131,9 @@ export function SignInForm() {
     setError(null);
     setNotice(null);
     setIsGoogleSubmitting(true);
+    // Completion happens at Google and the auth callback, out of sight of
+    // this page, so this method's funnel ends at the submit.
+    trackForm("my_sign_in", "form_submitted", { method: "google" });
 
     const supabase = createSupabaseBrowserClient();
     const { error: signInError } = await supabase.auth.signInWithOAuth({
@@ -126,6 +146,7 @@ export function SignInForm() {
     if (signInError) {
       setError("Google sign-in is not available right now.");
       setIsGoogleSubmitting(false);
+      trackForm("my_sign_in", "form_failed", { error_code: "GOOGLE_FAILED" });
     }
   }
 
@@ -190,7 +211,7 @@ export function SignInForm() {
 
       <Separator className="my-6" />
 
-      <form onSubmit={handleSubmit} noValidate>
+      <form onSubmit={handleSubmit} noValidate {...startTracking}>
         <FieldGroup>
           <RequiredFieldsNote />
           <Field>

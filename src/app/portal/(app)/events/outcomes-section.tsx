@@ -80,9 +80,6 @@ export function OutcomesSection({
 }) {
   const served = derived.peopleServed;
   const assistance = derived.assistance;
-  const riderCoverageShort =
-    derived.beginnerParticipants !== null &&
-    (derived.profiledAttendees ?? 0) < derived.checkedIn;
 
   return (
     <div className="flex flex-col gap-6">
@@ -96,11 +93,6 @@ export function OutcomesSection({
           <>
             Participants is the headcount from the Attendance card; checked in
             counts registrants marked in at the door.
-            {/* Only true while coverage is short: at full coverage the rider
-                figures are the whole picture, and hedging them would just
-                make staff distrust them. */}
-            {riderCoverageShort &&
-              ` Rider levels come from the ${formatNumber(derived.profiledAttendees ?? 0)} checked-in attendees with a rider profile on file — add the missing ones from the Registrants card.`}
           </>
         }
       >
@@ -129,22 +121,22 @@ export function OutcomesSection({
           label="Recurring participants"
           value={formatNumber(derived.recurringParticipants)}
         />
-        {derived.beginnerParticipants !== null && (
+        {/* The tenant's profile metric rows (#1745), by label. Qualified only
+            while fewer checked-in attendees answered than checked in. */}
+        {(derived.answerMetrics ?? []).map((metric) => (
           <Figure
+            key={metric.id}
             eventId={eventId}
             card="registrants"
-            label="Beginners"
-            value={formatNumber(derived.beginnerParticipants)}
+            label={metric.label}
+            value={formatNumber(metric.count)}
+            caption={
+              metric.answered < derived.checkedIn
+                ? `Of ${formatNumber(metric.answered)} who answered`
+                : undefined
+            }
           />
-        )}
-        {derived.firstTimeOnSnow !== null && (
-          <Figure
-            eventId={eventId}
-            card="registrants"
-            label="First time on snow"
-            value={formatNumber(derived.firstTimeOnSnow)}
-          />
-        )}
+        ))}
       </Section>
 
       {/* #1701. Only on an event whose place questions someone answered. The

@@ -7,6 +7,7 @@ import {
 } from "@/lib/auth/permissions";
 import {
   getPageVisibility,
+  getTenantAsksProfileQuestions,
   getTenantModules,
   getTenantPageVisibility,
   platformOnlySlotKeys,
@@ -69,6 +70,7 @@ export default async function SiteContentPage({
     layoutValues,
     tenantVisibility,
     tenantModules,
+    tenantAsksProfileQuestions,
     approvalRequired,
     tenantLexicon,
     { data: userData },
@@ -88,6 +90,7 @@ export default async function SiteContentPage({
     // policy has to start from one that matches the site they are editing.
     getTenantPageVisibility(supabase),
     getTenantModules(supabase),
+    getTenantAsksProfileQuestions(supabase),
     // Whether a legal document needs a second pair of eyes before it publishes
     // (#600). The publish dialog asks for an approval only while this is on,
     // and refuses outright on a draft the reader wrote themselves.
@@ -134,7 +137,11 @@ export default async function SiteContentPage({
     emailGeneral: published.text("org.email_general"),
     emailPrivacy: published.text("org.email_privacy"),
     emailConduct: published.text("org.email_conduct"),
-    surfaces: collectionSurface(tenantVisibility, tenantModules),
+    surfaces: collectionSurface(
+      tenantVisibility,
+      tenantModules,
+      tenantAsksProfileQuestions,
+    ),
     lexicon: tenantLexicon,
   };
 

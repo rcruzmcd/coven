@@ -390,7 +390,7 @@ export const ACCOUNTS_SEGMENT: PeopleSegment = {
  * recipients, which is a different privacy posture and a different product
  * decision -- this schema already clears their request notes on retention
  * (20260905170000), redacts them out of snapshots (20260907150000) and can
- * delete a rider's profile on request (20260905130000), none of which is true
+ * delete their profile answers on request (delete_person_answers()), none of which is true
  * of anyone else. Their history is on their own record, on the aspect card, for
  * a staffer who opened it for a reason.
  *

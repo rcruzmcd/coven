@@ -12,7 +12,7 @@ import { flushSync } from "react-dom";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { FieldGroup, FieldLegend, FieldSet } from "@/components/ui/field";
-import { trackRegistration } from "@/lib/analytics/registration-events";
+import { trackForm, useFormStarted } from "@/lib/analytics/form-events";
 import { useCloseRegistration } from "./event-registration-disclosure";
 import { REGISTRATION_STEPS, type RegistrationStep } from "./registration-step";
 
@@ -83,7 +83,6 @@ export function RegistrationSteps({
   isPending,
   onSubmit,
   submitVariant = "default",
-  eventLegend = LEGENDS.event,
 }: {
   /** The event being registered for, which every funnel event names (#1480). */
   eventId: string;
@@ -108,11 +107,6 @@ export function RegistrationSteps({
   /** Called once every field on every step is valid. */
   onSubmit: () => void;
   submitVariant?: "default" | "rainbow";
-  /**
-   * The second step's name. "Your riding" where the tenant asks the riding
-   * questions there (#1415), which then make up most of it.
-   */
-  eventLegend?: string;
 }) {
   const [step, setStep] = useState<RegistrationStep>("about");
   const close = useCloseRegistration();
@@ -121,7 +115,9 @@ export function RegistrationSteps({
     { about: null, event: null, review: null },
   );
   const errorRef = useRef<HTMLDivElement>(null);
-  const legends = { ...LEGENDS, event: eventLegend };
+  const startTracking = useFormStarted("event_registration", {
+    event_id: eventId,
+  });
   const index = REGISTRATION_STEPS.indexOf(step);
   const isLast = index === REGISTRATION_STEPS.length - 1;
 
@@ -140,7 +136,7 @@ export function RegistrationSteps({
   /** Shows `next` and hands it focus, so a screen reader hears its legend. */
   function goTo(next: RegistrationStep) {
     flushSync(() => setStep(next));
-    trackRegistration("registration_step_viewed", {
+    trackForm("event_registration", "form_step_viewed", {
       event_id: eventId,
       step: next,
     });
@@ -190,7 +186,7 @@ export function RegistrationSteps({
       return;
     }
 
-    trackRegistration("registration_submitted", { event_id: eventId });
+    trackForm("event_registration", "form_submitted", { event_id: eventId });
     onSubmit();
   }
 
@@ -217,7 +213,7 @@ export function RegistrationSteps({
           Step {REGISTRATION_STEPS.indexOf(owner) + 1} of{" "}
           {REGISTRATION_STEPS.length}
         </span>
-        {legends[owner]}
+        {LEGENDS[owner]}
       </FieldLegend>
       {errorAlert(owner)}
       <FieldGroup>{children}</FieldGroup>
@@ -237,7 +233,7 @@ export function RegistrationSteps({
           id={`registration-summary-${owner}`}
           className="text-sm font-medium"
         >
-          {legends[owner]}
+          {LEGENDS[owner]}
         </h3>
         <Button
           type="button"
@@ -246,7 +242,7 @@ export function RegistrationSteps({
           className="h-auto p-0"
           onClick={() => goTo(owner)}
           disabled={isPending}
-          aria-label={`Edit ${legends[owner].toLowerCase()}`}
+          aria-label={`Edit ${LEGENDS[owner].toLowerCase()}`}
         >
           Edit
         </Button>
@@ -271,6 +267,7 @@ export function RegistrationSteps({
     <form
       ref={formRef}
       data-registration-steps=""
+      {...startTracking}
       noValidate
       onSubmit={handleSubmit}
       onKeyDown={handleKeyDown}

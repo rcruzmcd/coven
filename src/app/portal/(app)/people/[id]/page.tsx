@@ -56,7 +56,7 @@ export async function generateMetadata({
  * rather than left as a literal (#813 Phase 1).
  */
 const PERSON_DETAIL_COLUMNS: string =
-  "id, name, email, notification_email, notification_email_pending, phone, pronouns, instagram_handle, notes, logo_url, website, auth_user_id, is_donor, is_sponsor, is_volunteer, is_attendee, is_staff, is_partner, is_recipient, person_type, riding_discipline, ski_experience_level, snowboard_experience_level, preferred_mountain, address_line1, address_line2, address_city, address_region, address_postal_code, address_country, has_portal_access, account_email, primary_contact_person_id, primary_contact(id, name, email, phone)";
+  "id, name, email, notification_email, notification_email_pending, phone, pronouns, instagram_handle, notes, logo_url, website, auth_user_id, is_donor, is_sponsor, is_volunteer, is_attendee, is_staff, is_partner, is_recipient, person_type, address_line1, address_line2, address_city, address_region, address_postal_code, address_country, has_portal_access, account_email, primary_contact_person_id, primary_contact(id, name, email, phone)";
 
 export default async function PersonDetailPage({
   params,
@@ -84,12 +84,20 @@ export default async function PersonDetailPage({
   const personRow = person as unknown as PersonRow;
 
   const canManage = hasPermission(permissions, "people", "manage");
-  // A rider profile deletion request reaches whoever is running the event as
-  // often as it reaches the directory, and a lead working the door holds
-  // events:manage without necessarily holding people:manage (#602). Matches the
-  // gate on delete_rider_profile itself.
-  const canDeleteRiderProfile =
+  // A deletion request for profile answers reaches whoever is running the
+  // event as often as it reaches the directory, and a lead working the door
+  // holds events:manage without necessarily holding people:manage (#602).
+  // Matches the gate on delete_person_answers() itself.
+  const canDeleteAnswers =
     canManage || hasPermission(permissions, "events", "manage");
+  // Profile questions (#1744): read with person_answers:view, written by
+  // set_person_answers(), which also wants people:manage. The module carries
+  // the resource, so both are false on a tenant without it.
+  const answerAccess = {
+    canView: hasPermission(permissions, "person_answers", "view"),
+    canManage:
+      canManage && hasPermission(permissions, "person_answers", "manage"),
+  };
   const canManageAccounts = hasPermission(
     permissions,
     "administration",
@@ -201,7 +209,8 @@ export default async function PersonDetailPage({
             <PersonProfileCard
               person={personRow}
               canManage={canManage}
-              canDeleteRiderProfile={canDeleteRiderProfile}
+              canDeleteAnswers={canDeleteAnswers}
+              answerAccess={answerAccess}
             />
           </Suspense>
 

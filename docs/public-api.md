@@ -38,6 +38,7 @@ POST /api/v1/t/{tenant}/volunteer-applications/status
 POST /api/v1/t/{tenant}/events/{event}/registrations
 POST /api/v1/t/{tenant}/gear-requests
 POST /api/v1/t/{tenant}/rider-profile
+POST /api/v1/t/{tenant}/person-answers
 
 GET  /api/v1/openapi.json
 ```
@@ -140,6 +141,22 @@ There is no control on it: registering is the agreement, and objecting happens
 afterwards, by telling an organizer, by email, or from the registrant's own
 registration page. So a caller that has not genuinely asked should omit the
 field rather than send `true`.
+
+## Profile questions after registering
+
+`POST /person-answers` (#1746) is registration's second step for a headless
+consumer: `{registration_id, answers}`, with `answers` keyed by **question
+key**, since a consumer cannot read the questions' ids. A choice is named by
+its option key. The registration id is the credential, for a day, and the
+step is never pre-filled, so a question left out keeps the stored answer. A
+question with no key cannot be answered here.
+
+`POST /rider-profile` keeps its v1 contract: its four fields are mapped onto
+the questions keyed `riding_discipline`, `ski_level`, `snowboard_level` and
+`preferred_mountain`, as Chatter Snow's are seeded. An organization without
+all four answers `410 gone`. One behaviour changed with the move: an omitted
+`preferred_mountain` now leaves the stored one rather than clearing it, as the
+site's own step does.
 
 ## Caching
 

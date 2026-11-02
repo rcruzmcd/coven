@@ -16,10 +16,6 @@ describe("parseMyContactForm", () => {
         p_phone: null,
         p_pronouns: null,
         p_instagram_handle: null,
-        p_preferred_mountain: null,
-        p_riding_discipline: null,
-        p_ski_experience_level: null,
-        p_snowboard_experience_level: null,
         p_address_line1: null,
         p_address_line2: null,
         p_address_city: null,
@@ -68,11 +64,10 @@ describe("parseMyContactForm", () => {
       formData({
         pronouns: "x".repeat(41),
         instagramHandle: "jane doe!",
-        ridingDiscipline: "sledding",
       }),
     );
     expect("error" in result && Object.keys(result.fieldErrors).sort()).toEqual(
-      ["instagramHandle", "pronouns", "ridingDiscipline"],
+      ["instagramHandle", "pronouns"],
     );
   });
 
@@ -88,45 +83,6 @@ describe("parseMyContactForm", () => {
       formData({ instagramHandle: "jane doe!", pronouns: "x".repeat(41) }),
     );
     expect("error" in two && two.error).toBe(MULTIPLE_CONTACT_PROBLEMS_ERROR);
-  });
-
-  // The database's own people_ski_level_requires_ski check would reject this,
-  // and the person never touched the field it would name.
-  test("drops a level for a discipline the person does not ride", () => {
-    const result = parseMyContactForm(
-      formData({
-        ridingDiscipline: "snowboard",
-        skiExperienceLevel: "advanced",
-        snowboardExperienceLevel: "beginner",
-      }),
-    );
-    expect("args" in result && result.args.p_ski_experience_level).toBeNull();
-    expect("args" in result && result.args.p_snowboard_experience_level).toBe(
-      "beginner",
-    );
-  });
-
-  test("drops both levels when no discipline is given", () => {
-    const result = parseMyContactForm(
-      formData({
-        skiExperienceLevel: "advanced",
-        snowboardExperienceLevel: "beginner",
-      }),
-    );
-    expect("args" in result && result.args.p_riding_discipline).toBeNull();
-    expect("args" in result && result.args.p_ski_experience_level).toBeNull();
-    expect(
-      "args" in result && result.args.p_snowboard_experience_level,
-    ).toBeNull();
-  });
-
-  test("refuses a discipline that is not one", () => {
-    const result = parseMyContactForm(
-      formData({ ridingDiscipline: "sledding" }),
-    );
-    expect("error" in result && Object.keys(result.fieldErrors)).toEqual([
-      "ridingDiscipline",
-    ]);
   });
 
   /**
@@ -155,12 +111,8 @@ describe("parseMyContactForm", () => {
       "p_address_region",
       "p_instagram_handle",
       "p_phone",
-      "p_preferred_mountain",
       "p_preferred_name",
       "p_pronouns",
-      "p_riding_discipline",
-      "p_ski_experience_level",
-      "p_snowboard_experience_level",
     ]);
   });
 });

@@ -45,14 +45,14 @@ const seatsNeeded = question({
   kind: "number",
   prompt: "How many seats do you need?",
   column_label: "seats",
-  show_if: { question_id: "carpool", option_ids: ["need"] },
+  show_if: { any: [{ question_id: "carpool", option_ids: ["need"] }] },
 });
 const seatsOpen = question({
   id: "seats-open",
   kind: "number",
   prompt: "How many open seats to you have?",
   column_label: "seats",
-  show_if: { question_id: "carpool", option_ids: ["drive"] },
+  show_if: { any: [{ question_id: "carpool", option_ids: ["drive"] }] },
 });
 const borough = question({
   id: "borough",
@@ -64,7 +64,7 @@ const sharesInfo = question({
   kind: "consent",
   prompt: "Ok to share my name, phone, email and borough/city with 5Borough",
   column_label: "Shares info",
-  show_if: { question_id: "carpool", option_ids: ["need", "drive"] },
+  show_if: { any: [{ question_id: "carpool", option_ids: ["need", "drive"] }] },
 });
 const questions = [carpool, seatsNeeded, seatsOpen, borough, sharesInfo];
 
@@ -91,6 +91,30 @@ describe("answerColumns", () => {
     expect(columns.map((column) => column.question.id)).toEqual([
       "seats-needed",
       "borough",
+    ]);
+  });
+
+  test("an any-of follow-up, or one on a folded question, keeps a column (#1742)", () => {
+    const eitherWay = question({
+      id: "either",
+      show_if: {
+        any: [
+          { question_id: "carpool", option_ids: ["drive"] },
+          { question_id: "borough", option_ids: ["bk"] },
+        ],
+      },
+    });
+    const onSeats = question({
+      id: "on-seats",
+      show_if: { any: [{ question_id: "seats-open", option_ids: ["x"] }] },
+    });
+    const columns = answerColumns([...questions, eitherWay, onSeats]);
+    expect(columns.map((column) => column.question.id)).toEqual([
+      "carpool",
+      "borough",
+      "shares",
+      "either",
+      "on-seats",
     ]);
   });
 });

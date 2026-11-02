@@ -56,6 +56,7 @@ export function GiveCard({
               <Link
                 key={amount}
                 href={`/support/donate?amount=${amount}`}
+                data-analytics-placement="give_card_amount"
                 className={cn(buttonVariants({ variant: "secondary" }))}
               >
                 {formatGivingAmount(amount)}
@@ -68,7 +69,11 @@ export function GiveCard({
           {/* A `Link` wearing the button's classes, not a `Button` rendering a
               link: `nativeButton={false}` stamps `role="button"` on the anchor,
               and this navigates -- the same call `account-menu.tsx` makes. */}
-          <Link href="/support/donate" className={cn(buttonVariants())}>
+          <Link
+            href="/support/donate"
+            data-analytics-placement="give_card"
+            className={cn(buttonVariants())}
+          >
             {amounts.length > 0 ? "Give another amount" : title}
           </Link>
           {providerLabel ? (

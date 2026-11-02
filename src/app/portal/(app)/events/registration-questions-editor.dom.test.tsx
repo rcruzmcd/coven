@@ -44,6 +44,7 @@ function draft(overrides: Partial<QuestionDraft> & { id: string }) {
     sharesContact: false,
     placeGranularity: "locality",
     placeAllowOther: true,
+    allowOther: false,
     ...overrides,
   } satisfies QuestionDraft;
 }
@@ -90,7 +91,7 @@ describe("RegistrationQuestionsEditor", () => {
     ).toBeInTheDocument();
   });
 
-  test("offers only earlier, always-shown single-choice questions as a condition", async () => {
+  test("offers every earlier single choice as a condition, conditional ones too (#1742)", async () => {
     const user = userEvent.setup();
     render(
       <Harness
@@ -105,6 +106,18 @@ describe("RegistrationQuestionsEditor", () => {
             ],
           }),
           draft({
+            id: "q-car",
+            kind: "single_choice",
+            prompt: "Car size",
+            options: [
+              { id: "o-small", label: "Small" },
+              { id: "o-van", label: "Van" },
+            ],
+            showIf: {
+              any: [{ question_id: "q-mode", option_ids: ["o-drive"] }],
+            },
+          }),
+          draft({
             id: "q-multi",
             kind: "multi_choice",
             prompt: "Days",
@@ -113,52 +126,101 @@ describe("RegistrationQuestionsEditor", () => {
               { id: "o-sun", label: "Sunday" },
             ],
           }),
-          draft({
-            id: "q-seats",
-            kind: "number",
-            prompt: "Seats available",
-            showIf: { question_id: "q-mode", option_ids: ["o-drive"] },
-          }),
           draft({ id: "q-from", prompt: "Leaving from" }),
         ]}
       />,
     );
 
-    // The first question can have no condition, and others depend on it.
-    expect(
-      screen.getByText(
-        "Always shown, because other questions depend on its answer.",
-      ),
-    ).toBeInTheDocument();
-
+    // Days and Leaving from are always shown; Car size has its clause.
     const pickers = screen.getAllByRole("combobox", {
       name: "Show this question",
     });
-    // Days, Seats available and Leaving from each have one.
-    expect(pickers).toHaveLength(3);
+    expect(pickers).toHaveLength(2);
 
-    await user.click(pickers[2]);
+    await user.click(pickers[1]);
     const listbox = await screen.findByRole("listbox");
     const choices = within(listbox)
       .getAllByRole("option")
       .map((option) => option.textContent);
-    expect(choices).toEqual(["Always", "Only after “Getting there”"]);
+    // Car size is conditional itself and still offered; Days is not a
+    // single choice.
+    expect(choices).toEqual([
+      "Always",
+      "Only after “Getting there”",
+      "Only after “Car size”",
+    ]);
 
     await user.click(
       within(listbox).getByRole("option", {
         name: "Only after “Getting there”",
       }),
     );
+    let groups = screen.getAllByRole("group", { name: "When the answer is" });
     await user.click(
-      within(
-        screen.getAllByRole("group", { name: "When the answer is" })[1],
-      ).getByRole("checkbox", { name: "Need a ride" }),
+      within(groups[groups.length - 1]).getByRole("checkbox", {
+        name: "Need a ride",
+      }),
+    );
+    // Any of: a second clause, on the one question not named yet.
+    const addButtons = screen.getAllByRole("button", {
+      name: /Or after another answer/,
+    });
+    await user.click(addButtons[addButtons.length - 1]);
+    groups = screen.getAllByRole("group", { name: "When the answer is" });
+    await user.click(
+      within(groups[groups.length - 1]).getByRole("checkbox", { name: "Van" }),
     );
 
     expect(latest[3].showIf).toEqual({
-      question_id: "q-mode",
-      option_ids: ["o-ride"],
+      any: [
+        { question_id: "q-mode", option_ids: ["o-ride"] },
+        { question_id: "q-car", option_ids: ["o-van"] },
+      ],
     });
+  });
+
+  test("an option keeps a hint and a code, and is archived rather than offered (#1742)", async () => {
+    const user = userEvent.setup();
+    render(
+      <Harness
+        initial={[
+          draft({
+            id: "q-level",
+            kind: "single_choice",
+            prompt: "Ski level",
+            options: [
+              { id: "o-first", label: "First time" },
+              { id: "o-green", label: "Beginner" },
+              { id: "o-blue", label: "Intermediate" },
+            ],
+          }),
+        ]}
+      />,
+    );
+
+    await user.type(
+      screen.getByRole("textbox", { name: "Question 1 option 2 hint" }),
+      "Linking turns on greens",
+    );
+    await user.type(
+      screen.getByRole("textbox", { name: "Question 1 option 1 code" }),
+      "first_time",
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Archive Question 1 option 3" }),
+    );
+    // Two are left offered, so neither can be archived now.
+    expect(
+      screen.getByRole("button", { name: "Archive Question 1 option 1" }),
+    ).toBeDisabled();
+    await user.click(screen.getByRole("switch", { name: /Allow “Other”/ }));
+
+    expect(latest[0].options).toMatchObject([
+      { id: "o-first", key: "first_time" },
+      { id: "o-green", hint: "Linking turns on greens" },
+      { id: "o-blue", archived: true },
+    ]);
+    expect(latest[0].allowOther).toBe(true);
   });
 
   test("drops a condition when its question stops being a single choice", async () => {
@@ -179,7 +241,9 @@ describe("RegistrationQuestionsEditor", () => {
             id: "q-seats",
             kind: "number",
             prompt: "Seats available",
-            showIf: { question_id: "q-mode", option_ids: ["o-drive"] },
+            showIf: {
+              any: [{ question_id: "q-mode", option_ids: ["o-drive"] }],
+            },
           }),
         ]}
       />,
@@ -223,7 +287,9 @@ describe("RegistrationQuestionsEditor", () => {
           options: [],
           min_value: 1,
           max_value: 8,
-          show_if: { question_id: "src-mode", option_ids: ["src-drive"] },
+          show_if: {
+            any: [{ question_id: "src-mode", option_ids: ["src-drive"] }],
+          },
           shares_contact: false,
         },
         {
@@ -279,8 +345,7 @@ describe("RegistrationQuestionsEditor", () => {
     }
     // The condition follows the copies, not the originals.
     expect(seats.showIf).toEqual({
-      question_id: mode.id,
-      option_ids: [mode.options[0].id],
+      any: [{ question_id: mode.id, option_ids: [mode.options[0].id] }],
     });
     expect(seats).toMatchObject({ min: "1", max: "8" });
     expect(mode.required).toBe(true);

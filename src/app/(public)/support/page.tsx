@@ -54,6 +54,7 @@ export default async function SupportPage() {
             {givingIsPublished(giving) ? (
               <Link
                 href="/support/donate"
+                data-analytics-placement="support_page"
                 className={cn(buttonVariants(), "mt-4")}
               >
                 {content.text("support.giving_title")}

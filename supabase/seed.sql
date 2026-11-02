@@ -771,28 +771,25 @@ begin
 
   -- #1588: what the past event's Outcomes derive from, so the Results card
   -- has every figure to show out of the box. Two checked-in riders whose level
-  -- was snapshotted at the door -- one first time on snow, one beginner --
-  -- each holding a code with a kind and value, plus a paid expense marked
+  -- was snapshotted at the door -- one first time on snow, one beginner (the
+  -- snapshots are seeded with the profile questions below, #1746) -- each
+  -- holding a code with a kind and value, plus a paid expense marked
   -- participant assistance.
   insert into public.event_registrations (
-    event_id, name, email, party_size, person_id, checked_in_at,
-    riding_discipline_at_event, ski_experience_level_at_event,
-    snowboard_experience_level_at_event
+    event_id, name, email, party_size, person_id, checked_in_at
   )
   values (
     v_event_past, 'Alex Chen', 'alex.chen@example.test', 1, v_person_donor2,
-    now() - interval '40 days', 'snowboard', null, 'first_time'
+    now() - interval '40 days'
   )
   returning id into v_past_first_timer;
 
   insert into public.event_registrations (
-    event_id, name, email, party_size, person_id, checked_in_at,
-    riding_discipline_at_event, ski_experience_level_at_event,
-    snowboard_experience_level_at_event
+    event_id, name, email, party_size, person_id, checked_in_at
   )
   values (
     v_event_past, 'Jamie Rivera', 'jamie.rivera@example.test', 1, v_person_donor1,
-    now() - interval '40 days', 'ski', 'beginner', null
+    now() - interval '40 days'
   )
   returning id into v_past_returning;
 
@@ -2214,25 +2211,138 @@ select t.id, 'constituent_accounts', true
 from (select id from public.tenants order by created_at limit 1) t
 on conflict (tenant_id, module_key) do update set enabled = excluded.enabled;
 
--- The rider profile on, for the same reason (#1408). It defaults to off
--- (20260923120000) because it is one customer's sport, but the local tenant
--- stands in for that customer too: without it the post-registration prompt,
--- the door-side dialog and the beginner figure would have no local or e2e
--- coverage. The mountain list is the one 20260923120000 seeds for Chatter
--- Snow, which the e2e registration spec picks from.
-insert into public.tenant_modules (tenant_id, module_key, enabled)
-select t.id, 'rider_profile', true
-from (select id from public.tenants order by created_at limit 1) t
-on conflict (tenant_id, module_key) do update set enabled = excluded.enabled;
+-- The rider profile as profile questions (#1746), for the same reason: the
+-- local tenant stands in for Chatter Snow, and without these the
+-- post-registration questions, the door-side answers and the two snow
+-- figures would have no local or e2e coverage. The same five questions and
+-- two metric rows 20261105120000 and 20261106120000 give Chatter Snow, and
+-- the two door snapshots the past event's Results card counts (seeded above).
+create function pg_temp.seed_person_question(
+  p_tenant_id uuid, p_id uuid, p_key text, p_sort integer,
+  p_question jsonb, p_seen jsonb, p_snapshot boolean
+) returns jsonb
+language plpgsql
+as $$
+declare
+  v_def jsonb := public.question_definition(
+    p_question || jsonb_build_object('id', p_id), p_seen,
+    array['single_choice', 'multi_choice', 'short_text', 'number', 'place'], 'PERSON_QUESTIONS'
+  );
+begin
+  insert into public.person_questions
+    (id, tenant_id, key, kind, prompt, column_label, required, sort_order, options,
+     allow_other, show_if, ask_after_registration, ask_on_my_details, snapshot_at_checkin)
+  values
+    (p_id, p_tenant_id, p_key, v_def->>'kind', v_def->>'prompt', v_def->>'column_label',
+     (v_def->>'required')::boolean, p_sort, v_def->'options', (v_def->>'allow_other')::boolean,
+     nullif(v_def->'show_if', 'null'::jsonb), true, true, p_snapshot);
+  return p_seen || jsonb_build_object(p_id::text, jsonb_build_object(
+    'kind', v_def->>'kind', 'options', v_def->'options'));
+end;
+$$;
 
-insert into public.app_settings (tenant_id, key, value)
-select t.id, 'rider_profile.preferred_mountains', jsonb_build_array(
-  'Big Snow (American Dream)', 'Mountain Creek', 'Camelback', 'Blue Mountain',
-  'Shawnee', 'Jack Frost / Big Boulder', 'Hunter', 'Windham', 'Belleayre',
-  'Mount Snow', 'Stratton'
-)
-from (select id from public.tenants order by created_at limit 1) t
-on conflict (tenant_id, key) do update set value = excluded.value;
+do $seed$
+declare
+  t uuid := (select id from public.tenants order by created_at limit 1);
+  q_discipline uuid := gen_random_uuid();
+  q_ski uuid := gen_random_uuid();
+  q_snowboard uuid := gen_random_uuid();
+  v_seen jsonb := '{}'::jsonb;
+  v_disciplines jsonb := jsonb_build_array(
+    jsonb_build_object('id', gen_random_uuid(), 'key', 'ski', 'label', 'Skis'),
+    jsonb_build_object('id', gen_random_uuid(), 'key', 'snowboard', 'label', 'Snowboard'),
+    jsonb_build_object('id', gen_random_uuid(), 'key', 'both', 'label', 'Both')
+  );
+  v_levels jsonb := jsonb_build_array(
+    jsonb_build_object('key', 'beginner', 'label', 'Beginner', 'hint', 'Learning to turn and stop on greens'),
+    jsonb_build_object('key', 'intermediate', 'label', 'Intermediate', 'hint', 'Linking turns on greens and blues'),
+    jsonb_build_object('key', 'advanced', 'label', 'Advanced', 'hint', 'Comfortable on blacks')
+  );
+begin
+  v_seen := pg_temp.seed_person_question(t, q_discipline, 'riding_discipline', 0, jsonb_build_object(
+    'kind', 'single_choice', 'prompt', 'Do you ski or ride?', 'column_label', 'Rides',
+    'options', v_disciplines), v_seen, true);
+
+  v_seen := pg_temp.seed_person_question(t, q_ski, 'ski_level', 1, jsonb_build_object(
+    'kind', 'single_choice', 'prompt', 'How would you describe your skiing?',
+    'column_label', 'Ski level', 'required', true,
+    'options', (select jsonb_agg(o || jsonb_build_object('id', gen_random_uuid()))
+                  from jsonb_array_elements(
+                    jsonb_build_array(jsonb_build_object('key', 'first_time', 'label', 'First time on skis', 'hint', 'Never skied before'))
+                    || v_levels) o),
+    'show_if', jsonb_build_object('question_id', q_discipline, 'option_ids',
+      (select jsonb_agg(o->'id') from jsonb_array_elements(v_disciplines) o where o->>'key' in ('ski', 'both')))
+  ), v_seen, true);
+
+  v_seen := pg_temp.seed_person_question(t, q_snowboard, 'snowboard_level', 2, jsonb_build_object(
+    'kind', 'single_choice', 'prompt', 'How would you describe your snowboarding?',
+    'column_label', 'Board level', 'required', true,
+    'options', (select jsonb_agg(o || jsonb_build_object('id', gen_random_uuid()))
+                  from jsonb_array_elements(
+                    jsonb_build_array(jsonb_build_object('key', 'first_time', 'label', 'First time on a snowboard', 'hint', 'Never ridden before'))
+                    || v_levels) o),
+    'show_if', jsonb_build_object('question_id', q_discipline, 'option_ids',
+      (select jsonb_agg(o->'id') from jsonb_array_elements(v_disciplines) o where o->>'key' in ('snowboard', 'both')))
+  ), v_seen, true);
+
+  -- The list 20260923120000 seeded for Chatter Snow, which the e2e
+  -- registration spec picks from.
+  v_seen := pg_temp.seed_person_question(t, gen_random_uuid(), 'preferred_mountain', 3, jsonb_build_object(
+    'kind', 'single_choice', 'prompt', 'Which mountain do you usually ride?',
+    'column_label', 'Mountain', 'allow_other', true,
+    'options', (select jsonb_agg(jsonb_build_object('id', gen_random_uuid(), 'label', m.name) order by m.ord)
+                  from unnest(array[
+                    'Big Snow (American Dream)', 'Mountain Creek', 'Camelback', 'Blue Mountain',
+                    'Shawnee', 'Jack Frost / Big Boulder', 'Hunter', 'Windham', 'Belleayre',
+                    'Mount Snow', 'Stratton'
+                  ]) with ordinality as m(name, ord))
+  ), v_seen, false);
+
+  -- Park riding (#1748, 20261106120000): asked once either level is past
+  -- first_time, optional, snapshotted.
+  v_seen := pg_temp.seed_person_question(t, gen_random_uuid(), 'park_riding', 4, jsonb_build_object(
+    'kind', 'single_choice', 'prompt', 'Do you ride in the terrain park?', 'column_label', 'Park',
+    'options', (select jsonb_agg(o || jsonb_build_object('id', gen_random_uuid()) order by ord)
+                  from jsonb_array_elements(jsonb_build_array(
+                    jsonb_build_object('key', 'not_interested', 'label', 'Not interested'),
+                    jsonb_build_object('key', 'curious', 'label', 'Curious', 'hint', 'Haven''t tried it yet'),
+                    jsonb_build_object('key', 'beginner', 'label', 'Beginner', 'hint', 'Small features'),
+                    jsonb_build_object('key', 'intermediate', 'label', 'Intermediate', 'hint', 'Medium features'),
+                    jsonb_build_object('key', 'advanced', 'label', 'Advanced', 'hint', 'Large features and jumps')
+                  )) with ordinality as x(o, ord)),
+    'show_if', jsonb_build_object('any', (
+      select jsonb_agg(jsonb_build_object('question_id', q.id, 'option_ids',
+               (select jsonb_agg(o->'id') from jsonb_array_elements(q.options) o
+                 where o->>'key' in ('beginner', 'intermediate', 'advanced'))) order by q.sort_order)
+        from public.person_questions q where q.id in (q_ski, q_snowboard)))
+  ), v_seen, true);
+
+  insert into public.person_answer_metrics
+    (tenant_id, key, label, rule, question_ids, option_keys, sort_order)
+  values
+    (t, 'beginner_participants', 'Beginner participants', 'any', array[q_ski, q_snowboard], array['beginner'], 0),
+    (t, 'first_time_on_snow', 'First time on snow', 'any', array[q_ski, q_snowboard], array['first_time'], 1);
+
+  -- Alex rode a snowboard for the first time; Jamie skied as a beginner.
+  insert into public.person_answer_snapshots
+    (tenant_id, registration_id, question_id, value, answer_text, option_keys, taken_at)
+  select t, r.id, q.id, o->'id', o->>'label', array[o->>'key'], r.checked_in_at
+    from public.event_registrations r
+    join (values
+      ('alex.chen@example.test', 'riding_discipline', 'snowboard'),
+      ('alex.chen@example.test', 'snowboard_level', 'first_time'),
+      ('jamie.rivera@example.test', 'riding_discipline', 'ski'),
+      ('jamie.rivera@example.test', 'ski_level', 'beginner')
+    ) as s(email, question_key, option_key) on s.email = r.email
+    join public.person_questions q on q.tenant_id = t and q.key = s.question_key
+   cross join lateral jsonb_array_elements(q.options) o
+   where r.tenant_id = t
+     and r.checked_in_at is not null
+     and o->>'key' = s.option_key;
+end
+$seed$;
+
+drop function pg_temp.seed_person_question(uuid, uuid, text, integer, jsonb, jsonb, boolean);
 
 -- Giveaway official rules (#1322). Two things are seeded, and they are the two
 -- layers the feature is made of:

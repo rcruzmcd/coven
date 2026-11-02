@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Eye } from "lucide-react";
+import { Eye, ListChecks } from "lucide-react";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   getCurrentUserPermissions,
@@ -38,6 +38,7 @@ import {
 } from "@/components/portal/list-navigation";
 import { StatTile } from "../home/stat-tile";
 import { NewPersonDialog } from "./new-person-dialog";
+import { PROFILE_QUESTIONS_PATH } from "./profile-questions/profile-questions-draft";
 import {
   accountEmailToShow,
   PEOPLE_WITH_ROLES,
@@ -73,7 +74,7 @@ import { SegmentCounterpartNote } from "./segment-counterpart-note";
  * which is what typed it before the generated types existed either.
  */
 const PERSON_COLUMNS: string =
-  "id, name, preferred_name, email, notification_email, notification_email_pending, phone, pronouns, instagram_handle, notes, logo_url, website, auth_user_id, is_donor, is_sponsor, is_volunteer, is_attendee, is_staff, is_partner, is_recipient, person_type, riding_discipline, ski_experience_level, snowboard_experience_level, preferred_mountain, address_line1, address_line2, address_city, address_region, address_postal_code, address_country, has_portal_access, primary_contact_person_id, primary_contact(id, name, email, phone)";
+  "id, name, preferred_name, email, notification_email, notification_email_pending, phone, pronouns, instagram_handle, notes, logo_url, website, auth_user_id, is_donor, is_sponsor, is_volunteer, is_attendee, is_staff, is_partner, is_recipient, person_type, address_line1, address_line2, address_city, address_region, address_postal_code, address_country, has_portal_access, primary_contact_person_id, primary_contact(id, name, email, phone)";
 
 /**
  * The shared body behind /portal/people and its role segments. Donors,
@@ -114,6 +115,13 @@ export async function PeopleDirectory({
   const canReviewClaims = hasPermission(
     permissions,
     "constituent_claims",
+    "manage",
+  );
+  // The settings view beside this list (#1743): what the organization asks
+  // about a person. Its module gates the permission, as with claims.
+  const canEditProfileQuestions = hasPermission(
+    permissions,
+    "person_answers",
     "manage",
   );
   // Every word this page shows -- the heading, the New button, the role facet,
@@ -305,6 +313,19 @@ export async function PeopleDirectory({
                 render={<Link href="/portal/people/claims" />}
               >
                 <LinkPendingPulse>Account claims</LinkPendingPulse>
+              </Button>
+            )}
+
+            {/* Beside the other whole-directory entries: the questions are
+              asked of everybody, whatever segment they sit in. */}
+            {canEditProfileQuestions && segment.isAllPeople && (
+              <Button
+                variant="outline"
+                nativeButton={false}
+                render={<Link href={PROFILE_QUESTIONS_PATH} />}
+              >
+                <ListChecks className="size-4" />
+                <LinkPendingPulse>Profile questions</LinkPendingPulse>
               </Button>
             )}
 

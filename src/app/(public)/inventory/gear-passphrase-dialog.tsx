@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { RequiredFieldsNote } from "@/components/required-fields-note";
+import { trackGear } from "@/lib/analytics/form-events";
 import { Spinner } from "@/components/ui/spinner";
 import {
   GEAR_PASSPHRASE_TITLE,
@@ -84,6 +85,7 @@ export function GearPassphraseDialog({
       const result = await checkGearPassphraseAction(entered);
       if ("error" in result) {
         setError(result.error);
+        if (result.wrong) trackGear("gear_passphrase_rejected");
         return;
       }
       setPassphrase("");

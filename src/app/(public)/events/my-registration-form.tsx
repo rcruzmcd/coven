@@ -23,13 +23,20 @@ import { CarpoolCostNotice } from "@/components/carpool-cost-notice";
 import { waiverAcceptanceLabel } from "@/lib/photo-consent";
 import { RegistrationOptionCountsField } from "@/components/registration-option-counts-field";
 import { RegistrationQuestionsFields } from "@/components/registration-questions-fields";
+import { ProfileQuestionsFieldset } from "@/components/profile-questions-fieldset";
+import {
+  PROFILE_ANSWERS_FIELD,
+  profileAnswersError,
+} from "@/lib/person-questions";
 import {
   answerSummaryRows,
   answersError,
   draftToAnswers,
+  answersToDraft,
   emptyAnswerDraft,
   setAnswersField,
   type AnswerDraft,
+  type RegistrationAnswers,
   type RegistrationQuestion,
 } from "@/lib/registration-questions";
 import {
@@ -51,21 +58,12 @@ import { registerMyselfForEventAction } from "./my-registration-actions";
 import type { WaiverOnFile } from "./my-registration";
 import type { RegistrationStep } from "./registration-step";
 import { RegistrationSteps } from "./registration-steps";
-import { trackRegistration } from "@/lib/analytics/registration-events";
+import { trackForm } from "@/lib/analytics/form-events";
 import {
   attendedBeforeRows,
   contactSummaryRows,
   eventSummaryRows,
 } from "./registration-summary";
-import {
-  EMPTY_RIDING,
-  RidingFields,
-  ridingSummaryRows,
-  ridingValuesFromPerson,
-  setRidingFields,
-  type RidingValues,
-} from "./riding-fields";
-import type { PublicRiderProfile } from "@/lib/rider-profile";
 
 /**
  * Registering as yourself (#1165).
@@ -80,9 +78,9 @@ import type { PublicRiderProfile } from "@/lib/rider-profile";
  *
  * The rest is about this one attendance and travels on the registration alone:
  * a phone number corrected here reaches the organizer of this event and does
- * not silently rewrite the record. The one exception is the riding answers
- * (#1415), which describe the person rather than this attendance: they start
- * from the record and are written back to it.
+ * not silently rewrite the record. The one exception is the profile
+ * questions (#1744), which describe the person rather than this attendance:
+ * they start from the record and are written back to it.
  */
 export function MyEventRegistrationForm({
   eventId,
@@ -98,7 +96,8 @@ export function MyEventRegistrationForm({
   carpoolCostNotice = [],
   registrationOptions = null,
   registrationQuestions = [],
-  riderProfile = null,
+  profileQuestions = [],
+  profileAnswers: storedProfileAnswers = {},
 }: {
   eventId: string;
   person: MyContactDetails;
@@ -166,10 +165,13 @@ export function MyEventRegistrationForm({
    */
   registrationQuestions?: RegistrationQuestion[];
   /**
-   * The riding questions on step 2 (#1415), as on the anonymous form. Null on
-   * a tenant without the rider_profile module.
+   * The organization's profile questions asked after registering for this
+   * event (#1744), and this reader's own current answers to pre-fill them
+   * with -- they are signed in and linked to the record, which is the only
+   * case where pre-filling discloses nothing (#1409 section 3).
    */
-  riderProfile?: PublicRiderProfile | null;
+  profileQuestions?: RegistrationQuestion[];
+  profileAnswers?: RegistrationAnswers;
 }) {
   const [phone, setPhone] = useState(person.phone ?? "");
   const [pronouns, setPronouns] = useState(person.pronouns ?? "");
@@ -193,13 +195,6 @@ export function MyEventRegistrationForm({
   // #1417. Unticked, always, as on the anonymous form.
   const [adultsOnlyConfirmed, setAdultsOnlyConfirmed] = useState(false);
   const [notes, setNotes] = useState("");
-  // #1415. Filled in from their own record -- this reader is signed in and
-  // linked to it, which is the only case where prefilling discloses nothing.
-  const [riding, setRiding] = useState<RidingValues>(() =>
-    riderProfile
-      ? ridingValuesFromPerson(person, riderProfile.mountains)
-      : EMPTY_RIDING,
-  );
   // #1407, starting empty as on the anonymous form.
   const [optionCounts, setOptionCountsState] = useState<OptionCounts>({});
   // #1501. Nothing chosen and every box unticked: a preselected answer is one
@@ -208,6 +203,15 @@ export function MyEventRegistrationForm({
     emptyAnswerDraft(registrationQuestions),
   );
   const answers = draftToAnswers(registrationQuestions, answerDraft);
+  // #1744. From their own record -- this reader is signed in and linked to
+  // it, which is the only case where prefilling discloses nothing.
+  const [profileDraft, setProfileDraft] = useState<AnswerDraft>(() =>
+    answersToDraft(profileQuestions, storedProfileAnswers),
+  );
+  const profileAnswers = draftToAnswers(profileQuestions, profileDraft);
+  const [profileAnswersNotSaved, setProfileAnswersNotSaved] = useState<
+    string | null
+  >(null);
   // Unticked, always (#686).
   const [waiverAccepted, setWaiverAccepted] = useState(false);
   const [error, setError] = useState<{
@@ -246,14 +250,25 @@ export function MyEventRegistrationForm({
       return;
     }
 
+    const profileProblem = profileAnswersError(
+      profileQuestions,
+      profileAnswers,
+    );
+    if (profileProblem) {
+      setError({ message: profileProblem.message, step: "event" });
+      return;
+    }
+
     const formData = new FormData();
     formData.set("partySize", partySize);
     if (adultsOnly && adultsOnlyConfirmed) {
       formData.set(ADULTS_ONLY_CONFIRMED_FIELD, "on");
     }
-    if (riderProfile) setRidingFields(formData, riding);
     if (registrationOptions) setOptionCounts(formData, optionCounts);
     if (registrationQuestions.length > 0) setAnswersField(formData, answers);
+    if (profileQuestions.length > 0) {
+      setAnswersField(formData, profileAnswers, PROFILE_ANSWERS_FIELD);
+    }
     formData.set("notes", notes);
     formData.set("phone", phone);
     formData.set("pronouns", pronouns);
@@ -280,14 +295,15 @@ export function MyEventRegistrationForm({
       const result = await registerMyselfForEventAction(eventId, formData);
       if ("error" in result) {
         setError({ message: result.error, step: result.step });
-        trackRegistration("registration_failed", {
+        trackForm("event_registration", "form_failed", {
           event_id: eventId,
           step: result.step,
           error_code: result.code ?? "INVALID_FORM",
         });
         return;
       }
-      trackRegistration("registration_completed", { event_id: eventId });
+      trackForm("event_registration", "form_completed", { event_id: eventId });
+      setProfileAnswersNotSaved(result.profileAnswersError);
       setRegistered(true);
     });
   }
@@ -307,6 +323,9 @@ export function MyEventRegistrationForm({
             </Link>
             .
           </span>
+          {profileAnswersNotSaved && (
+            <span className="mt-3 block">{profileAnswersNotSaved}</span>
+          )}
         </AlertDescription>
       </Alert>
     );
@@ -327,7 +346,6 @@ export function MyEventRegistrationForm({
       error={error}
       isPending={isPending}
       onSubmit={handleSubmit}
-      eventLegend={riderProfile ? "Your riding" : undefined}
       about={
         <>
           <p className="app-muted text-sm leading-relaxed">
@@ -428,15 +446,6 @@ export function MyEventRegistrationForm({
               disabled={isPending}
             />
           )}
-          {riderProfile && (
-            <RidingFields
-              idPrefix="my-registration"
-              mountains={riderProfile.mountains}
-              values={riding}
-              onChange={setRiding}
-              disabled={isPending}
-            />
-          )}
 
           {registrationOptions && (
             <RegistrationOptionCountsField
@@ -454,6 +463,14 @@ export function MyEventRegistrationForm({
             draft={answerDraft}
             onChange={setAnswerDraft}
             disabled={isPending}
+          />
+          <ProfileQuestionsFieldset
+            idPrefix="my-registration"
+            questions={profileQuestions}
+            draft={profileDraft}
+            onChange={setProfileDraft}
+            disabled={isPending}
+            skippable
           />
           <CarpoolCostNotice paragraphs={carpoolCostNotice} />
 
@@ -486,10 +503,12 @@ export function MyEventRegistrationForm({
           partyIncludesMinor,
           minorContacts,
           adultsOnlyConfirmed: adultsOnly && adultsOnlyConfirmed,
-          riding: riderProfile ? ridingSummaryRows(riding) : [],
           registrationOptions,
           optionCounts,
-          answers: answerSummaryRows(registrationQuestions, answers),
+          answers: [
+            ...answerSummaryRows(registrationQuestions, answers),
+            ...answerSummaryRows(profileQuestions, profileAnswers),
+          ],
           notes,
         }),
       }}

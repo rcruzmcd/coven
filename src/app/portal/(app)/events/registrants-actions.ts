@@ -17,12 +17,20 @@ import {
   undoCheckIn,
   type RegistrantActionResult,
 } from "./registrant-core";
-import { parseRiderProfileForm } from "@/lib/rider-profile-form";
-import { getRiderProfileMountains } from "@/lib/rider-profile-settings";
+import {
+  loadAnswerSnapshots,
+  loadCurrentPersonQuestions,
+  loadPersonAnswers,
+} from "@/lib/person-answers-data";
+import {
+  personAnswersErrorMessage,
+  profileSummary,
+  type PersonAnswerRow,
+  type PersonQuestion,
+} from "@/lib/person-questions";
 import {
   actionError,
   fromGuard,
-  fromParseError,
   type ActionFailure,
 } from "@/lib/portal/action-result";
 import { getRequestOrigin } from "@/lib/request-origin";
@@ -112,31 +120,11 @@ import { loadEventCarpools } from "@/lib/portal/event-carpools";
 import { withPlaceRegions, type PlaceRegion } from "@/lib/places/place-regions";
 
 /**
- * The rider level recorded when this registrant was checked in, alongside the
- * person's current profile (issue #653).
- *
- * `EventRegistrant.rider` is null when the caller may not see rider data, the
- * same "not authorised to see this" shape the nullable fields in
- * `EventImpactDerived` use: get_event_impact_derived_data deliberately gates
- * rider-profile figures, so a read-only events:view holder must not pick them
- * up through the registrants list instead.
- */
-export type RegistrantRiderProfile = {
-  riding_discipline_at_event: string | null;
-  ski_experience_level_at_event: string | null;
-  snowboard_experience_level_at_event: string | null;
-  riding_discipline: string | null;
-  ski_experience_level: string | null;
-  snowboard_experience_level: string | null;
-  preferred_mountain: string | null;
-};
-
-/**
  * Who is bringing the minors in this party, and who to call in an emergency
  * (#685).
  *
- * Gated harder than `rider`, and by a different mechanism. A rider's preferred
- * discipline is chosen in TypeScript — `listEventRegistrantsAction` selects the
+ * Gated harder than `profileSummary`, and by a different mechanism. Whether a
+ * row carries profile answers is chosen in TypeScript — `listEventRegistrantsAction` selects the
  * columns or does not — which any `events: view` holder could go round with a
  * direct PostgREST call. These four are *revoked* from `authenticated` on
  * `event_registrations` itself and served only by the security-definer view
@@ -305,7 +293,14 @@ export type EventRegistrant = {
   cancelled_at: string | null;
   cancellation_reason: CancellationReason | null;
   cancellation_note: string | null;
-  rider: RegistrantRiderProfile | null;
+  /**
+   * The registrant's answers to the questions snapshotted at check-in, in
+   * words (`profileSummary`, #1746): as of check-in where the registration
+   * was snapshotted, as they stand now where it was not. Null for a reader
+   * without `events: manage` and `person_answers: view`, and where there is
+   * nothing to say.
+   */
+  profileSummary: string | null;
   /** See `RegistrantMinorContacts`. Null unless `events: manage`. */
   minorContacts: RegistrantMinorContacts | null;
 };
@@ -376,10 +371,15 @@ export type EventRegistrantsData = {
    */
   registrationQuestions: RegistrationQuestion[];
   /**
-   * This organization's preferred-mountain list, for the door-side rider
-   * dialog (#1408). Null wherever `rider` is null on every registrant.
+   * The tenant's current profile questions (#1744), and each registrant's
+   * answers by person id. Absent for a reader without `events: manage` and
+   * `person_answers: view` which leaves the
+   * sheet without the section.
    */
-  riderMountains: string[] | null;
+  profileQuestions?: PersonQuestion[];
+  profileAnswers?: Record<string, PersonAnswerRow[]>;
+  /** Whether the sheet may edit them: `events` and `person_answers` at Manage. */
+  canEditProfileAnswers?: boolean;
   /**
    * The event's group chat switch and label (#1648), null when it is off --
    * which leaves every surface as it was.
@@ -493,7 +493,7 @@ async function loadRegistrationQuestions(
   const { data } = await supabase
     .from("event_registration_questions")
     .select(
-      "id, kind, prompt, help, column_label, required, options, min_value, max_value, show_if, place_granularity, place_allow_other",
+      "id, kind, prompt, help, column_label, required, options, min_value, max_value, show_if, place_granularity, place_allow_other, allow_other",
     )
     .eq("event_id", eventId)
     .is("archived_at", null)
@@ -517,20 +517,16 @@ export async function listEventRegistrantsAction(
 
   const permissions = await getCurrentUserPermissions(supabase);
   const canManage = hasPermission(permissions, "events", "manage");
-  // Rider answers need the rider_profiles permission as well, which carries
-  // the rider_profile module (#1408) -- so on a tenant without it there is no
-  // Rides column, no rider dialog and no rider block in the sheet, for anyone.
-  const canSeeRider =
-    canManage && hasPermission(permissions, "rider_profiles", "view");
+  // Profile answers need their own permission as well, which carries the
+  // person_questions module (#1744) -- the two-permission shape the rider
+  // profile had.
+  const canSeeProfileAnswers =
+    canManage && hasPermission(permissions, "person_answers", "view");
 
   const [{ data, error }, adders] = await Promise.all([
     supabase
       .from("event_registrations")
-      .select(
-        canSeeRider
-          ? `${REGISTRANT_COLUMNS}, ${RIDER_COLUMNS}`
-          : REGISTRANT_COLUMNS,
-      )
+      .select(REGISTRANT_COLUMNS)
       .eq("event_id", eventId)
       .order("created_at", { ascending: true }),
     // #1648. Who marked each registrant added to the group chat, by name. A
@@ -547,7 +543,7 @@ export async function listEventRegistrantsAction(
   );
   const rows = await withPlaceRegions(
     supabase,
-    (data ?? []).map((row) => toRegistrant(row, canSeeRider, adderNames)),
+    (data ?? []).map((row) => toRegistrant(row, adderNames)),
   );
   const registrants = rows.filter((row) => row.cancelled_at === null);
   const cancelled = rows.filter((row) => row.cancelled_at !== null);
@@ -591,7 +587,6 @@ export async function listEventRegistrantsAction(
         photoConsentInForce,
         registrationOptions,
         registrationQuestions,
-        riderMountains: null,
         groupChat,
         carpools,
       },
@@ -604,7 +599,9 @@ export async function listEventRegistrantsAction(
     tenantContext,
     orgMail,
     minorContacts,
-    riderMountains,
+    profileQuestions,
+    profileAnswers,
+    snapshots,
   ] = await Promise.all([
     loadRecordMessages(
       supabase,
@@ -629,9 +626,21 @@ export async function listEventRegistrantsAction(
         "registration_id, accompanying_adult_name, accompanying_adult_phone, emergency_contact_name, emergency_contact_phone",
       )
       .eq("event_id", eventId),
-    // The door dialog's picker (#1408). Only for a reader who sees rider
-    // answers, which is the only reader the dialog opens for.
-    canSeeRider ? getRiderProfileMountains(supabase) : Promise.resolve(null),
+    canSeeProfileAnswers
+      ? loadCurrentPersonQuestions(supabase)
+      : Promise.resolve(undefined),
+    canSeeProfileAnswers
+      ? loadPersonAnswers(
+          supabase,
+          registrants.flatMap((row) => (row.person_id ? [row.person_id] : [])),
+        )
+      : Promise.resolve(undefined),
+    canSeeProfileAnswers
+      ? loadAnswerSnapshots(
+          supabase,
+          registrants.map((row) => row.id),
+        )
+      : Promise.resolve(undefined),
   ]);
 
   const contactsById = new Map(
@@ -651,6 +660,15 @@ export async function listEventRegistrantsAction(
       registrants: registrants.map((registrant) => ({
         ...registrant,
         minorContacts: contactsById.get(registrant.id) ?? null,
+        profileSummary: profileQuestions
+          ? profileSummary(
+              profileQuestions,
+              snapshots?.get(registrant.id),
+              registrant.person_id
+                ? profileAnswers?.get(registrant.person_id)
+                : undefined,
+            )
+          : null,
       })),
       cancelled,
       messages,
@@ -666,7 +684,11 @@ export async function listEventRegistrantsAction(
       photoConsentInForce,
       registrationOptions,
       registrationQuestions,
-      riderMountains,
+      profileQuestions,
+      profileAnswers: profileAnswers && Object.fromEntries(profileAnswers),
+      canEditProfileAnswers:
+        canSeeProfileAnswers &&
+        hasPermission(permissions, "person_answers", "manage"),
       groupChat,
       carpools,
     },
@@ -697,12 +719,9 @@ async function loadGroupChat(
 const REGISTRANT_COLUMNS =
   "id, event_id, name, email, phone, instagram_handle, has_no_instagram, preferred_contact_method, preferred_contact_detail, pronouns, party_size, notes, created_at, person_id, checked_in_at, attended_before, waiver_accepted_at, waiver_version, party_includes_minor, adults_only_confirmed_at, answers_changed_at, group_chat_added_at, group_chat_added_by, reminder_sent_at, cancelled_at, cancellation_reason, cancellation_note, photo_consent, photo_consent_at, photo_consent_text, option_counts:event_registration_option_counts(option_id, label, quantity, sort_order), answers:event_registration_answers(question_id, prompt_as_shown, answer_text, sort_order, value), answer_request:event_registration_answer_requests(requested_at, answered_at, source), discount_codes(code, pin)";
 
-const RIDER_COLUMNS =
-  "riding_discipline_at_event, ski_experience_level_at_event, snowboard_experience_level_at_event, person:people(riding_discipline, ski_experience_level, snowboard_experience_level, preferred_mountain)";
-
 type RegistrantRow = Omit<
   EventRegistrant,
-  | "rider"
+  | "profileSummary"
   | "minorContacts"
   | "answer_request"
   | "discount_codes"
@@ -715,36 +734,22 @@ type RegistrantRow = Omit<
   // One-to-one, so PostgREST embeds an object; an array is tolerated in case
   // it ever reads the relationship as one-to-many.
   answer_request?: AnswerRequestStatus | AnswerRequestStatus[] | null;
-  riding_discipline_at_event?: string | null;
-  ski_experience_level_at_event?: string | null;
-  snowboard_experience_level_at_event?: string | null;
-  person?: {
-    riding_discipline: string | null;
-    ski_experience_level: string | null;
-    snowboard_experience_level: string | null;
-    preferred_mountain: string | null;
-  } | null;
 };
 
 function toRegistrant(
   row: unknown,
-  canSeeRider: boolean,
   /** #1648. Who marked each row added to the group chat; see the list. */
   adderNames: ReadonlyMap<string | null, string | null> = new Map(),
 ): EventRegistrant {
   const {
     group_chat_added_by,
-    person,
-    riding_discipline_at_event,
-    ski_experience_level_at_event,
-    snowboard_experience_level_at_event,
     option_counts,
     answers,
     answer_request,
     discount_codes,
     ...fields
   } = row as RegistrantRow;
-  const rest = {
+  return {
     ...fields,
     group_chat_added_by_name: adderNames.get(group_chat_added_by) ?? null,
     option_counts: option_counts ?? [],
@@ -757,25 +762,11 @@ function toRegistrant(
     answer_request:
       (Array.isArray(answer_request) ? answer_request[0] : answer_request) ??
       null,
-  };
-
-  if (!canSeeRider) return { ...rest, rider: null, minorContacts: null };
-
-  return {
-    ...rest,
-    // Filled in by the caller from the definer view, which is the only place
-    // these four are readable at all.
+    // Both filled in by the caller: the contacts from the definer view, which
+    // is the only place they are readable at all, and the summary from the
+    // profile answers, under their own permission.
     minorContacts: null,
-    rider: {
-      riding_discipline_at_event: riding_discipline_at_event ?? null,
-      ski_experience_level_at_event: ski_experience_level_at_event ?? null,
-      snowboard_experience_level_at_event:
-        snowboard_experience_level_at_event ?? null,
-      riding_discipline: person?.riding_discipline ?? null,
-      ski_experience_level: person?.ski_experience_level ?? null,
-      snowboard_experience_level: person?.snowboard_experience_level ?? null,
-      preferred_mountain: person?.preferred_mountain ?? null,
-    },
+    profileSummary: null,
   };
 }
 
@@ -805,60 +796,6 @@ export async function undoCheckInAction(
 
   revalidatePath("/portal/events");
   return result;
-}
-
-// Door-side rider capture (issue #653). The public prompt only reaches people
-// who registered after it shipped, and there is no transactional email to chase
-// the rest, so check-in is the last moment somebody is actually in front of us.
-//
-// It goes through set_registrant_rider_profile rather than a direct update
-// because the "people update" RLS policy requires people:manage, which an
-// event_coordinator - the role that works the door - does not hold.
-export async function setRegistrantRiderProfileAction(
-  registrationId: string,
-  formData: FormData,
-): Promise<RegistrantActionResult> {
-  const parsed = parseRiderProfileForm(formData);
-  if ("error" in parsed) return fromParseError(parsed);
-
-  const supabase = await createSupabaseServerClient();
-  const userResult = await checkUser(
-    supabase,
-    "You must be signed in to edit a rider profile.",
-  );
-  if ("error" in userResult) return fromGuard("unauthenticated", userResult);
-  const permissionError = await checkEventAccess(supabase, {
-    table: "event_registrations",
-    level: "manage",
-  });
-  if (permissionError) return fromGuard("forbidden", permissionError);
-  // Carries the rider_profile module (#1408); the RPC checks both again.
-  const riderError = await checkPermission(
-    supabase,
-    "rider_profiles",
-    "manage",
-  );
-  if (riderError) return fromGuard("forbidden", riderError);
-
-  const { error } = await supabase.rpc("set_registrant_rider_profile", {
-    p_registration_id: registrationId,
-    p_riding_discipline: parsed.data.riding_discipline,
-    p_ski_experience_level: parsed.data.ski_experience_level,
-    p_snowboard_experience_level: parsed.data.snowboard_experience_level,
-    p_preferred_mountain: parsed.data.preferred_mountain,
-  });
-
-  if (error) {
-    return error.message === "REGISTRANT_NOT_FOUND"
-      ? actionError("conflict", "That registration no longer exists.")
-      : actionError(
-          "server_error",
-          "Could not save this rider profile. Please try again.",
-        );
-  }
-
-  revalidatePath("/portal/events");
-  return { success: true };
 }
 
 // Registers someone without checking them in - e.g. backfilling a past
@@ -1533,7 +1470,7 @@ export async function askForMissingAnswersAction(input: {
     return { error: ANSWER_REQUEST_ERRORS.NO_QUESTIONS };
 
   const resolved = resolveAnswerRequests(
-    (registrations.data ?? []).map((row) => toRegistrant(row, false)),
+    (registrations.data ?? []).map((row) => toRegistrant(row)),
     questions,
     { includeRecent: input.includeRecent },
   );
@@ -1867,4 +1804,51 @@ export async function setRegistrationsGroupChatAction(input: {
 
   revalidatePath(EVENTS_PATH);
   return { success: true, changed: data ?? 0 };
+}
+
+/**
+ * A registrant's answers to every current profile question (#1744), from the
+ * registrant sheet -- and so from the door, which opens the same sheet.
+ * `set_registrant_person_answers()` is the authority and checks both
+ * permissions again; staff are not held to `required`.
+ */
+export async function setRegistrantPersonAnswersAction(
+  registrationId: string,
+  answers: RegistrationAnswers,
+): Promise<RegistrantActionResult> {
+  const supabase = await createSupabaseServerClient();
+  const userResult = await checkUser(
+    supabase,
+    "You must be signed in to edit profile answers.",
+  );
+  if ("error" in userResult) return fromGuard("unauthenticated", userResult);
+  const permissionError = await checkEventAccess(supabase, {
+    table: "event_registrations",
+    level: "manage",
+  });
+  if (permissionError) return fromGuard("forbidden", permissionError);
+  const answersError = await checkPermission(
+    supabase,
+    "person_answers",
+    "manage",
+  );
+  if (answersError) return fromGuard("forbidden", answersError);
+
+  const { error } = await supabase.rpc("set_registrant_person_answers", {
+    p_registration_id: registrationId,
+    p_answers: answers,
+  });
+
+  if (error) {
+    if (error.message === "REGISTRANT_NOT_FOUND") {
+      return actionError("conflict", "That registration no longer exists.");
+    }
+    return actionError(
+      error.message === "PERSON_ANSWERS_INVALID" ? "conflict" : "server_error",
+      personAnswersErrorMessage(error.message),
+    );
+  }
+
+  revalidatePath("/portal/events");
+  return { success: true };
 }

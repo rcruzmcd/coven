@@ -1,9 +1,5 @@
 import type { Metadata } from "next";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import {
-  getCurrentUserPermissions,
-  hasPermission,
-} from "@/lib/auth/permissions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -30,6 +26,7 @@ import {
   type VolunteerHoursRow,
 } from "./impact-rollup";
 import { formatCurrency, formatNumber } from "@/lib/format";
+import { toMetricCounts } from "@/lib/person-answer-metrics";
 import {
   placeBreakdown,
   placeReachSummary,
@@ -47,12 +44,11 @@ type RollupData = {
   discount_codes: DiscountCodeRow[];
   event_volunteers: PersonEventRow[];
   volunteer_hour_people: PersonEventRow[];
-  beginner_attendees: PersonEventRow[];
-  first_time_attendees: PersonEventRow[];
-  profiled_attendees: PersonEventRow[];
   assistance_expenses: AssistanceExpenseRow[];
   offered_codes: OfferedCodeRow[];
   option_counts: PricedOptionCountRow[];
+  /** #1745. */
+  person_answer_metrics: unknown;
 };
 
 type ProgramImpactReportPageProps = {
@@ -67,11 +63,6 @@ export default async function ProgramImpactReportPage({
   searchParams,
 }: ProgramImpactReportPageProps) {
   const supabase = await createSupabaseServerClient();
-  const canSeeRider = hasPermission(
-    await getCurrentUserPermissions(supabase),
-    "rider_profiles",
-    "view",
-  );
   const params = await searchParams;
   const raw = (key: string) => {
     const value = params[key];
@@ -119,12 +110,10 @@ export default async function ProgramImpactReportPage({
         discountCodes: result.discount_codes ?? [],
         eventVolunteers: result.event_volunteers ?? [],
         volunteerHourPeople: result.volunteer_hour_people ?? [],
-        beginnerAttendees: result.beginner_attendees ?? [],
-        firstTimeAttendees: result.first_time_attendees ?? [],
-        profiledAttendees: result.profiled_attendees ?? [],
         assistanceExpenses: result.assistance_expenses ?? [],
         offeredCodes: result.offered_codes ?? [],
         optionCounts: result.option_counts ?? [],
+        answerMetrics: toMetricCounts(result.person_answer_metrics) ?? [],
         placeAnswers,
       });
     }
@@ -144,29 +133,15 @@ export default async function ProgramImpactReportPage({
           label: "First-time participants",
           value: formatNumber(rollup.firstTimeParticipants),
         },
-        // The rider_profile module's figure (#1408): absent for a reader
-        // without rider_profiles:view, which is everyone on a tenant without
-        // the module.
-        ...(canSeeRider
-          ? [
-              {
-                label: "Beginner participants",
-                // Qualified only while rider-profile coverage is short of the
-                // checked-in headcount; at full coverage it is simply the
-                // number.
-                value:
-                  rollup.profiledAttendees < rollup.checkedIn
-                    ? `${formatNumber(rollup.beginnerParticipants)} of ${formatNumber(
-                        rollup.profiledAttendees,
-                      )} with a rider profile`
-                    : formatNumber(rollup.beginnerParticipants),
-              },
-              {
-                label: "First time on snow",
-                value: formatNumber(rollup.firstTimeOnSnow),
-              },
-            ]
-          : []),
+        // The tenant's profile metric rows (#1745), by label. A count is not
+        // an answer, so programs_reports:view alone shows them.
+        ...rollup.answerMetrics.map((metric) => ({
+          label: metric.label,
+          value:
+            metric.answered < rollup.checkedIn
+              ? `${formatNumber(metric.count)} of ${formatNumber(metric.answered)} who answered`
+              : formatNumber(metric.count),
+        })),
         {
           label: "Participants given a discount code",
           value: formatNumber(rollup.assistedParticipants),
@@ -250,15 +225,15 @@ export default async function ProgramImpactReportPage({
       <p className="app-muted mt-2 max-w-2xl text-sm">
         Season/program rollup across every event tagged to the selected program.
         Every figure here is computed live from attendance, check-ins, discount
-        codes, {canSeeRider ? "rider profiles, " : ""}distributions, expenses
-        and volunteer records — nothing is typed. Figures entered by hand on
-        older events are archived on those events and never added in. A few
-        caveats worth knowing when quoting these numbers: codes on an event that
-        gives one to every registrant don&apos;t count as assistance;
-        &ldquo;Discount value offered&rdquo; is what partner codes were worth to
-        the people who got them, not what was redeemed, and is never part of
-        assistance; internally-granted scholarships and fee waivers aren&apos;t
-        modelled anywhere, so assistance undercounts; and &ldquo;Volunteers on
+        codes, profile answers, distributions, expenses and volunteer records —
+        nothing is typed. Figures entered by hand on older events are archived
+        on those events and never added in. A few caveats worth knowing when
+        quoting these numbers: codes on an event that gives one to every
+        registrant don&apos;t count as assistance; &ldquo;Discount value
+        offered&rdquo; is what partner codes were worth to the people who got
+        them, not what was redeemed, and is never part of assistance;
+        internally-granted scholarships and fee waivers aren&apos;t modelled
+        anywhere, so assistance undercounts; and &ldquo;Volunteers on
         site&rdquo; counts each person once per event, so someone who
         volunteered three times counts three times. &ldquo;People who received
         items&rdquo; counts the same way, once per event.
@@ -381,8 +356,9 @@ export default async function ProgramImpactReportPage({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {metricRows.map((row) => (
-                    <TableRow key={row.label}>
+                  {/* By position: a tenant's metric may share a built-in label. */}
+                  {metricRows.map((row, index) => (
+                    <TableRow key={`${index}-${row.label}`}>
                       <TableCell>{row.label}</TableCell>
                       <TableCell>{row.value}</TableCell>
                     </TableRow>

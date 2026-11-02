@@ -38,7 +38,6 @@ const listEventRegistrantsActionMock = mock(async () => ({
     photoConsentInForce: false,
     registrationOptions: null,
     registrationQuestions: [],
-    riderMountains: null,
   },
 }));
 const getEventImpactDerivedActionMock = mock(async () => ({ data: null }));

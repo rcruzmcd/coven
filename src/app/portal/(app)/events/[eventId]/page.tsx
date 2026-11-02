@@ -79,7 +79,7 @@ export default async function EventDetailPage({
   const { data: eventRow, error } = await supabase
     .from("events")
     .select(
-      "id, name, location, starts_at, ends_at, timezone, visibility, status, attendance_count, attendance_notes, description, capacity, registration_enabled, registration_deadline, auto_assign_discount_codes, adults_only, confirmation_note, group_chat_enabled, group_chat_label, reminder_enabled, reminder_days_before, reminder_intro, carpools_enabled, carpool_seats_question_id, budget_amount, event_lead_id, event_lead:people!events_event_lead_id_fkey(id, name, preferred_name, email, phone), report_status, report_summary, feedback_notes, content_notes, report_submitted_at, report_submitted_by, flier_url, event_programs(program_id), registration_options_prompt, registration_options:event_registration_options(id, label, cap, price, sort_order), registration_questions:event_registration_questions(id, kind, prompt, help, column_label, required, sort_order, options, min_value, max_value, show_if, shares_contact, place_granularity, place_allow_other, archived_at)",
+      "id, name, location, starts_at, ends_at, timezone, visibility, status, attendance_count, attendance_notes, description, capacity, registration_enabled, registration_deadline, auto_assign_discount_codes, adults_only, confirmation_note, group_chat_enabled, group_chat_label, reminder_enabled, reminder_days_before, reminder_intro, carpools_enabled, carpool_seats_question_id, budget_amount, event_lead_id, event_lead:people!events_event_lead_id_fkey(id, name, preferred_name, email, phone), report_status, report_summary, feedback_notes, content_notes, report_submitted_at, report_submitted_by, flier_url, event_programs(program_id), registration_options_prompt, registration_options:event_registration_options(id, label, cap, price, sort_order), registration_questions:event_registration_questions(id, kind, prompt, help, column_label, required, sort_order, options, min_value, max_value, show_if, shares_contact, place_granularity, place_allow_other, allow_other, archived_at)",
     )
     .eq("id", eventId)
     .maybeSingle<RawEventRow>();
@@ -124,6 +124,22 @@ export default async function EventDetailPage({
       }),
   };
 
+  // #1745. Whether the Profile answers card has anything to break down. Read
+  // under RLS, so a reader without `person_answers: view` gets no rows, and
+  // the card's own access check drops it for them anyway.
+  const { count: snapshotQuestions } = hasPermission(
+    permissions,
+    "person_answers",
+    "view",
+  )
+    ? await supabase
+        .from("person_questions")
+        .select("id", { count: "exact", head: true })
+        .is("archived_at", null)
+        .eq("snapshot_at_checkin", true)
+        .in("kind", ["single_choice", "multi_choice"])
+    : { count: 0 };
+
   // Resolved here rather than in the client view, so a card whose section this
   // reader has no access to -- or whose module this tenant was never sold
   // (#903) -- is absent from the payload rather than hidden in it.
@@ -134,6 +150,7 @@ export default async function EventDetailPage({
       hasPlaceQuestion: (event.registration_questions ?? []).some(
         (question) => question.kind === "place",
       ),
+      hasSnapshotQuestion: (snapshotQuestions ?? 0) > 0,
     },
     grant,
   );

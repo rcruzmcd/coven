@@ -32,6 +32,7 @@ const FULL_ACCESS: PermissionMap = Object.fromEntries(
     "sales",
     "inventory",
     "inventory_reports",
+    "person_answers",
   ].map((resource) => [resource, "manage" as PermissionLevel]),
 );
 
@@ -46,6 +47,7 @@ function cards(
   options: EventGroupOptions = {
     carpoolsEnabled: true,
     hasPlaceQuestion: true,
+    hasSnapshotQuestion: true,
   },
 ): TabValue[] {
   return eventGroups(permissions, options).flatMap((group) =>
@@ -71,6 +73,19 @@ describe("eventGroups", () => {
   test("Where registrants come from is listed only with a place question (#1701)", () => {
     expect(cards(FULL_ACCESS, {})).not.toContain("places");
     expect(cards(FULL_ACCESS, { hasPlaceQuestion: true })).toContain("places");
+  });
+
+  test("Profile answers is listed only with a snapshotted question and person_answers:view (#1745)", () => {
+    expect(cards(FULL_ACCESS, {})).not.toContain("answers");
+    expect(cards(FULL_ACCESS, { hasSnapshotQuestion: true })).toContain(
+      "answers",
+    );
+    expect(
+      cards(
+        { ...FULL_ACCESS, person_answers: "none" },
+        { hasSnapshotQuestion: true },
+      ),
+    ).not.toContain("answers");
   });
 
   test("an admin holding everything gets every card in the catalog", () => {

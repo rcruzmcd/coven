@@ -15,8 +15,10 @@ import { publicGiveawayRulesPath } from "@/lib/giveaway-rules-path";
 import { getEventGiveawayRulesLink } from "@/lib/giveaway-rules-publication";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getPublicSite } from "@/lib/public-site";
-import type { PublicRiderProfile } from "@/lib/rider-profile";
-import { getPublicRiderProfile } from "@/lib/rider-profile-settings";
+import {
+  loadEventPersonQuestions,
+  loadMyPersonQuestions,
+} from "@/lib/person-questions-public";
 import {
   getPublicAsksAboutMinors,
   getPublicRequiresInstagram,
@@ -47,7 +49,10 @@ import type { AccountOffer } from "@/lib/constituent/account-offer";
 import type { RegistrationOptionsQuestion } from "@/lib/registration-options";
 import { loadRegistrationOptions } from "./registration-options-data";
 import { loadRegistrationQuestions } from "./registration-questions-data";
-import type { RegistrationQuestion } from "@/lib/registration-questions";
+import type {
+  RegistrationAnswers,
+  RegistrationQuestion,
+} from "@/lib/registration-questions";
 import { canCancelOwnRegistration } from "@/lib/registration-cancellation";
 import { CantMakeItButton } from "@/app/(public)/my/cant-make-it-button";
 
@@ -97,7 +102,8 @@ function EventDetailBody({
   carpoolCostNotice,
   registrationOptions,
   registrationQuestions,
-  riderProfile,
+  profileQuestions,
+  myProfileAnswers,
 }: {
   event: PublicEvent;
   viewer: EventViewer | null;
@@ -135,8 +141,13 @@ function EventDetailBody({
   registrationOptions: RegistrationOptionsQuestion | null;
   /** The event's registration questions (#1501), empty for most events. */
   registrationQuestions: RegistrationQuestion[];
-  /** The riding questions on step 2 (#1415), or null without the module. */
-  riderProfile: PublicRiderProfile | null;
+  /** The profile questions step 2 asks for this event (#1744), empty for most tenants. */
+  profileQuestions: RegistrationQuestion[];
+  /**
+   * A linked reader's own answers to pre-fill them with; empty for everyone
+   * else, since the anonymous form is never pre-filled (#1409 section 3).
+   */
+  myProfileAnswers: RegistrationAnswers;
 }) {
   const registrationWindow = checkRegistrationWindow(event);
   // Only a linked constituent can have one to find: `my_event_registration()`
@@ -235,7 +246,8 @@ function EventDetailBody({
                   carpoolCostNotice={carpoolCostNotice}
                   registrationOptions={registrationOptions}
                   registrationQuestions={registrationQuestions}
-                  riderProfile={riderProfile}
+                  profileQuestions={profileQuestions}
+                  profileAnswers={myProfileAnswers}
                 />
               ) : (
                 /* Signed in without an approved claim (#1162) still registers
@@ -256,7 +268,7 @@ function EventDetailBody({
                   carpoolCostNotice={carpoolCostNotice}
                   registrationOptions={registrationOptions}
                   registrationQuestions={registrationQuestions}
-                  riderProfile={riderProfile}
+                  profileQuestions={profileQuestions}
                 />
               )}
             </EventRegistrationDisclosure>
@@ -321,13 +333,17 @@ export async function EventDetailContent({ event }: { event: PublicEvent }) {
   const registrationQuestions = event.registration_enabled
     ? await loadRegistrationQuestions(supabase, event.id)
     : [];
-  // The riding questions on registration's step 2 (#1408, #1415), only for a
-  // tenant with the module and only where there is a registration form.
-  const riderProfile = event.registration_enabled
-    ? await getPublicRiderProfile(supabase)
-    : null;
+  // The profile questions step 2 asks for this event (#1744), under the same
+  // condition; a linked reader's own answers pre-fill them, nobody else's do.
+  const profileQuestions = event.registration_enabled
+    ? await loadEventPersonQuestions(supabase, event.id)
+    : [];
+  const myProfileAnswers =
+    profileQuestions.length > 0 && viewer?.kind === "linked"
+      ? (await loadMyPersonQuestions(supabase)).answers
+      : {};
   // Whether registration asks about under-18s (#1416). Only where there is a
-  // registration form, like the riding questions, and never on an 18+ event
+  // registration form, like the profile questions, and never on an 18+ event
   // (#1417), which asks for its confirmation instead.
   const asksAboutMinors =
     event.registration_enabled && !event.adults_only
@@ -442,7 +458,8 @@ export async function EventDetailContent({ event }: { event: PublicEvent }) {
             carpoolCostNotice={carpoolCostNotice}
             registrationOptions={registrationOptions}
             registrationQuestions={registrationQuestions}
-            riderProfile={riderProfile}
+            profileQuestions={profileQuestions}
+            myProfileAnswers={myProfileAnswers}
           />
           {hasPublicEventMedia(media) && (
             <div className="mt-12">

@@ -10,7 +10,6 @@ import {
 import { runAction } from "@/components/portal/action-toast";
 import { StatusBadge } from "@/components/portal/status-badge";
 import type { EventGroupChat } from "@/lib/registration-group-chat";
-import { RiderProfileDialog } from "./rider-profile-dialog";
 import { CancelRegistrationDialog } from "./cancel-registration-dialog";
 import {
   RegistrantDetailSheet,
@@ -244,8 +243,6 @@ export function RegistrantOverlays({
   onDetailClosed,
   cancelTarget,
   onCancelClosed,
-  riderTarget,
-  onRiderClosed,
   onChanged,
   onRegistrantsChanged,
   detailDoor,
@@ -256,9 +253,7 @@ export function RegistrantOverlays({
   onDetailClosed: () => void;
   cancelTarget: EventRegistrant | null;
   onCancelClosed: () => void;
-  riderTarget: EventRegistrant | null;
-  onRiderClosed: () => void;
-  /** After something that moves the counts: a cancellation, a rider save. */
+  /** After something that moves the counts: a cancellation. */
   onChanged: () => void;
   /** After something only the list itself shows: a message, an answer. */
   onRegistrantsChanged: () => void;
@@ -294,6 +289,13 @@ export function RegistrantOverlays({
           photoConsentInForce={data?.photoConsentInForce ?? false}
           optionsPrompt={data?.registrationOptions?.prompt ?? null}
           registrationQuestions={data?.registrationQuestions ?? NO_QUESTIONS}
+          profileQuestions={data?.profileQuestions}
+          profileAnswers={
+            detailTarget.person_id
+              ? (data?.profileAnswers?.[detailTarget.person_id] ?? [])
+              : undefined
+          }
+          canEditProfileAnswers={data?.canEditProfileAnswers ?? false}
           groupChat={data?.groupChat ?? null}
           carpools={data?.carpools ?? null}
           onClosed={onDetailClosed}
@@ -316,21 +318,6 @@ export function RegistrantOverlays({
             if (!nextOpen) onCancelClosed();
           }}
           onCancelled={onChanged}
-        />
-      )}
-
-      {riderTarget && (
-        <RiderProfileDialog
-          key={riderTarget.id}
-          registrant={riderTarget}
-          // #1408. `?? []` for an older payload, which leaves "Other" as the
-          // one choice rather than a picker with nothing in it.
-          mountains={data?.riderMountains ?? []}
-          open
-          onOpenChange={(nextOpen) => {
-            if (!nextOpen) onRiderClosed();
-          }}
-          onSaved={onChanged}
         />
       )}
     </>

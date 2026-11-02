@@ -44,7 +44,7 @@ const seats = question({
   id: "seats",
   kind: "number",
   required: true,
-  show_if: { question_id: "getting", option_ids: ["drive"] },
+  show_if: { any: [{ question_id: "getting", option_ids: ["drive"] }] },
 });
 const leavingFrom = question({ id: "from" });
 const QUESTIONS = [gettingThere, seats, leavingFrom];

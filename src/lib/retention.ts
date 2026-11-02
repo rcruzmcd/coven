@@ -96,17 +96,17 @@ export const RETENTION_POLICIES: readonly RetentionPolicy[] = [
     surface: "eventRegistrations",
   },
   {
-    key: "rider_profiles",
-    // Split out from event registrations: a rider profile is standing
-    // information about a person, not a record of one event, so tying its
-    // clock to an event they happened to attend is the wrong shape.
-    what: "Rider profiles",
+    key: "person_answers",
+    // Split out from event registrations: an answer about a person is
+    // standing information, not a record of one event, so tying its clock to
+    // an event they happened to attend is the wrong shape. Was
+    // `rider_profiles` until #1746 moved the rider profile onto profile
+    // questions; the rule, period and order are unchanged.
+    what: "Profile answers",
     howLong:
-      "Until you ask us to delete your profile, or after 2 years of inactivity.",
+      "Until you ask us to delete your answers, or after 2 years of inactivity.",
     period: "2 years",
-    // A profile is filled in from the registration form, so it exists only
-    // where events do.
-    surface: "eventRegistrations",
+    surface: "profileQuestions",
   },
   {
     key: "gear_requests",

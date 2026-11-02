@@ -155,9 +155,9 @@ test.describe("public events", () => {
       form.getByText("You're registered! We look forward to seeing you there."),
     ).toBeVisible();
 
-    // The riding questions were step 2 (#1415), so nothing follows the
-    // confirmation but the account offer.
-    await expect(form.getByText(/Do you ski or snowboard/)).toHaveCount(0);
+    // The riding questions are step 2's profile questions (#1415, #1746), so
+    // nothing follows the confirmation but the account offer.
+    await expect(form.getByText(/Do you ski or ride/)).toHaveCount(0);
     await expect(
       form.getByRole("button", { name: "Save details" }),
     ).toHaveCount(0);
@@ -191,8 +191,8 @@ test.describe("public events", () => {
     // The riding answers are summarised with the rest of step 2 (#1415).
     await expect(review.getByText("Snowboard", { exact: true })).toBeVisible();
 
-    await review.getByRole("button", { name: "Edit your riding" }).click();
-    const thisEvent = again.getByRole("group", { name: /Your riding/ });
+    await review.getByRole("button", { name: "Edit this event" }).click();
+    const thisEvent = again.getByRole("group", { name: /This event/ });
     await expect(thisEvent).toBeFocused();
     await thisEvent.getByLabel("Notes").fill("Bringing my own board");
     await continueToReview(again);
