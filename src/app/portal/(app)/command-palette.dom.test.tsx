@@ -96,19 +96,19 @@ describe("CommandPalette", () => {
     );
   });
 
-  test("offers People › Profile questions to who can edit them (#1743)", async () => {
+  test("offers People settings to who can edit profile questions (#1743, #1760)", async () => {
     const user = await openPalette({ ...ADMIN, person_answers: "manage" });
     await user.click(
-      await screen.findByRole("option", { name: /Profile questions/ }),
+      await screen.findByRole("option", { name: /People settings/ }),
     );
-    expect(pushMock).toHaveBeenCalledWith("/portal/people/profile-questions");
+    expect(pushMock).toHaveBeenCalledWith("/portal/people/settings");
   });
 
-  test("leaves Profile questions out for a viewer of the answers", async () => {
+  test("leaves People settings out for a viewer of the answers", async () => {
     await openPalette({ ...ADMIN, person_answers: "view" });
     await screen.findAllByRole("option");
     expect(
-      screen.queryByRole("option", { name: /Profile questions/ }),
+      screen.queryByRole("option", { name: /People settings/ }),
     ).not.toBeInTheDocument();
   });
 

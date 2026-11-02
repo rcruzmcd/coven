@@ -7,7 +7,7 @@ import { checkUser } from "@/lib/auth/current-user";
 import type { Json } from "@/lib/database.types";
 import { PERSON_QUESTION_ERROR_MESSAGES } from "@/lib/person-questions";
 import { PERSON_ANSWER_METRIC_ERROR_MESSAGES } from "@/lib/person-answer-metrics";
-import { PROFILE_QUESTIONS_PATH } from "./profile-questions-draft";
+import { PEOPLE_SETTINGS_PATH } from "./profile-questions-draft";
 
 export type ProfileQuestionsActionResult =
   { success: true } | { error: string };
@@ -53,7 +53,7 @@ export async function savePersonQuestionsAction(
     };
   }
 
-  revalidatePath(PROFILE_QUESTIONS_PATH);
+  revalidatePath(PEOPLE_SETTINGS_PATH);
   return { success: true };
 }
 
@@ -99,6 +99,6 @@ export async function savePersonAnswerMetricsAction(
     };
   }
 
-  revalidatePath(PROFILE_QUESTIONS_PATH);
+  revalidatePath(PEOPLE_SETTINGS_PATH);
   return { success: true };
 }

@@ -50,7 +50,7 @@ export function AnswerBreakdownTab({ eventId }: { eventId: string }) {
     return (
       <EmptyState
         title="No questions to break down"
-        description="Choice questions copied at check-in are counted here. Set that up under People › Profile questions."
+        description="Choice questions copied at check-in are counted here. Set that up under People › Settings."
       />
     );
   }

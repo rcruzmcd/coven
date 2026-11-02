@@ -8,8 +8,11 @@ import {
 import { QUESTION_OPTION_KEY_PATTERN } from "@/lib/registration-questions";
 import type { PersonQuestion } from "@/lib/person-questions";
 
-/** People › Profile questions, the settings view beside the People list. */
-export const PROFILE_QUESTIONS_PATH = "/portal/people/profile-questions";
+/**
+ * People › People settings, the settings view beside the People list (#1760;
+ * it was `/portal/people/profile-questions`, which still redirects here).
+ */
+export const PEOPLE_SETTINGS_PATH = "/portal/people/settings";
 
 /**
  * The Profile questions editor's draft (#1743): #1501's shared draft plus what

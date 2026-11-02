@@ -365,7 +365,7 @@ export const PERMISSION_DOCS: Record<string, PermissionDoc> = {
   person_answers: {
     view: "See the organization's profile questions and people's answers to them, wherever the surrounding screen is already open to you, including an event's Profile answers card (counts per answer, which also needs Events at View or Event impact at View).",
     manage:
-      "Create, edit, reorder, scope and archive the profile questions at People › Profile questions, define the figures counted from them (like \"Beginner participants\"), and edit a person's answers: on the person form (which also needs People at Manage) and at the door from an event's registrants (which also needs Events at Manage).",
+      "Create, edit, reorder, scope and archive the profile questions in People settings, define the figures counted from them (like \"Beginner participants\"), and edit a person's answers: on the person form (which also needs People at Manage) and at the door from an event's registrants (which also needs Events at Manage).",
     excludes: [
       { key: "people", covers: "the rest of a person's record" },
       {
