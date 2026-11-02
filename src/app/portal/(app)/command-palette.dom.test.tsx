@@ -96,6 +96,22 @@ describe("CommandPalette", () => {
     );
   });
 
+  test("offers People › Profile questions to who can edit them (#1743)", async () => {
+    const user = await openPalette({ ...ADMIN, person_answers: "manage" });
+    await user.click(
+      await screen.findByRole("option", { name: /Profile questions/ }),
+    );
+    expect(pushMock).toHaveBeenCalledWith("/portal/people/profile-questions");
+  });
+
+  test("leaves Profile questions out for a viewer of the answers", async () => {
+    await openPalette({ ...ADMIN, person_answers: "view" });
+    await screen.findAllByRole("option");
+    expect(
+      screen.queryByRole("option", { name: /Profile questions/ }),
+    ).not.toBeInTheDocument();
+  });
+
   test("leaves the settings page out for an inventory viewer", async () => {
     await openPalette({ ...ADMIN, inventory: "view" });
     await screen.findByRole("option", { name: /Requests/ });

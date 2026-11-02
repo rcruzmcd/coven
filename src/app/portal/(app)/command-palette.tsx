@@ -137,6 +137,13 @@ const SETTINGS_PAGES = [
     resource: "inventory",
     level: "manage",
   },
+  {
+    href: "/portal/people/profile-questions",
+    label: "Profile questions",
+    detail: "People",
+    resource: "person_answers",
+    level: "manage",
+  },
 ] as const;
 
 function matches(item: PaletteItem, query: string) {
