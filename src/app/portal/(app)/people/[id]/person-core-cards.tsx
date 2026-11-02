@@ -14,6 +14,10 @@ import { OrganizationsCard } from "./organizations-card";
 import { ProfileCard } from "./profile-card";
 import { PublicTeamCard, type PublicTeamMembership } from "./public-team-card";
 import { listOtherPeople } from "./person-data";
+import {
+  loadCurrentPersonQuestions,
+  loadPersonAnswers,
+} from "@/lib/person-answers-data";
 import { directoryPersonAccount, resolvePersonAccount } from "./person-account";
 
 /**
@@ -40,13 +44,16 @@ export async function PersonProfileCard({
   person,
   canManage,
   canDeleteRiderProfile,
+  answerAccess,
 }: {
   person: PersonRow;
   canManage: boolean;
   canDeleteRiderProfile: boolean;
+  /** Profile questions (#1744); nothing is read without `canView`. */
+  answerAccess: { canView: boolean; canManage: boolean };
 }) {
   const supabase = await createSupabaseServerClient();
-  const [people, { data: sponsorTag }] = await Promise.all([
+  const [people, { data: sponsorTag }, questions, answers] = await Promise.all([
     listOtherPeople(person.id),
     // The only read of a manual role tag anywhere in the form (#1024). The
     // role checkboxes are seeded from the *derived* flags on
@@ -59,6 +66,12 @@ export async function PersonProfileCard({
       .eq("person_id", person.id)
       .eq("role", "sponsor")
       .maybeSingle(),
+    answerAccess.canView
+      ? loadCurrentPersonQuestions(supabase)
+      : Promise.resolve([]),
+    answerAccess.canView
+      ? loadPersonAnswers(supabase, [person.id])
+      : Promise.resolve(new Map()),
   ]);
 
   return (
@@ -68,6 +81,9 @@ export async function PersonProfileCard({
       canManage={canManage}
       canDeleteRiderProfile={canDeleteRiderProfile}
       sponsorWallPublic={sponsorTag?.is_public ?? false}
+      profileQuestions={questions}
+      profileAnswers={answers.get(person.id) ?? []}
+      canManageAnswers={answerAccess.canManage}
     />
   );
 }

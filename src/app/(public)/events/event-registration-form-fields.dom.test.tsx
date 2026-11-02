@@ -9,7 +9,12 @@ mock.module("server-only", () => ({}));
 
 type RegisterForEventResult =
   | { error: string; step: "about" | "event" | "review" }
-  | { success: true; registrationId: string; answersPath: string | null };
+  | {
+      success: true;
+      registrationId: string;
+      answersPath: string | null;
+      profileAnswersError?: string | null;
+    };
 
 const registerForEventActionMock = mock<
   (eventId: string, formData: FormData) => Promise<RegisterForEventResult>
@@ -1060,5 +1065,112 @@ describe("EventRegistrationForm on a carpool event (#1650)", () => {
         hidden: true,
       }),
     ).toBeNull();
+  });
+});
+
+describe("EventRegistrationForm and profile questions (#1744)", () => {
+  beforeEach(() => {
+    registerForEventActionMock.mockClear();
+    registerForEventActionMock.mockImplementation(async () => ({
+      success: true,
+      registrationId: "reg-1",
+      answersPath: null,
+    }));
+  });
+
+  const level: RegistrationQuestion = {
+    id: "level",
+    kind: "single_choice",
+    prompt: "Experience level",
+    help: null,
+    required: true,
+    options: [
+      { id: "new", label: "First time" },
+      { id: "some", label: "A few times" },
+    ],
+    min_value: null,
+    max_value: null,
+    show_if: null,
+  };
+  const household: RegistrationQuestion = {
+    ...level,
+    id: "household",
+    kind: "number",
+    prompt: "Household size",
+    required: true,
+    options: [],
+    min_value: 1,
+  };
+
+  test("a tenant asking none shows and posts nothing", async () => {
+    render(<EventRegistrationForm eventId="event-1" />);
+    await fillAboutYou();
+    await sayNoMinors();
+    expect(
+      screen.queryByRole("group", { name: "A few questions about you" }),
+    ).toBeNull();
+    await submit();
+    expect(lastSubmission().profileAnswers).toBeUndefined();
+  });
+
+  test("the group is skippable, required or not", async () => {
+    render(
+      <EventRegistrationForm
+        eventId="event-1"
+        profileQuestions={[level, household]}
+      />,
+    );
+    await fillAboutYou();
+    await sayNoMinors();
+    expect(
+      screen.getByRole("group", { name: "A few questions about you" }),
+    ).toBeTruthy();
+    await submit();
+    expect(JSON.parse(lastSubmission().profileAnswers)).toEqual({});
+  });
+
+  test("answering anything holds the shown questions to required", async () => {
+    const user = userEvent.setup();
+    render(
+      <EventRegistrationForm
+        eventId="event-1"
+        profileQuestions={[level, household]}
+      />,
+    );
+    await fillAboutYou(user);
+    await sayNoMinors(user);
+    await user.click(screen.getByLabelText(/Experience level/));
+    await user.click(screen.getByRole("option", { name: "First time" }));
+    await submit(user);
+    expect(registerForEventActionMock).not.toHaveBeenCalled();
+    expect(
+      await screen.findByText("Please answer “Household size”."),
+    ).toBeTruthy();
+
+    await toThisEvent(user);
+    await user.type(screen.getByLabelText(/Household size/), "3");
+    await submit(user);
+    expect(JSON.parse(lastSubmission().profileAnswers)).toEqual({
+      level: "new",
+      household: 3,
+    });
+  });
+
+  test("says so when the registration saved but the answers did not", async () => {
+    registerForEventActionMock.mockImplementation(async () => ({
+      success: true,
+      registrationId: "reg-1",
+      answersPath: null,
+      profileAnswersError: "Your answers could not be saved.",
+    }));
+    render(
+      <EventRegistrationForm eventId="event-1" profileQuestions={[level]} />,
+    );
+    await fillAboutYou();
+    await sayNoMinors();
+    await submit();
+    expect(
+      await screen.findByText("Your answers could not be saved."),
+    ).toBeTruthy();
   });
 });

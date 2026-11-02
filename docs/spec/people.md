@@ -95,4 +95,12 @@ What such a message leaves behind is an `outbound_messages` row rather than a pr
 
 **Gate and editor.** The `person_questions` module is on for every plan; a tenant with no questions asks nobody anything. The questions are edited at People › Profile questions (`/portal/people/profile-questions`), a settings view reached from the People list's header and the command palette, under `person_answers:manage`.
 
-**Not yet:** the asking surfaces (registration step 2, `/my/details`, the person form, the registrant sheet), check-in snapshots and metrics, and moving the rider profile onto these tables — the rest of #1409.
+**Where they are asked** (#1744). Every surface reads questions and writes answers through the shared validator and `apply_person_answers()`:
+
+- **Registration step 2**, both forms: the questions with `ask_after_registration` in scope for the event's programs, read anonymously through `public_event_person_questions()`, which returns questions and never answers. The group is skippable; answering anything holds the shown questions to `required`. It is saved after the registration, through `save_registrant_person_answers()` with the new registration as the credential, so a refused answer never undoes a registration (the success screen says so instead). The anonymous form is **never pre-filled**; a signed-in, linked registrant's form is pre-filled from `my_person_questions()`. Anonymous answers overwrite the stored ones (last write wins).
+- **`/my/details`**: the questions with `ask_on_my_details`, with the reader's own answers from `my_person_questions()`, below the contact groups and saved through `set_my_person_answers()` only when they changed. `required` binds.
+- **The person record's Profile card** and **the registrant sheet** (and so the door, which opens the same sheet): every current question, read under `person_answers:view` (the sheet also needs `events:manage`, as the rider block did), edited under `person_answers:manage` through `set_person_answers()` (with `people:manage`) and `set_registrant_person_answers()` (with `events:manage`). Staff are not held to `required`. Answers show in their stored words, including answers to questions and options archived since.
+
+The demo tenant's nightly reset seeds three example questions and a few answers.
+
+**Not yet:** check-in snapshots and metrics, and moving the rider profile onto these tables — the rest of #1409.

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Pencil } from "lucide-react";
 import {
   deleteRiderProfileAction,
+  setPersonAnswersAction,
   updatePersonAction,
   type PersonListItem,
 } from "../actions";
@@ -47,6 +48,8 @@ import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/spinner";
 import { RequiredFieldsNote } from "@/components/required-fields-note";
 import { MergeDialog } from "./merge-dialog";
+import { ProfileAnswers } from "@/components/portal/profile-answers";
+import type { PersonAnswerRow, PersonQuestion } from "@/lib/person-questions";
 
 /**
  * The organization's mark, at the shape and fit the public sponsor wall draws
@@ -117,6 +120,9 @@ export function ProfileCard({
   canManage,
   canDeleteRiderProfile = false,
   sponsorWallPublic = false,
+  profileQuestions = [],
+  profileAnswers = [],
+  canManageAnswers = false,
 }: {
   person: PersonRow;
   people: PersonListItem[];
@@ -129,6 +135,14 @@ export function ProfileCard({
    * metadata.
    */
   sponsorWallPublic?: boolean;
+  /**
+   * The tenant's current profile questions and this person's answers
+   * (#1744). Empty for a reader without `person_answers: view`, which leaves
+   * the card as it was.
+   */
+  profileQuestions?: readonly PersonQuestion[];
+  profileAnswers?: readonly PersonAnswerRow[];
+  canManageAnswers?: boolean;
 }) {
   const router = useRouter();
   const riderAccess = useRiderProfileAccess();
@@ -331,6 +345,14 @@ export function ProfileCard({
             <p>
               <span className="app-muted">Notes:</span> {person.notes ?? "—"}
             </p>
+            <ProfileAnswers
+              idPrefix={`person-${person.id}-profile`}
+              questions={profileQuestions}
+              answers={profileAnswers}
+              canManage={canManageAnswers}
+              onSave={(answers) => setPersonAnswersAction(person.id, answers)}
+              onSaved={() => router.refresh()}
+            />
           </div>
         ) : (
           <form id={formId} onSubmit={handleSubmit}>

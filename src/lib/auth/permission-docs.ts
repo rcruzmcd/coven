@@ -392,6 +392,7 @@ export const PERMISSION_DOCS: Record<string, PermissionDoc> = {
     ],
     notes: [
       "One permission for every question; there is no per-question restriction yet.",
+      "In an event's registrant sheet, answers show only alongside Events at Manage, as the rider profile did; Events at View (a door shift reading a party size) does not see them.",
       "Belongs to the Profile questions module, which is on for every organization. An organization with no questions asks nobody anything.",
       "Seeded from each role's Rider profiles access, which it will replace, so nobody's access changed when it arrived.",
       "A person answering on their own (after registering for an event, or on their details page) needs no permission: those paths check the registration or the signed-in account instead.",

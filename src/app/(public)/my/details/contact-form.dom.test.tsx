@@ -10,7 +10,15 @@ import type { SaveContactDetailsResult } from "./actions";
 const saveMock = mock<(payload: FormData) => Promise<SaveContactDetailsResult>>(
   async () => ({ saved: true }),
 );
-mock.module("./actions", () => ({ saveMyContactDetailsAction: saveMock }));
+const saveAnswersMock = mock<
+  (
+    answers: Record<string, unknown>,
+  ) => Promise<{ saved: true } | { error: string }>
+>(async () => ({ saved: true }));
+mock.module("./actions", () => ({
+  saveMyContactDetailsAction: saveMock,
+  saveMyPersonAnswersAction: saveAnswersMock,
+}));
 
 const { ContactForm } = await import("./contact-form");
 
@@ -59,6 +67,8 @@ function summary(): HTMLElement {
 beforeEach(() => {
   saveMock.mockClear();
   saveMock.mockImplementation(async () => ({ saved: true }));
+  saveAnswersMock.mockClear();
+  saveAnswersMock.mockImplementation(async () => ({ saved: true }));
 });
 
 describe("ContactForm", () => {
@@ -273,5 +283,66 @@ describe("ContactForm", () => {
     // Untouched fields travel too: a partial payload would blank them.
     expect(payload.get("preferredName")).toBe("Janey");
     expect(payload.get("addressLine1")).toBe("1 Summit Road");
+  });
+
+  describe("profile questions (#1744)", () => {
+    const HOUSEHOLD = {
+      id: "q-household",
+      kind: "number" as const,
+      prompt: "Household size",
+      help: null,
+      required: true,
+      options: [],
+      min_value: 1,
+      max_value: 20,
+      show_if: null,
+    };
+
+    test("pre-fills the reader's answers and saves only what changed", async () => {
+      const user = userEvent.setup();
+      render(
+        <ContactForm
+          details={DETAILS}
+          profileQuestions={[HOUSEHOLD]}
+          profileAnswers={{ "q-household": 2 }}
+        />,
+      );
+
+      expect(
+        screen.getByRole("group", { name: "A few questions about you" }),
+      ).toBeInTheDocument();
+      const field = screen.getByLabelText(/Household size/);
+      expect(field).toHaveValue(2);
+      expect(save()).toBeDisabled();
+
+      await user.clear(field);
+      await user.type(field, "4");
+      await user.click(save());
+
+      await waitFor(() =>
+        expect(saveAnswersMock).toHaveBeenCalledWith({ "q-household": 4 }),
+      );
+      // The contact fields did not change, so they are not re-sent.
+      expect(saveMock).not.toHaveBeenCalled();
+      expect(await screen.findByRole("status")).toHaveTextContent("Saved.");
+    });
+
+    test("holds a changed answer to required before sending anything", async () => {
+      const user = userEvent.setup();
+      render(
+        <ContactForm
+          details={DETAILS}
+          profileQuestions={[HOUSEHOLD]}
+          profileAnswers={{ "q-household": 2 }}
+        />,
+      );
+
+      await user.clear(screen.getByLabelText(/Household size/));
+      await user.click(save());
+
+      expect(summary()).toHaveTextContent("Please answer “Household size”.");
+      expect(saveAnswersMock).not.toHaveBeenCalled();
+      expect(saveMock).not.toHaveBeenCalled();
+    });
   });
 });

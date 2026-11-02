@@ -20,6 +20,15 @@ import {
 import { parseRiderProfileForm } from "@/lib/rider-profile-form";
 import { getRiderProfileMountains } from "@/lib/rider-profile-settings";
 import {
+  loadCurrentPersonQuestions,
+  loadPersonAnswers,
+} from "@/lib/person-answers-data";
+import {
+  personAnswersErrorMessage,
+  type PersonAnswerRow,
+  type PersonQuestion,
+} from "@/lib/person-questions";
+import {
   actionError,
   fromGuard,
   fromParseError,
@@ -381,6 +390,16 @@ export type EventRegistrantsData = {
    */
   riderMountains: string[] | null;
   /**
+   * The tenant's current profile questions (#1744), and each registrant's
+   * answers by person id. Absent for a reader without `events: manage` and
+   * `person_answers: view` -- the gate the rider block had -- which leaves the
+   * sheet without the section.
+   */
+  profileQuestions?: PersonQuestion[];
+  profileAnswers?: Record<string, PersonAnswerRow[]>;
+  /** Whether the sheet may edit them: `events` and `person_answers` at Manage. */
+  canEditProfileAnswers?: boolean;
+  /**
    * The event's group chat switch and label (#1648), null when it is off --
    * which leaves every surface as it was.
    */
@@ -522,6 +541,9 @@ export async function listEventRegistrantsAction(
   // Rides column, no rider dialog and no rider block in the sheet, for anyone.
   const canSeeRider =
     canManage && hasPermission(permissions, "rider_profiles", "view");
+  // Profile questions (#1744) follow the same two-permission shape.
+  const canSeeProfileAnswers =
+    canManage && hasPermission(permissions, "person_answers", "view");
 
   const [{ data, error }, adders] = await Promise.all([
     supabase
@@ -605,6 +627,8 @@ export async function listEventRegistrantsAction(
     orgMail,
     minorContacts,
     riderMountains,
+    profileQuestions,
+    profileAnswers,
   ] = await Promise.all([
     loadRecordMessages(
       supabase,
@@ -632,6 +656,15 @@ export async function listEventRegistrantsAction(
     // The door dialog's picker (#1408). Only for a reader who sees rider
     // answers, which is the only reader the dialog opens for.
     canSeeRider ? getRiderProfileMountains(supabase) : Promise.resolve(null),
+    canSeeProfileAnswers
+      ? loadCurrentPersonQuestions(supabase)
+      : Promise.resolve(undefined),
+    canSeeProfileAnswers
+      ? loadPersonAnswers(
+          supabase,
+          registrants.flatMap((row) => (row.person_id ? [row.person_id] : [])),
+        )
+      : Promise.resolve(undefined),
   ]);
 
   const contactsById = new Map(
@@ -667,6 +700,11 @@ export async function listEventRegistrantsAction(
       registrationOptions,
       registrationQuestions,
       riderMountains,
+      profileQuestions,
+      profileAnswers: profileAnswers && Object.fromEntries(profileAnswers),
+      canEditProfileAnswers:
+        canSeeProfileAnswers &&
+        hasPermission(permissions, "person_answers", "manage"),
       groupChat,
       carpools,
     },
@@ -1867,4 +1905,51 @@ export async function setRegistrationsGroupChatAction(input: {
 
   revalidatePath(EVENTS_PATH);
   return { success: true, changed: data ?? 0 };
+}
+
+/**
+ * A registrant's answers to every current profile question (#1744), from the
+ * registrant sheet -- and so from the door, which opens the same sheet.
+ * `set_registrant_person_answers()` is the authority and checks both
+ * permissions again; staff are not held to `required`.
+ */
+export async function setRegistrantPersonAnswersAction(
+  registrationId: string,
+  answers: RegistrationAnswers,
+): Promise<RegistrantActionResult> {
+  const supabase = await createSupabaseServerClient();
+  const userResult = await checkUser(
+    supabase,
+    "You must be signed in to edit profile answers.",
+  );
+  if ("error" in userResult) return fromGuard("unauthenticated", userResult);
+  const permissionError = await checkEventAccess(supabase, {
+    table: "event_registrations",
+    level: "manage",
+  });
+  if (permissionError) return fromGuard("forbidden", permissionError);
+  const answersError = await checkPermission(
+    supabase,
+    "person_answers",
+    "manage",
+  );
+  if (answersError) return fromGuard("forbidden", answersError);
+
+  const { error } = await supabase.rpc("set_registrant_person_answers", {
+    p_registration_id: registrationId,
+    p_answers: answers,
+  });
+
+  if (error) {
+    if (error.message === "REGISTRANT_NOT_FOUND") {
+      return actionError("conflict", "That registration no longer exists.");
+    }
+    return actionError(
+      error.message === "PERSON_ANSWERS_INVALID" ? "conflict" : "server_error",
+      personAnswersErrorMessage(error.message),
+    );
+  }
+
+  revalidatePath("/portal/events");
+  return { success: true };
 }

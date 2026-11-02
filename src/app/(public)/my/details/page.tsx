@@ -9,6 +9,7 @@ import type { MyContactDetails } from "@/lib/constituent/contact";
 import { getPublicTenantModules } from "@/lib/page-visibility";
 import { moduleEnabled } from "@/lib/portal/modules";
 import { RIDER_PROFILE_MODULE } from "@/lib/rider-profile";
+import { loadMyPersonQuestions } from "@/lib/person-questions-public";
 import { ContactForm } from "./contact-form";
 import { EmailChangeForm } from "./email-form";
 import { MyPageLayout } from "../my-page-layout";
@@ -73,6 +74,9 @@ export default async function MyDetailsPage() {
 
   // The "What you ride" group is the rider_profile module's (#1408).
   const modules = await getPublicTenantModules(supabase);
+  // The profile questions this organization asks here (#1744), with the
+  // reader's own answers. Through a definer read, for the reason above.
+  const profile = await loadMyPersonQuestions(supabase);
 
   return (
     <MyPageLayout
@@ -83,6 +87,8 @@ export default async function MyDetailsPage() {
       <ContactForm
         details={details}
         showRider={moduleEnabled(modules, RIDER_PROFILE_MODULE)}
+        profileQuestions={profile.myDetails}
+        profileAnswers={profile.answers}
       />
 
       <Card>
