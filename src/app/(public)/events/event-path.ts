@@ -35,6 +35,14 @@ export function publicEventPath(id: string): string {
 }
 
 /** The event's public photos and videos, as one shareable page (#1654). */
+/**
+ * The event's staff preview (#1764): its own page with `?preview`, which a
+ * manager sees whatever the event's visibility and registers on as a test.
+ */
+export function publicEventPreviewPath(id: string): string {
+  return `${publicEventPath(id)}?preview`;
+}
+
 export function publicEventPhotosPath(id: string): string {
   return `${publicEventPath(id)}/photos`;
 }

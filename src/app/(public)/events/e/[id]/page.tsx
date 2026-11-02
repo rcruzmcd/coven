@@ -4,43 +4,47 @@ import { PageShell } from "@/components/page-shell";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getPublicSite, publicTitle } from "@/lib/public-site";
 import { EventDetailContent } from "../../event-detail-content";
-import { loadEventDetail } from "../../event-detail-data";
+import { loadEventPage } from "../../event-detail-data";
+import { EventPreviewBanner } from "../../event-preview-banner";
+
+type Props = {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ preview?: string | string[] }>;
+};
 
 export async function generateMetadata({
   params,
-}: {
-  params: Promise<{ id: string }>;
-}): Promise<Metadata> {
-  const { id } = await params;
+  searchParams,
+}: Props): Promise<Metadata> {
+  const [{ id }, query] = await Promise.all([params, searchParams]);
   const supabase = await createSupabaseServerClient();
-  const { data: event } = await supabase
-    .from("public_events")
-    .select("name")
-    .eq("id", id)
-    .maybeSingle();
+  const page = await loadEventPage(id, query.preview !== undefined);
 
   return {
-    title: publicTitle(await getPublicSite(supabase), event?.name ?? "Event"),
+    title: publicTitle(
+      await getPublicSite(supabase),
+      page?.event.name ?? "Event",
+    ),
+    // #1764. A preview is nobody's to find.
+    ...(page?.preview ? { robots: { index: false, follow: false } } : {}),
   };
 }
 
 /**
  * The event's own page: what a card on the listing or the home page, a shared
- * link, a refresh and a search result all render (#1427).
+ * link, a refresh and a search result all render (#1427) -- and, for the
+ * event's manager, its preview (#1764).
  */
-export default async function EventDetailPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const { id } = await params;
-  const event = await loadEventDetail(id);
+export default async function EventDetailPage({ params, searchParams }: Props) {
+  const [{ id }, query] = await Promise.all([params, searchParams]);
+  const page = await loadEventPage(id, query.preview !== undefined);
 
-  if (!event) notFound();
+  if (!page) notFound();
 
   return (
     <PageShell>
-      <EventDetailContent event={event} />
+      {page.preview && <EventPreviewBanner eventId={page.event.id} />}
+      <EventDetailContent event={page.event} preview={page.preview} />
     </PageShell>
   );
 }

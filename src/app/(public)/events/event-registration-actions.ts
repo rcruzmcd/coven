@@ -19,7 +19,10 @@ import { PRONOUNS_TOO_LONG_ERROR } from "@/lib/pronouns";
 import { REGISTRATION_OPTION_ERROR_MESSAGES } from "@/lib/registration-options";
 import { REGISTRATION_ANSWER_ERROR_MESSAGES } from "@/lib/registration-questions";
 import { REGISTRATION_CONTACT_ERROR_MESSAGES } from "@/lib/registration-contact";
-import { parseEventRegistrationForm } from "./event-registration-form";
+import {
+  isPreviewSubmission,
+  parseEventRegistrationForm,
+} from "./event-registration-form";
 import {
   parseProfileAnswers,
   saveRegistrationProfileAnswers,
@@ -117,6 +120,8 @@ export async function registerForEventAction(
 
   const honeypot = String(formData.get("company") ?? "");
   const ipAddress = await getClientIp();
+  // #1764. A staff preview's test registration; the RPC refuses anyone else.
+  const preview = isPreviewSubmission(formData);
 
   const supabase = await createSupabaseServerClient();
 
@@ -167,6 +172,7 @@ export async function registerForEventAction(
     p_answers: parsed.data.answers ?? undefined,
     // #1417. Sent as ticked; the RPC ignores it on an event that is not 18+.
     p_adults_only_confirmed: parsed.data.adults_only_confirmed,
+    p_preview: preview || undefined,
     // No `p_photo_consent` (#1376). The parameter is still there, declared
     // `default null`, and the RPC is unchanged -- but the form has no box, so
     // there is nothing to send and `null` is the correct resting state: no
@@ -215,14 +221,16 @@ export async function registerForEventAction(
   // honeypot's id alike.
   const answersLink = await issueConfirmationAnswersLink(admin, registrationId);
 
-  // #1744. Not for a filled honeypot, whose id has no row behind it.
-  const profileAnswersError = honeypot
-    ? null
-    : await saveRegistrationProfileAnswers(supabase, {
-        registrationId,
-        answers: profile.answers,
-        ipAddress,
-      });
+  // #1744. Not for a filled honeypot, whose id has no row behind it, and not
+  // for a test registration (#1764), which has no person to answer for.
+  const profileAnswersError =
+    honeypot || preview
+      ? null
+      : await saveRegistrationProfileAnswers(supabase, {
+          registrationId,
+          answers: profile.answers,
+          ipAddress,
+        });
 
   after(async () => {
     await sendEventRegistrationConfirmation(admin, {

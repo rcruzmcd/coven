@@ -158,6 +158,8 @@ export type RegistrantAnswerRow = AnswerRow & {
 export type EventRegistrant = {
   id: string;
   event_id: string;
+  /** Made from the staff preview (#1764); see `EventRegistrantsData.tests`. */
+  is_test: boolean;
   name: string;
   email: string;
   phone: string | null;
@@ -339,6 +341,13 @@ export type EventRegistrantsData = {
    * has to remember to leave them out. Shown behind "Show cancelled".
    */
   cancelled: EventRegistrant[];
+  /**
+   * Test registrations made from the event's staff preview (#1764), apart
+   * from both lists above for the same reason cancelled ones are. Shown
+   * behind "Show test registrations", and cleared all at once. Absent on
+   * data built elsewhere.
+   */
+  tests?: EventRegistrant[];
   messages: RecordMessages;
   messaging: RegistrantMessagingContext | null;
   /**
@@ -545,8 +554,16 @@ export async function listEventRegistrantsAction(
     supabase,
     (data ?? []).map((row) => toRegistrant(row, adderNames)),
   );
-  const registrants = rows.filter((row) => row.cancelled_at === null);
-  const cancelled = rows.filter((row) => row.cancelled_at !== null);
+  // #1764. Test registrations are a list of their own, cancelled or not, so
+  // nothing that reads the other two -- capacity, option counts, carpools,
+  // check-in -- has to remember them.
+  const tests = rows.filter((row) => row.is_test);
+  const registrants = rows.filter(
+    (row) => !row.is_test && row.cancelled_at === null,
+  );
+  const cancelled = rows.filter(
+    (row) => !row.is_test && row.cancelled_at !== null,
+  );
   // Read for both readers, including the `events: view` door shift: whether
   // the organization takes a waiver at all is what turns an empty cell from
   // ambiguous into "nobody was asked" (#686).
@@ -581,6 +598,7 @@ export async function listEventRegistrantsAction(
       data: {
         registrants,
         cancelled,
+        tests,
         messages: NO_RECORD_MESSAGES,
         messaging: null,
         waiverInForce,
@@ -671,6 +689,7 @@ export async function listEventRegistrantsAction(
           : null,
       })),
       cancelled,
+      tests,
       messages,
       messaging: {
         orgName:
@@ -717,7 +736,7 @@ async function loadGroupChat(
 // `option_counts`, `answers` and `discount_codes` are embeds, not columns of
 // this table (#1407, #1501, #1589).
 const REGISTRANT_COLUMNS =
-  "id, event_id, name, email, phone, instagram_handle, has_no_instagram, preferred_contact_method, preferred_contact_detail, pronouns, party_size, notes, created_at, person_id, checked_in_at, attended_before, waiver_accepted_at, waiver_version, party_includes_minor, adults_only_confirmed_at, answers_changed_at, group_chat_added_at, group_chat_added_by, reminder_sent_at, cancelled_at, cancellation_reason, cancellation_note, photo_consent, photo_consent_at, photo_consent_text, option_counts:event_registration_option_counts(option_id, label, quantity, sort_order), answers:event_registration_answers(question_id, prompt_as_shown, answer_text, sort_order, value), answer_request:event_registration_answer_requests(requested_at, answered_at, source), discount_codes(code, pin)";
+  "id, event_id, is_test, name, email, phone, instagram_handle, has_no_instagram, preferred_contact_method, preferred_contact_detail, pronouns, party_size, notes, created_at, person_id, checked_in_at, attended_before, waiver_accepted_at, waiver_version, party_includes_minor, adults_only_confirmed_at, answers_changed_at, group_chat_added_at, group_chat_added_by, reminder_sent_at, cancelled_at, cancellation_reason, cancellation_note, photo_consent, photo_consent_at, photo_consent_text, option_counts:event_registration_option_counts(option_id, label, quantity, sort_order), answers:event_registration_answers(question_id, prompt_as_shown, answer_text, sort_order, value), answer_request:event_registration_answer_requests(requested_at, answered_at, source), discount_codes(code, pin)";
 
 type RegistrantRow = Omit<
   EventRegistrant,
@@ -1185,10 +1204,11 @@ type RegistrationRow = {
   email: string | null;
   person_id: string | null;
   cancelled_at: string | null;
+  is_test: boolean;
 };
 
 const REGISTRATION_MESSAGE_SELECT =
-  "id, tenant_id, event_id, name, email, person_id, cancelled_at";
+  "id, tenant_id, event_id, name, email, person_id, cancelled_at, is_test";
 
 /**
  * Write to one registrant, about the event they registered for.
@@ -1229,6 +1249,8 @@ export async function sendEventRegistrantMessageAction(input: {
 
   if (error) return { error: RECORD_MESSAGE_ERRORS.FAILED };
   if (!data) return { error: REGISTRANT_MESSAGE_ERRORS.NOT_FOUND };
+  // #1764. A test registration's address is whatever the tester typed.
+  if (data.is_test) return { error: REGISTRANT_MESSAGE_ERRORS.TEST };
   // #1418. A cancelled registration has dropped out of messaging.
   if (data.cancelled_at) return { error: REGISTRANT_MESSAGE_ERRORS.CANCELLED };
   const toEmail = data.email?.trim();
@@ -1281,6 +1303,8 @@ export async function resendEventRegistrationConfirmationAction(
 
   if (error) return { error: RECORD_MESSAGE_ERRORS.FAILED };
   if (!data) return { error: REGISTRANT_MESSAGE_ERRORS.NOT_FOUND };
+  // #1764. A test registration's address is whatever the tester typed.
+  if (data.is_test) return { error: REGISTRANT_MESSAGE_ERRORS.TEST };
   // #1418. A cancelled registration has dropped out of messaging.
   if (data.cancelled_at) return { error: REGISTRANT_MESSAGE_ERRORS.CANCELLED };
   // The sender answers `skipped` for both of these, which would read to the
@@ -1458,6 +1482,8 @@ export async function askForMissingAnswersAction(input: {
       )
       .eq("event_id", input.eventId)
       .is("cancelled_at", null)
+      // #1764. Nothing goes to a test registration's typed address.
+      .eq("is_test", false)
       .order("created_at", { ascending: true }),
     loadRegistrationQuestions(guard.supabase, input.eventId),
   ]);
@@ -1537,6 +1563,8 @@ export async function askRegistrantForAnswersAction(
 
   if (error) return { error: RECORD_MESSAGE_ERRORS.FAILED };
   if (!data) return { error: REGISTRANT_MESSAGE_ERRORS.NOT_FOUND };
+  // #1764. A test registration's address is whatever the tester typed.
+  if (data.is_test) return { error: REGISTRANT_MESSAGE_ERRORS.TEST };
   if (data.cancelled_at) return { error: REGISTRANT_MESSAGE_ERRORS.CANCELLED };
   const toEmail = data.email?.trim();
   if (!toEmail) return { error: REGISTRANT_MESSAGE_ERRORS.NO_EMAIL };
@@ -1643,6 +1671,8 @@ export async function sendEventAnnouncementAction(input: {
       .eq("event_id", input.eventId)
       // #1418. Nobody who cancelled hears about the event again.
       .is("cancelled_at", null)
+      // #1764. Nor does a test registration's typed address.
+      .eq("is_test", false)
       .order("created_at", { ascending: true }),
   ]);
 
@@ -1747,6 +1777,35 @@ export async function cancelRegistrationAction(
  * Undo a cancellation (#1418). Refused where the seats or an option's cap have
  * been taken since, or where the person has registered again.
  */
+/**
+ * Deletes every test registration on the event (#1764), and only those: the
+ * delete names `is_test` itself, so a real registration cannot be caught by
+ * it whatever the client sends. Their counts, answers and answer links go
+ * with them.
+ */
+export async function clearTestRegistrationsAction(
+  eventId: string,
+): Promise<{ success: true; cleared: number } | { error: string }> {
+  const guard = await requireEventsManage();
+  if ("error" in guard) return guard;
+
+  const { data, error } = await guard.supabase
+    .from("event_registrations")
+    .delete()
+    .eq("event_id", eventId)
+    .eq("is_test", true)
+    .select("id");
+
+  if (error) {
+    return {
+      error: "Could not clear the test registrations. Please try again.",
+    };
+  }
+
+  revalidatePath(`/portal/events/${eventId}`);
+  return { success: true, cleared: data?.length ?? 0 };
+}
+
 export async function restoreRegistrationAction(
   registrationId: string,
 ): Promise<RegistrantActionResult> {

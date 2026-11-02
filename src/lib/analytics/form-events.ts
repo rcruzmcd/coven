@@ -1,5 +1,6 @@
 import { useRef, type SyntheticEvent } from "react";
 import type { RegistrationStep } from "@/app/(public)/events/registration-step";
+import { NO_FORM_ANALYTICS_ATTRIBUTE } from "./no-form-analytics";
 
 /**
  * Every event the public site sends to PostHog about a form (#1710), and the
@@ -189,6 +190,12 @@ function deliver(
   sent: Record<string, string>,
   options?: { leaving?: boolean },
 ): void {
+  if (
+    typeof document !== "undefined" &&
+    document.querySelector(`[${NO_FORM_ANALYTICS_ATTRIBUTE}]`)
+  ) {
+    return;
+  }
   if (capture) capture(event, sent, options);
   else if (pending && pending.length < PENDING_LIMIT)
     pending.push([event, sent, options]);

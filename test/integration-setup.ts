@@ -45,12 +45,19 @@ export type ClientOptions = {
    * sending it at all.
    */
   slug?: string;
+  /**
+   * Event id to present as `x-event-preview` (#1764), the header the staff
+   * preview page sends so the public views also show that one event to its
+   * manager.
+   */
+  preview?: string;
 };
 
 export function anonClient(options: ClientOptions = {}) {
   const headers: Record<string, string> = {};
   if (options.host) headers["x-tenant-host"] = options.host;
   if (options.slug !== undefined) headers["x-tenant-slug"] = options.slug;
+  if (options.preview) headers["x-event-preview"] = options.preview;
 
   return createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
     auth: {

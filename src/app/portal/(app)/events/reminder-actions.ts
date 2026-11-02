@@ -142,6 +142,8 @@ export async function sendEventReminderNowAction(input: {
     .select("id, tenant_id")
     .eq("id", input.registrationId)
     .eq("event_id", input.eventId)
+    // #1764. No reminder goes to a test registration's typed address.
+    .eq("is_test", false)
     .maybeSingle<{ id: string; tenant_id: string }>();
   if (!registration) {
     return actionError("conflict", REMINDER_ERRORS.NOTHING_TO_SEND);

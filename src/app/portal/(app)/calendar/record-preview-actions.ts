@@ -95,7 +95,9 @@ export async function getEventPreviewAction(
       .from("event_registrations")
       .select("party_size")
       .eq("event_id", id)
-      .is("cancelled_at", null),
+      .is("cancelled_at", null)
+      // #1764. A test registration holds no place.
+      .eq("is_test", false),
     supabase
       .from("event_volunteers")
       .select("id", { count: "exact", head: true })

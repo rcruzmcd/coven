@@ -42,7 +42,9 @@ export async function getUpcomingSummary(
       .from("event_registrations")
       .select("party_size, events!inner(starts_at)")
       .gte("events.starts_at", nowIso)
-      .is("cancelled_at", null),
+      .is("cancelled_at", null)
+      // #1764. A test registration holds no place.
+      .eq("is_test", false),
     supabase
       .from("event_volunteers")
       .select("id, events!inner(starts_at)")

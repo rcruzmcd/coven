@@ -17,6 +17,18 @@ import {
   type RegistrationContact,
 } from "@/lib/registration-contact";
 
+/**
+ * The field a staff preview's form sets (#1764). Whether the reader may make
+ * a test registration is the RPC's to decide, so a visitor who sets it gets
+ * the event's 404 refusal and nothing else.
+ */
+export const PREVIEW_FIELD = "preview";
+
+/** Whether the form asked for a test registration. */
+export function isPreviewSubmission(formData: FormData): boolean {
+  return formData.get(PREVIEW_FIELD) === "1";
+}
+
 export type EventRegistrationFormData = {
   name: string;
   email: string;

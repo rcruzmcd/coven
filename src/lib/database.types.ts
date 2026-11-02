@@ -3928,6 +3928,7 @@ export type Database = {
           has_no_instagram: boolean | null;
           id: string;
           instagram_handle: string | null;
+          is_test: boolean;
           name: string;
           notes: string | null;
           party_includes_minor: boolean | null;
@@ -3945,6 +3946,7 @@ export type Database = {
           ski_experience_level_at_event: string | null;
           snowboard_experience_level_at_event: string | null;
           tenant_id: string;
+          tested_by: string | null;
           waiver_accepted_at: string | null;
           waiver_version: number | null;
         };
@@ -3969,6 +3971,7 @@ export type Database = {
           has_no_instagram?: boolean | null;
           id?: string;
           instagram_handle?: string | null;
+          is_test?: boolean;
           name: string;
           notes?: string | null;
           party_includes_minor?: boolean | null;
@@ -3986,6 +3989,7 @@ export type Database = {
           ski_experience_level_at_event?: string | null;
           snowboard_experience_level_at_event?: string | null;
           tenant_id?: string;
+          tested_by?: string | null;
           waiver_accepted_at?: string | null;
           waiver_version?: number | null;
         };
@@ -4010,6 +4014,7 @@ export type Database = {
           has_no_instagram?: boolean | null;
           id?: string;
           instagram_handle?: string | null;
+          is_test?: boolean;
           name?: string;
           notes?: string | null;
           party_includes_minor?: boolean | null;
@@ -4027,6 +4032,7 @@ export type Database = {
           ski_experience_level_at_event?: string | null;
           snowboard_experience_level_at_event?: string | null;
           tenant_id?: string;
+          tested_by?: string | null;
           waiver_accepted_at?: string | null;
           waiver_version?: number | null;
         };
@@ -11734,6 +11740,7 @@ export type Database = {
         Args: { p_processor_label?: string; p_rows: Json };
         Returns: Json;
       };
+      can_preview_event: { Args: { p_event_id: string }; Returns: boolean };
       can_see_conduct_report: {
         Args: { p_report_id: string };
         Returns: boolean;
@@ -12112,6 +12119,7 @@ export type Database = {
           preferred_name: string;
         }[];
       };
+      event_previewed: { Args: { p_event_id: string }; Returns: boolean };
       event_public_gallery_enabled: { Args: never; Returns: boolean };
       event_reminder_due_tenants: { Args: never; Returns: string[] };
       event_reminder_message: {
@@ -13435,6 +13443,7 @@ export type Database = {
           p_preferred_contact_detail?: string;
           p_preferred_contact_method?: string;
           p_preferred_mountain?: string;
+          p_preview?: boolean;
           p_pronouns?: string;
           p_riding_discipline?: string;
           p_ski_experience_level?: string;
@@ -13707,6 +13716,7 @@ export type Database = {
           tenant_id: string;
         }[];
       };
+      request_preview_event_id: { Args: never; Returns: string };
       request_registration_answers: {
         Args: { p_event_id: string; p_requests: Json };
         Returns: {

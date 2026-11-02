@@ -59,6 +59,7 @@ function registrant(overrides: Partial<EventRegistrant>): EventRegistrant {
   return {
     id: "reg",
     event_id: "event-1",
+    is_test: false,
     name: "Somebody",
     email: "somebody@example.test",
     phone: null,

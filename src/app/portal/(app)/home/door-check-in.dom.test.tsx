@@ -67,6 +67,7 @@ function registrant(
   return {
     id,
     event_id: "event-1",
+    is_test: false,
     name,
     email: `${id}@example.test`,
     phone: null,

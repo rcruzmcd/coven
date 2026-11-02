@@ -42,7 +42,9 @@ export async function GET(
         "id, name, party_size, email, phone, instagram_handle, preferred_contact_detail, answers_changed_at, answers:event_registration_answers(question_id, answer_text, value)",
       )
       .eq("event_id", eventId)
-      .is("cancelled_at", null),
+      .is("cancelled_at", null)
+      // #1764. A test registration rides in no carpool.
+      .eq("is_test", false),
   ]);
 
   if (event.error || questions.error || registrations.error) {

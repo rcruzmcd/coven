@@ -1,4 +1,9 @@
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { cache } from "react";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  createSupabasePreviewClient,
+  createSupabaseServerClient,
+} from "@/lib/supabase/server";
 import type {
   PublicEvent,
   PublicEventProgram,
@@ -21,8 +26,40 @@ export const PUBLIC_EVENT_COLUMNS =
  * whether that is a `notFound()` or something quieter.
  */
 export async function loadEventDetail(id: string): Promise<PublicEvent | null> {
-  const supabase = await createSupabaseServerClient();
+  return readEventDetail(await createSupabaseServerClient(), id);
+}
 
+/**
+ * What `/events/e/[id]` renders (#1764): the public event, or -- for its
+ * manager -- a preview of it. A preview is asked for with `?preview`, which
+ * also previews a public event, so its registrations are test ones too; and
+ * it is what a private or unpublished event shows its manager without asking.
+ * Everyone else gets the public event or null, exactly as before; the
+ * permission check is the database's (`event_previewed()`), not this file's.
+ */
+export const loadEventPage = cache(async function loadEventPage(
+  id: string,
+  wantsPreview: boolean,
+): Promise<{ event: PublicEvent; preview: boolean } | null> {
+  if (!wantsPreview) {
+    const event = await loadEventDetail(id);
+    if (event) return { event, preview: false };
+  }
+  const previewed = await readEventDetail(
+    await createSupabasePreviewClient(id),
+    id,
+  );
+  if (previewed) return { event: previewed, preview: true };
+  // A `?preview` link opened by someone who may not preview it is still the
+  // public page, where there is one.
+  const event = wantsPreview ? await loadEventDetail(id) : null;
+  return event ? { event, preview: false } : null;
+});
+
+async function readEventDetail(
+  supabase: SupabaseClient,
+  id: string,
+): Promise<PublicEvent | null> {
   const { data: event } = await supabase
     .from("public_events")
     .select(PUBLIC_EVENT_COLUMNS)
