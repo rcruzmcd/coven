@@ -81,7 +81,7 @@ function makeEvent(overrides: Partial<EventRow> = {}): EventRow {
 
 // The Save button lives on the event detail view's toolbar, wired to the tab's
 // form by id -- stand in for it here.
-function renderTab(event: EventRow) {
+function renderTab(event: EventRow, mode: "view" | "edit" = "edit") {
   return render(
     <>
       <PlanningTab
@@ -89,7 +89,7 @@ function renderTab(event: EventRow) {
         formId="planning-form"
         people={[]}
         onPersonCreated={() => {}}
-        mode="edit"
+        mode={mode}
         onSaved={() => {}}
       />
       <button type="submit" form="planning-form">
@@ -199,6 +199,14 @@ describe("PlanningTab registration deadline", () => {
     const submitted = updateEventPlanningActionMock.mock.calls[0][1];
     expect(submitted.get("registrationEnabled")).toBe("off");
     expect(submitted.get("registrationDeadline")).toBe("");
+  });
+});
+
+describe("PlanningTab per-person options", () => {
+  test("uses the distinct label in the read-only view", () => {
+    renderTab(makeEvent(), "view");
+
+    expect(screen.getByText("Per-person options")).toBeTruthy();
   });
 });
 

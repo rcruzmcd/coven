@@ -74,19 +74,17 @@ export function RegistrationOptionsEditor({
 
   return (
     <FieldSet>
-      <FieldLegend variant="label">Registration question</FieldLegend>
+      <FieldLegend variant="label">Per-person options</FieldLegend>
       <FieldDescription>
-        Optional. Registrants say how many people in their party pick each
-        option, and the numbers must add up to the party size. A cap closes an
-        option once that many have picked it. A price is not shown on the public
-        form; it is what the discount codes covering an option are valued
-        against.
+        Optional. Each registrant splits their party across these options. A cap
+        closes an option once it&apos;s full. Prices aren&apos;t shown publicly;
+        discount codes are valued against them.
       </FieldDescription>
 
       {options.length > 0 && (
         <Field>
           <FieldLabel htmlFor="planning-options-prompt" required>
-            Question
+            Question shown to registrants
           </FieldLabel>
           <Input
             id="planning-options-prompt"
