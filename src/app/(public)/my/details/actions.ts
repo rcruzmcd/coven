@@ -12,6 +12,8 @@ import {
 } from "@/lib/constituent/email-change";
 import { requestNotificationEmailContext } from "@/lib/notifications/notification-email-request";
 import { MY_PATH_PREFIX } from "@/lib/constituent/paths";
+import { personAnswersErrorMessage } from "@/lib/person-questions";
+import type { RegistrationAnswers } from "@/lib/registration-questions";
 
 const MY_DETAILS_PATH = `${MY_PATH_PREFIX}/details`;
 
@@ -56,6 +58,29 @@ export async function saveMyContactDetailsAction(
 
   revalidatePath(MY_DETAILS_PATH);
   revalidatePath(MY_PATH_PREFIX);
+  return { saved: true };
+}
+
+/**
+ * Saves the caller's own answers to the profile questions asked on
+ * /my/details (#1744). No person argument and no permission check, for the
+ * reason `saveMyContactDetailsAction` has none: `set_my_person_answers()`
+ * resolves whose record it is, and is the authority on every answer rule. An
+ * answer left out is a cleared one, since this form shows the stored answers.
+ */
+export async function saveMyPersonAnswersAction(
+  answers: RegistrationAnswers,
+): Promise<{ error: string } | { saved: true }> {
+  if (!answers || typeof answers !== "object" || Array.isArray(answers)) {
+    return { error: personAnswersErrorMessage("PERSON_ANSWERS_INVALID") };
+  }
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("set_my_person_answers", {
+    p_answers: answers,
+  });
+  if (error) return { error: personAnswersErrorMessage(error.message) };
+
+  revalidatePath(MY_DETAILS_PATH);
   return { saved: true };
 }
 

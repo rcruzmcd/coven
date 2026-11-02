@@ -586,8 +586,9 @@ export const ANSWERS_FIELD = "registrationAnswers";
 export function setAnswersField(
   formData: FormData,
   answers: RegistrationAnswers,
+  field: string = ANSWERS_FIELD,
 ) {
-  formData.set(ANSWERS_FIELD, JSON.stringify(answers));
+  formData.set(field, JSON.stringify(answers));
 }
 
 /**
@@ -598,8 +599,9 @@ export function setAnswersField(
  */
 export function parseAnswersField(
   formData: FormData,
+  field: string = ANSWERS_FIELD,
 ): { answers: RegistrationAnswers | null } | { error: string } {
-  const raw = formData.get(ANSWERS_FIELD);
+  const raw = formData.get(field);
   if (raw === null || String(raw).trim() === "") return { answers: null };
   try {
     const parsed: unknown = JSON.parse(String(raw));

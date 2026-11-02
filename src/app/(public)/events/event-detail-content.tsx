@@ -18,6 +18,10 @@ import { getPublicSite } from "@/lib/public-site";
 import type { PublicRiderProfile } from "@/lib/rider-profile";
 import { getPublicRiderProfile } from "@/lib/rider-profile-settings";
 import {
+  loadEventPersonQuestions,
+  loadMyPersonQuestions,
+} from "@/lib/person-questions-public";
+import {
   getPublicAsksAboutMinors,
   getPublicRequiresInstagram,
 } from "@/lib/registration-settings";
@@ -47,7 +51,10 @@ import type { AccountOffer } from "@/lib/constituent/account-offer";
 import type { RegistrationOptionsQuestion } from "@/lib/registration-options";
 import { loadRegistrationOptions } from "./registration-options-data";
 import { loadRegistrationQuestions } from "./registration-questions-data";
-import type { RegistrationQuestion } from "@/lib/registration-questions";
+import type {
+  RegistrationAnswers,
+  RegistrationQuestion,
+} from "@/lib/registration-questions";
 import { canCancelOwnRegistration } from "@/lib/registration-cancellation";
 import { CantMakeItButton } from "@/app/(public)/my/cant-make-it-button";
 
@@ -97,6 +104,8 @@ function EventDetailBody({
   carpoolCostNotice,
   registrationOptions,
   registrationQuestions,
+  profileQuestions,
+  myProfileAnswers,
   riderProfile,
 }: {
   event: PublicEvent;
@@ -135,6 +144,13 @@ function EventDetailBody({
   registrationOptions: RegistrationOptionsQuestion | null;
   /** The event's registration questions (#1501), empty for most events. */
   registrationQuestions: RegistrationQuestion[];
+  /** The profile questions step 2 asks for this event (#1744), empty for most tenants. */
+  profileQuestions: RegistrationQuestion[];
+  /**
+   * A linked reader's own answers to pre-fill them with; empty for everyone
+   * else, since the anonymous form is never pre-filled (#1409 section 3).
+   */
+  myProfileAnswers: RegistrationAnswers;
   /** The riding questions on step 2 (#1415), or null without the module. */
   riderProfile: PublicRiderProfile | null;
 }) {
@@ -235,6 +251,8 @@ function EventDetailBody({
                   carpoolCostNotice={carpoolCostNotice}
                   registrationOptions={registrationOptions}
                   registrationQuestions={registrationQuestions}
+                  profileQuestions={profileQuestions}
+                  profileAnswers={myProfileAnswers}
                   riderProfile={riderProfile}
                 />
               ) : (
@@ -256,6 +274,7 @@ function EventDetailBody({
                   carpoolCostNotice={carpoolCostNotice}
                   registrationOptions={registrationOptions}
                   registrationQuestions={registrationQuestions}
+                  profileQuestions={profileQuestions}
                   riderProfile={riderProfile}
                 />
               )}
@@ -321,6 +340,15 @@ export async function EventDetailContent({ event }: { event: PublicEvent }) {
   const registrationQuestions = event.registration_enabled
     ? await loadRegistrationQuestions(supabase, event.id)
     : [];
+  // The profile questions step 2 asks for this event (#1744), under the same
+  // condition; a linked reader's own answers pre-fill them, nobody else's do.
+  const profileQuestions = event.registration_enabled
+    ? await loadEventPersonQuestions(supabase, event.id)
+    : [];
+  const myProfileAnswers =
+    profileQuestions.length > 0 && viewer?.kind === "linked"
+      ? (await loadMyPersonQuestions(supabase)).answers
+      : {};
   // The riding questions on registration's step 2 (#1408, #1415), only for a
   // tenant with the module and only where there is a registration form.
   const riderProfile = event.registration_enabled
@@ -442,6 +470,8 @@ export async function EventDetailContent({ event }: { event: PublicEvent }) {
             carpoolCostNotice={carpoolCostNotice}
             registrationOptions={registrationOptions}
             registrationQuestions={registrationQuestions}
+            profileQuestions={profileQuestions}
+            myProfileAnswers={myProfileAnswers}
             riderProfile={riderProfile}
           />
           {hasPublicEventMedia(media) && (

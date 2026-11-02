@@ -23,13 +23,20 @@ import { CarpoolCostNotice } from "@/components/carpool-cost-notice";
 import { waiverAcceptanceLabel } from "@/lib/photo-consent";
 import { RegistrationOptionCountsField } from "@/components/registration-option-counts-field";
 import { RegistrationQuestionsFields } from "@/components/registration-questions-fields";
+import { ProfileQuestionsFieldset } from "@/components/profile-questions-fieldset";
+import {
+  PROFILE_ANSWERS_FIELD,
+  profileAnswersError,
+} from "@/lib/person-questions";
 import {
   answerSummaryRows,
   answersError,
   draftToAnswers,
+  answersToDraft,
   emptyAnswerDraft,
   setAnswersField,
   type AnswerDraft,
+  type RegistrationAnswers,
   type RegistrationQuestion,
 } from "@/lib/registration-questions";
 import {
@@ -98,6 +105,8 @@ export function MyEventRegistrationForm({
   carpoolCostNotice = [],
   registrationOptions = null,
   registrationQuestions = [],
+  profileQuestions = [],
+  profileAnswers: storedProfileAnswers = {},
   riderProfile = null,
 }: {
   eventId: string;
@@ -166,6 +175,14 @@ export function MyEventRegistrationForm({
    */
   registrationQuestions?: RegistrationQuestion[];
   /**
+   * The organization's profile questions asked after registering for this
+   * event (#1744), and this reader's own current answers to pre-fill them
+   * with -- they are signed in and linked to the record, which is the only
+   * case where pre-filling discloses nothing (#1409 section 3).
+   */
+  profileQuestions?: RegistrationQuestion[];
+  profileAnswers?: RegistrationAnswers;
+  /**
    * The riding questions on step 2 (#1415), as on the anonymous form. Null on
    * a tenant without the rider_profile module.
    */
@@ -208,6 +225,14 @@ export function MyEventRegistrationForm({
     emptyAnswerDraft(registrationQuestions),
   );
   const answers = draftToAnswers(registrationQuestions, answerDraft);
+  // #1744. From their own record, as the riding answers are.
+  const [profileDraft, setProfileDraft] = useState<AnswerDraft>(() =>
+    answersToDraft(profileQuestions, storedProfileAnswers),
+  );
+  const profileAnswers = draftToAnswers(profileQuestions, profileDraft);
+  const [profileAnswersNotSaved, setProfileAnswersNotSaved] = useState<
+    string | null
+  >(null);
   // Unticked, always (#686).
   const [waiverAccepted, setWaiverAccepted] = useState(false);
   const [error, setError] = useState<{
@@ -246,6 +271,15 @@ export function MyEventRegistrationForm({
       return;
     }
 
+    const profileProblem = profileAnswersError(
+      profileQuestions,
+      profileAnswers,
+    );
+    if (profileProblem) {
+      setError({ message: profileProblem.message, step: "event" });
+      return;
+    }
+
     const formData = new FormData();
     formData.set("partySize", partySize);
     if (adultsOnly && adultsOnlyConfirmed) {
@@ -254,6 +288,9 @@ export function MyEventRegistrationForm({
     if (riderProfile) setRidingFields(formData, riding);
     if (registrationOptions) setOptionCounts(formData, optionCounts);
     if (registrationQuestions.length > 0) setAnswersField(formData, answers);
+    if (profileQuestions.length > 0) {
+      setAnswersField(formData, profileAnswers, PROFILE_ANSWERS_FIELD);
+    }
     formData.set("notes", notes);
     formData.set("phone", phone);
     formData.set("pronouns", pronouns);
@@ -288,6 +325,7 @@ export function MyEventRegistrationForm({
         return;
       }
       trackForm("event_registration", "form_completed", { event_id: eventId });
+      setProfileAnswersNotSaved(result.profileAnswersError);
       setRegistered(true);
     });
   }
@@ -307,6 +345,9 @@ export function MyEventRegistrationForm({
             </Link>
             .
           </span>
+          {profileAnswersNotSaved && (
+            <span className="mt-3 block">{profileAnswersNotSaved}</span>
+          )}
         </AlertDescription>
       </Alert>
     );
@@ -455,6 +496,14 @@ export function MyEventRegistrationForm({
             onChange={setAnswerDraft}
             disabled={isPending}
           />
+          <ProfileQuestionsFieldset
+            idPrefix="my-registration"
+            questions={profileQuestions}
+            draft={profileDraft}
+            onChange={setProfileDraft}
+            disabled={isPending}
+            skippable
+          />
           <CarpoolCostNotice paragraphs={carpoolCostNotice} />
 
           <Field>
@@ -489,7 +538,10 @@ export function MyEventRegistrationForm({
           riding: riderProfile ? ridingSummaryRows(riding) : [],
           registrationOptions,
           optionCounts,
-          answers: answerSummaryRows(registrationQuestions, answers),
+          answers: [
+            ...answerSummaryRows(registrationQuestions, answers),
+            ...answerSummaryRows(profileQuestions, profileAnswers),
+          ],
           notes,
         }),
       }}

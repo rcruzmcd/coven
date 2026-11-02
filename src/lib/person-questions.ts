@@ -1,6 +1,8 @@
 import {
   QUESTION_KINDS,
+  answersError,
   toRegistrationQuestion,
+  type RegistrationAnswers,
   type RegistrationQuestion,
 } from "@/lib/registration-questions";
 
@@ -82,6 +84,40 @@ export const PERSON_QUESTION_ERROR_MESSAGES: Record<string, string> = {
     "An option people have chosen can't be removed. Archive it instead.",
 };
 
+/**
+ * One stored answer as the portal reads it (#1744): the raw value to edit,
+ * and the words as shown, which every reader displays -- including answers to
+ * a question or option archived since.
+ */
+export type PersonAnswerRow = {
+  question_id: string | null;
+  value: unknown;
+  prompt_as_shown: string;
+  answer_text: string;
+};
+
+/**
+ * The form field registration step 2's profile answers travel in, beside
+ * #1501's `registrationAnswers`.
+ */
+export const PROFILE_ANSWERS_FIELD = "profileAnswers";
+
+/** The columns `PersonAnswerRow` reads off `person_answers`. */
+export const PERSON_ANSWER_COLUMNS =
+  "person_id, question_id, value, prompt_as_shown, answer_text";
+
+/** The question columns every asking surface reads. */
+export const PERSON_QUESTION_COLUMNS =
+  "id, key, kind, prompt, help, column_label, required, options, allow_other, min_value, max_value, place_granularity, place_allow_other, show_if, ask_after_registration, ask_on_my_details, snapshot_at_checkin, archived_at, sort_order";
+
+/** A refused save of answers in words, or the fallback. */
+export function personAnswersErrorMessage(message: string | undefined) {
+  return (
+    (message && PERSON_ANSWER_ERROR_MESSAGES[message]) ??
+    "Could not save these answers. Please try again."
+  );
+}
+
 /** What a form answering profile questions says when a save is refused. */
 export const PERSON_ANSWER_ERROR_MESSAGES: Record<string, string> = {
   PERSON_ANSWERS_REQUIRED: "Please answer the required questions.",
@@ -90,3 +126,17 @@ export const PERSON_ANSWER_ERROR_MESSAGES: Record<string, string> = {
   PERSON_ANSWERS_UNAVAILABLE:
     "These questions can no longer be answered from this page.",
 };
+
+/**
+ * What is wrong with step 2's profile answers, or null (#1744). The step is
+ * skippable: answering nothing is never wrong, and only a form that answers
+ * something is held to `required` on the questions it shows -- the rule
+ * `apply_person_answers()` applies to the registration form.
+ */
+export function profileAnswersError(
+  questions: readonly RegistrationQuestion[],
+  answers: RegistrationAnswers,
+): { questionId: string; message: string } | null {
+  if (Object.keys(answers).length === 0) return null;
+  return answersError(questions, answers);
+}

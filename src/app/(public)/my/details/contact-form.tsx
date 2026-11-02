@@ -37,7 +37,19 @@ import type {
   ContactFieldName,
   MyContactDetails,
 } from "@/lib/constituent/contact";
-import { saveMyContactDetailsAction } from "./actions";
+import {
+  saveMyContactDetailsAction,
+  saveMyPersonAnswersAction,
+} from "./actions";
+import { ProfileQuestionsFieldset } from "@/components/profile-questions-fieldset";
+import {
+  answersError,
+  answersToDraft,
+  draftToAnswers,
+  type AnswerDraft,
+  type RegistrationAnswers,
+  type RegistrationQuestion,
+} from "@/lib/registration-questions";
 
 /** The id of each field an error can be pinned to, and its in-page anchor. */
 const FIELD_IDS: Record<ContactFieldName, string> = {
@@ -164,11 +176,35 @@ function valuesOf(details: MyContactDetails): ContactFormValues {
 export function ContactForm({
   details,
   showRider = true,
+  profileQuestions = [],
+  profileAnswers = {},
 }: {
   details: MyContactDetails;
   showRider?: boolean;
+  /**
+   * The organization's profile questions asked here (#1744), and the
+   * reader's own current answers. Empty for a tenant asking none, which
+   * leaves the form as it was.
+   */
+  profileQuestions?: readonly RegistrationQuestion[];
+  profileAnswers?: RegistrationAnswers;
 }) {
   const [form, setForm] = useState<ContactFormValues>(() => valuesOf(details));
+  // #1744. Saved by their own action after the contact fields, and only when
+  // they changed: an answer left blank here is a cleared one.
+  const [profileDraft, setProfileDraft] = useState<AnswerDraft>(() =>
+    answersToDraft(profileQuestions, profileAnswers),
+  );
+  const [profileBaseline, setProfileBaseline] = useState(() =>
+    JSON.stringify(
+      draftToAnswers(
+        profileQuestions,
+        answersToDraft(profileQuestions, profileAnswers),
+      ),
+    ),
+  );
+  const nextProfileAnswers = draftToAnswers(profileQuestions, profileDraft);
+  const profileDirty = JSON.stringify(nextProfileAnswers) !== profileBaseline;
   // What the form last agreed with the record: the values it loaded, and then
   // the values it sent successfully. Save is gated on differing from this, so
   // a button at the foot of a long page is never a live control somebody
@@ -182,13 +218,14 @@ export function ContactForm({
   const [saved, setSaved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  const isDirty = useMemo(
+  const contactDirty = useMemo(
     () =>
       (Object.keys(baseline) as (keyof ContactFormValues)[]).some(
         (key) => form[key] !== baseline[key],
       ),
     [form, baseline],
   );
+  const isDirty = contactDirty || profileDirty;
 
   const invalidFields = useMemo(
     () => FIELD_ORDER.filter((name) => fieldErrors[name]),
@@ -215,13 +252,37 @@ export function ContactForm({
     event.preventDefault();
     setError(null);
     setFieldErrors({});
+
+    const profileProblem = profileDirty
+      ? answersError(profileQuestions, nextProfileAnswers)
+      : null;
+    if (profileProblem) {
+      setError(profileProblem.message);
+      return;
+    }
+
     setIsSaving(true);
 
     const payload = new FormData();
     for (const [key, value] of Object.entries(form)) payload.set(key, value);
 
-    const result = await saveMyContactDetailsAction(payload);
+    const result = contactDirty
+      ? await saveMyContactDetailsAction(payload)
+      : ({ saved: true } as const);
+    if (!("error" in result)) setBaseline(form);
+    const profileResult =
+      !("error" in result) && profileDirty
+        ? await saveMyPersonAnswersAction(nextProfileAnswers)
+        : null;
     setIsSaving(false);
+
+    if (profileResult && "error" in profileResult) {
+      setError(profileResult.error);
+      return;
+    }
+    if (profileResult) {
+      setProfileBaseline(JSON.stringify(nextProfileAnswers));
+    }
 
     if ("error" in result) {
       setError(result.error);
@@ -238,7 +299,6 @@ export function ContactForm({
       }
       return;
     }
-    setBaseline(form);
     setSaved(true);
   }
 
@@ -526,6 +586,23 @@ export function ContactForm({
               )}
             </FieldGroup>
           </FieldSet>
+        </div>
+      )}
+
+      {profileQuestions.length > 0 && (
+        <div className={GROUP_CLASS}>
+          <ProfileQuestionsFieldset
+            idPrefix="my"
+            questions={profileQuestions}
+            draft={profileDraft}
+            onChange={(next) => {
+              setProfileDraft(next);
+              setSaved(false);
+            }}
+            disabled={isSaving}
+            className={FIELDSET_CLASS}
+            legendClassName={LEGEND_CLASS}
+          />
         </div>
       )}
 

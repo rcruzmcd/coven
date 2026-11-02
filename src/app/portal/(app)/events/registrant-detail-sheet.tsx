@@ -5,6 +5,9 @@ import { ArrowLeft, Ban, Check, Snowflake, Undo2 } from "lucide-react";
 import type { EventRegistrant } from "./registrants-actions";
 import { RegistrantMessageActions } from "./registrant-message-actions";
 import { RegistrantAnswers } from "./registrant-answers";
+import { setRegistrantPersonAnswersAction } from "./registrants-actions";
+import { ProfileAnswers } from "@/components/portal/profile-answers";
+import type { PersonAnswerRow, PersonQuestion } from "@/lib/person-questions";
 import { RegistrantContact } from "./registrant-contact";
 import { RegistrantGroupChat } from "./registrant-group-chat";
 import { RegistrantReminder } from "./registrant-reminder";
@@ -101,6 +104,9 @@ export function RegistrantDetailSheet({
   photoConsentInForce,
   optionsPrompt = null,
   registrationQuestions = [],
+  profileQuestions,
+  profileAnswers,
+  canEditProfileAnswers = false,
   groupChat = null,
   carpools = null,
   onClosed,
@@ -152,6 +158,16 @@ export function RegistrantDetailSheet({
    * archived since still show, from the registration's own rows.
    */
   registrationQuestions?: readonly RegistrationQuestion[];
+  /**
+   * The tenant's profile questions and this registrant's answers (#1744).
+   * Absent for a reader not cleared for them, and answers are absent for a
+   * registration with no person record, either of which leaves the section
+   * out. Edited through set_registrant_person_answers(), which is also the
+   * door path.
+   */
+  profileQuestions?: readonly PersonQuestion[];
+  profileAnswers?: readonly PersonAnswerRow[];
+  canEditProfileAnswers?: boolean;
   /** The sheet is mounted per target, so closing it unmounts it. */
   onClosed: () => void;
   onSent?: () => void;
@@ -513,6 +529,23 @@ export function RegistrantDetailSheet({
               </Button>
             )}
           </FieldGroup>
+
+          {profileQuestions &&
+            profileAnswers &&
+            (profileQuestions.length > 0 || profileAnswers.length > 0) && (
+              <div className="mt-6">
+                <ProfileAnswers
+                  idPrefix="registrant-profile"
+                  questions={profileQuestions}
+                  answers={profileAnswers}
+                  canManage={canEditProfileAnswers}
+                  onSave={(answers) =>
+                    setRegistrantPersonAnswersAction(registrant.id, answers)
+                  }
+                  onSaved={onAnswersSaved}
+                />
+              </div>
+            )}
 
           <RegistrantAnswers
             registrationId={registrant.id}

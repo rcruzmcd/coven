@@ -19,6 +19,8 @@ import {
   type NotificationEmailResult,
 } from "@/lib/notifications/notification-email-core";
 import { requestNotificationEmailContext } from "@/lib/notifications/notification-email-request";
+import type { RegistrationAnswers } from "@/lib/registration-questions";
+import { personAnswersErrorMessage } from "@/lib/person-questions";
 
 /**
  * Replaces a person's manual role tags -- the half of the derived role model
@@ -565,5 +567,43 @@ export async function deleteRiderProfileAction(
   revalidatePath("/portal/people");
   revalidatePath(`/portal/people/${personId}`);
   revalidatePath("/portal/administration/data-retention");
+  return { success: true };
+}
+
+/**
+ * Staff edit of a person's answers to every current profile question (#1744),
+ * from the person record. `set_person_answers()` is the authority and checks
+ * both permissions again; staff are not held to `required`.
+ */
+export async function setPersonAnswersAction(
+  personId: string,
+  answers: RegistrationAnswers,
+): Promise<{ error: string } | { success: true }> {
+  const supabase = await createSupabaseServerClient();
+
+  const userResult = await checkUser(
+    supabase,
+    "You must be signed in to edit profile answers.",
+  );
+  if ("error" in userResult) return userResult;
+
+  for (const resource of ["people", "person_answers"] as const) {
+    const permissionError = await checkPermission(supabase, resource, "manage");
+    if (permissionError) return permissionError;
+  }
+
+  const { error } = await supabase.rpc("set_person_answers", {
+    p_person_id: personId,
+    p_answers: answers,
+  });
+
+  if (error) {
+    if (error.message === "PERSON_NOT_FOUND") {
+      return { error: "That person no longer exists." };
+    }
+    return { error: personAnswersErrorMessage(error.message) };
+  }
+
+  revalidatePath(`/portal/people/${personId}`);
   return { success: true };
 }

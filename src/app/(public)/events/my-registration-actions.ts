@@ -36,6 +36,10 @@ import {
 import { MY_PATH_PREFIX } from "@/lib/constituent/paths";
 import { publicEventPath } from "./event-path";
 import {
+  parseProfileAnswers,
+  saveRegistrationProfileAnswers,
+} from "./registration-profile-answers";
+import {
   registrationErrorCode,
   registrationErrorStep,
   type RegistrationStep,
@@ -44,7 +48,12 @@ import {
 /** `step` and `code` as on `RegisterForEventResult` (#1403, #1480). */
 export type RegisterMyselfResult =
   | { error: string; step: RegistrationStep; code?: string }
-  | { success: true; registrationId: string };
+  | {
+      success: true;
+      registrationId: string;
+      /** #1744, as on `RegisterForEventResult`. */
+      profileAnswersError: string | null;
+    };
 
 const ERROR_MESSAGES: Record<string, string> = {
   EVENT_NOT_FOUND: "This event could not be found.",
@@ -125,6 +134,10 @@ export async function registerMyselfForEventAction(
   // #1501, as on the anonymous path.
   const answers = parseAnswersField(formData);
   if ("error" in answers) return { error: answers.error, step: "event" };
+
+  // #1744, as on the anonymous path.
+  const profile = parseProfileAnswers(formData);
+  if ("error" in profile) return { error: profile.error, step: "event" };
 
   // #1647, as on the anonymous path.
   const contact = parseRegistrationContact(formData);
@@ -210,6 +223,14 @@ export async function registerMyselfForEventAction(
 
   const registrationId = String(data);
 
+  // #1744. Through the same day-old credential as the anonymous path: the
+  // registration just made is this person's own.
+  const profileAnswersError = await saveRegistrationProfileAnswers(supabase, {
+    registrationId,
+    answers: profile.answers,
+    ipAddress: await getClientIp(),
+  });
+
   // After the response, never before it (#742), and through the same sender
   // the anonymous path uses -- a registration is a registration, and the
   // receipt should not depend on how it was made. It honours an opt-out now
@@ -234,5 +255,5 @@ export async function registerMyselfForEventAction(
     });
   });
 
-  return { success: true, registrationId };
+  return { success: true, registrationId, profileAnswersError };
 }

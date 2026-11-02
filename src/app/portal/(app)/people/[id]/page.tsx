@@ -90,6 +90,14 @@ export default async function PersonDetailPage({
   // gate on delete_rider_profile itself.
   const canDeleteRiderProfile =
     canManage || hasPermission(permissions, "events", "manage");
+  // Profile questions (#1744): read with person_answers:view, written by
+  // set_person_answers(), which also wants people:manage. The module carries
+  // the resource, so both are false on a tenant without it.
+  const answerAccess = {
+    canView: hasPermission(permissions, "person_answers", "view"),
+    canManage:
+      canManage && hasPermission(permissions, "person_answers", "manage"),
+  };
   const canManageAccounts = hasPermission(
     permissions,
     "administration",
@@ -202,6 +210,7 @@ export default async function PersonDetailPage({
               person={personRow}
               canManage={canManage}
               canDeleteRiderProfile={canDeleteRiderProfile}
+              answerAccess={answerAccess}
             />
           </Suspense>
 

@@ -294,6 +294,13 @@ export function RegistrantOverlays({
           photoConsentInForce={data?.photoConsentInForce ?? false}
           optionsPrompt={data?.registrationOptions?.prompt ?? null}
           registrationQuestions={data?.registrationQuestions ?? NO_QUESTIONS}
+          profileQuestions={data?.profileQuestions}
+          profileAnswers={
+            detailTarget.person_id
+              ? (data?.profileAnswers?.[detailTarget.person_id] ?? [])
+              : undefined
+          }
+          canEditProfileAnswers={data?.canEditProfileAnswers ?? false}
           groupChat={data?.groupChat ?? null}
           carpools={data?.carpools ?? null}
           onClosed={onDetailClosed}

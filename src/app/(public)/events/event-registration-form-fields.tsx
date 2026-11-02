@@ -40,6 +40,11 @@ import { CarpoolCostNotice } from "@/components/carpool-cost-notice";
 import { waiverAcceptanceLabel } from "@/lib/photo-consent";
 import { RegistrationOptionCountsField } from "@/components/registration-option-counts-field";
 import { RegistrationQuestionsFields } from "@/components/registration-questions-fields";
+import { ProfileQuestionsFieldset } from "@/components/profile-questions-fieldset";
+import {
+  PROFILE_ANSWERS_FIELD,
+  profileAnswersError,
+} from "@/lib/person-questions";
 import {
   answerSummaryRows,
   answersError,
@@ -103,6 +108,7 @@ export function EventRegistrationForm({
   carpoolCostNotice = [],
   registrationOptions = null,
   registrationQuestions = [],
+  profileQuestions = [],
   riderProfile = null,
 }: {
   eventId: string;
@@ -183,6 +189,13 @@ export function EventRegistrationForm({
    */
   registrationQuestions?: RegistrationQuestion[];
   /**
+   * The organization's profile questions asked after registering for this
+   * event (#1744), answered about the person rather than the registration.
+   * Never pre-filled, for the reason the riding questions below are not.
+   * Empty for a tenant asking none.
+   */
+  profileQuestions?: RegistrationQuestion[];
+  /**
    * The riding questions on step 2 (#1415), and the mountains they offer.
    * Null -- the default -- on every tenant without the rider_profile module
    * (#1408), which leaves step 2 "This event" and asks nothing about riding.
@@ -221,6 +234,14 @@ export function EventRegistrationForm({
     emptyAnswerDraft(registrationQuestions),
   );
   const answers = draftToAnswers(registrationQuestions, answerDraft);
+  // #1744. Empty, always: see `profileQuestions`.
+  const [profileDraft, setProfileDraft] = useState<AnswerDraft>(() =>
+    emptyAnswerDraft(profileQuestions),
+  );
+  const profileAnswers = draftToAnswers(profileQuestions, profileDraft);
+  const [profileAnswersNotSaved, setProfileAnswersNotSaved] = useState<
+    string | null
+  >(null);
   const [company, setCompany] = useState("");
   // Starts unticked, always. A pre-ticked box is not an acceptance, and this
   // is the one control on the form where that matters (#686).
@@ -261,6 +282,15 @@ export function EventRegistrationForm({
       return;
     }
 
+    const profileProblem = profileAnswersError(
+      profileQuestions,
+      profileAnswers,
+    );
+    if (profileProblem) {
+      setError({ message: profileProblem.message, step: "event" });
+      return;
+    }
+
     const formData = new FormData();
     formData.set("name", name);
     formData.set("email", email);
@@ -286,6 +316,9 @@ export function EventRegistrationForm({
     if (riderProfile) setRidingFields(formData, riding);
     if (registrationOptions) setOptionCounts(formData, optionCounts);
     if (registrationQuestions.length > 0) setAnswersField(formData, answers);
+    if (profileQuestions.length > 0) {
+      setAnswersField(formData, profileAnswers, PROFILE_ANSWERS_FIELD);
+    }
     formData.set("notes", notes);
     formData.set("company", company);
     if (waiver) {
@@ -312,6 +345,7 @@ export function EventRegistrationForm({
         });
       }
       setAnswersPath(result.answersPath);
+      setProfileAnswersNotSaved(result.profileAnswersError);
       setRegistrationId(result.registrationId);
     });
   }
@@ -347,6 +381,11 @@ export function EventRegistrationForm({
             )}
           </AlertDescription>
         </Alert>
+        {profileAnswersNotSaved && (
+          <Alert className="mt-4">
+            <AlertDescription>{profileAnswersNotSaved}</AlertDescription>
+          </Alert>
+        )}
         {accountOffer && (
           <div className="mt-6">
             <RecordAccountOffer
@@ -523,6 +562,14 @@ export function EventRegistrationForm({
             onChange={setAnswerDraft}
             disabled={isPending}
           />
+          <ProfileQuestionsFieldset
+            idPrefix="registration"
+            questions={profileQuestions}
+            draft={profileDraft}
+            onChange={setProfileDraft}
+            disabled={isPending}
+            skippable
+          />
           <CarpoolCostNotice paragraphs={carpoolCostNotice} />
           <Field>
             <FieldLabel htmlFor="registration-notes">Notes</FieldLabel>
@@ -552,7 +599,10 @@ export function EventRegistrationForm({
           riding: riderProfile ? ridingSummaryRows(riding) : [],
           registrationOptions,
           optionCounts,
-          answers: answerSummaryRows(registrationQuestions, answers),
+          answers: [
+            ...answerSummaryRows(registrationQuestions, answers),
+            ...answerSummaryRows(profileQuestions, profileAnswers),
+          ],
           notes,
         }),
       }}

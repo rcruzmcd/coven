@@ -12744,6 +12744,28 @@ export type Database = {
         }[];
       };
       my_person_id: { Args: never; Returns: string };
+      my_person_questions: {
+        Args: never;
+        Returns: {
+          allow_other: boolean;
+          answer_text: string;
+          ask_after_registration: boolean;
+          ask_on_my_details: boolean;
+          help: string;
+          id: string;
+          kind: string;
+          max_value: number;
+          min_value: number;
+          options: Json;
+          place_allow_other: boolean;
+          place_granularity: string;
+          prompt: string;
+          required: boolean;
+          show_if: Json;
+          sort_order: number;
+          value: Json;
+        }[];
+      };
       my_photo_consent: {
         Args: { p_registration_id: string };
         Returns: {
@@ -13077,6 +13099,24 @@ export type Database = {
           kind: string;
           path: string;
           uploaded_at: string;
+        }[];
+      };
+      public_event_person_questions: {
+        Args: { p_event_id: string };
+        Returns: {
+          allow_other: boolean;
+          help: string;
+          id: string;
+          kind: string;
+          max_value: number;
+          min_value: number;
+          options: Json;
+          place_allow_other: boolean;
+          place_granularity: string;
+          prompt: string;
+          required: boolean;
+          show_if: Json;
+          sort_order: number;
         }[];
       };
       public_module_enabled: {
