@@ -2214,9 +2214,9 @@ on conflict (tenant_id, module_key) do update set enabled = excluded.enabled;
 -- The rider profile as profile questions (#1746), for the same reason: the
 -- local tenant stands in for Chatter Snow, and without these the
 -- post-registration questions, the door-side answers and the two snow
--- figures would have no local or e2e coverage. The same four questions and
--- two metric rows 20261105120000 gives Chatter Snow, and the two door
--- snapshots the past event's Results card counts (seeded above).
+-- figures would have no local or e2e coverage. The same five questions and
+-- two metric rows 20261105120000 and 20261106120000 give Chatter Snow, and
+-- the two door snapshots the past event's Results card counts (seeded above).
 create function pg_temp.seed_person_question(
   p_tenant_id uuid, p_id uuid, p_key text, p_sort integer,
   p_question jsonb, p_seen jsonb, p_snapshot boolean
@@ -2297,6 +2297,25 @@ begin
                     'Mount Snow', 'Stratton'
                   ]) with ordinality as m(name, ord))
   ), v_seen, false);
+
+  -- Park riding (#1748, 20261106120000): asked once either level is past
+  -- first_time, optional, snapshotted.
+  v_seen := pg_temp.seed_person_question(t, gen_random_uuid(), 'park_riding', 4, jsonb_build_object(
+    'kind', 'single_choice', 'prompt', 'Do you ride in the terrain park?', 'column_label', 'Park',
+    'options', (select jsonb_agg(o || jsonb_build_object('id', gen_random_uuid()) order by ord)
+                  from jsonb_array_elements(jsonb_build_array(
+                    jsonb_build_object('key', 'not_interested', 'label', 'Not interested'),
+                    jsonb_build_object('key', 'curious', 'label', 'Curious', 'hint', 'Haven''t tried it yet'),
+                    jsonb_build_object('key', 'beginner', 'label', 'Beginner', 'hint', 'Small features'),
+                    jsonb_build_object('key', 'intermediate', 'label', 'Intermediate', 'hint', 'Medium features'),
+                    jsonb_build_object('key', 'advanced', 'label', 'Advanced', 'hint', 'Large features and jumps')
+                  )) with ordinality as x(o, ord)),
+    'show_if', jsonb_build_object('any', (
+      select jsonb_agg(jsonb_build_object('question_id', q.id, 'option_ids',
+               (select jsonb_agg(o->'id') from jsonb_array_elements(q.options) o
+                 where o->>'key' in ('beginner', 'intermediate', 'advanced'))) order by q.sort_order)
+        from public.person_questions q where q.id in (q_ski, q_snowboard)))
+  ), v_seen, true);
 
   insert into public.person_answer_metrics
     (tenant_id, key, label, rule, question_ids, option_keys, sort_order)
