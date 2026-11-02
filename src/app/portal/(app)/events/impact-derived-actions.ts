@@ -19,6 +19,7 @@ import {
   type RegistrationRow,
 } from "@/lib/portal/impact-metrics";
 import type { PlaceCountRow } from "@/lib/places/place-breakdown";
+import { toMetricCounts } from "@/lib/person-answer-metrics";
 
 type DerivedData = {
   auto_assign_discount_codes: boolean;
@@ -35,6 +36,8 @@ type DerivedData = {
   assistance_expenses: AssistanceExpenseRow[] | null;
   offered_codes: OfferedCodeRow[] | null;
   option_counts: PricedOptionCountRow[] | null;
+  /** #1745. null without event_impact:view. */
+  person_answer_metrics: unknown;
 };
 
 /**
@@ -52,6 +55,9 @@ type DerivedData = {
  * rider_profiles:view, which carries the rider_profile module (#1408): on a
  * tenant without it there is no "Beginner participants" or "First time on
  * snow" figure for anyone.
+ *
+ * The profile metric rows (#1745) are not: a count is not an answer, so they
+ * stay under `event_impact: view` alone, which the RPC applies.
  */
 export async function getEventImpactDerivedAction(
   eventId: string,
@@ -94,6 +100,7 @@ export async function getEventImpactDerivedAction(
       assistanceExpenses: result.assistance_expenses ?? null,
       offeredCodes: result.offered_codes ?? null,
       optionCounts: result.option_counts ?? null,
+      answerMetrics: toMetricCounts(result.person_answer_metrics),
       placeAnswers: places.error
         ? null
         : ((places.data ?? []) as PlaceCountRow[]),

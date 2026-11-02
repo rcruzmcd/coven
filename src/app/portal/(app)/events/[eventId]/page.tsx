@@ -124,6 +124,22 @@ export default async function EventDetailPage({
       }),
   };
 
+  // #1745. Whether the Profile answers card has anything to break down. Read
+  // under RLS, so a reader without `person_answers: view` gets no rows, and
+  // the card's own access check drops it for them anyway.
+  const { count: snapshotQuestions } = hasPermission(
+    permissions,
+    "person_answers",
+    "view",
+  )
+    ? await supabase
+        .from("person_questions")
+        .select("id", { count: "exact", head: true })
+        .is("archived_at", null)
+        .eq("snapshot_at_checkin", true)
+        .in("kind", ["single_choice", "multi_choice"])
+    : { count: 0 };
+
   // Resolved here rather than in the client view, so a card whose section this
   // reader has no access to -- or whose module this tenant was never sold
   // (#903) -- is absent from the payload rather than hidden in it.
@@ -134,6 +150,7 @@ export default async function EventDetailPage({
       hasPlaceQuestion: (event.registration_questions ?? []).some(
         (question) => question.kind === "place",
       ),
+      hasSnapshotQuestion: (snapshotQuestions ?? 0) > 0,
     },
     grant,
   );

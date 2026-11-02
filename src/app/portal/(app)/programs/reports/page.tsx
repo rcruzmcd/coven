@@ -30,6 +30,7 @@ import {
   type VolunteerHoursRow,
 } from "./impact-rollup";
 import { formatCurrency, formatNumber } from "@/lib/format";
+import { toMetricCounts } from "@/lib/person-answer-metrics";
 import {
   placeBreakdown,
   placeReachSummary,
@@ -53,6 +54,8 @@ type RollupData = {
   assistance_expenses: AssistanceExpenseRow[];
   offered_codes: OfferedCodeRow[];
   option_counts: PricedOptionCountRow[];
+  /** #1745. */
+  person_answer_metrics: unknown;
 };
 
 type ProgramImpactReportPageProps = {
@@ -125,6 +128,7 @@ export default async function ProgramImpactReportPage({
         assistanceExpenses: result.assistance_expenses ?? [],
         offeredCodes: result.offered_codes ?? [],
         optionCounts: result.option_counts ?? [],
+        answerMetrics: toMetricCounts(result.person_answer_metrics) ?? [],
         placeAnswers,
       });
     }
@@ -167,6 +171,15 @@ export default async function ProgramImpactReportPage({
               },
             ]
           : []),
+        // The tenant's profile metric rows (#1745), by label. A count is not
+        // an answer, so programs_reports:view alone shows them.
+        ...rollup.answerMetrics.map((metric) => ({
+          label: metric.label,
+          value:
+            metric.answered < rollup.checkedIn
+              ? `${formatNumber(metric.count)} of ${formatNumber(metric.answered)} who answered`
+              : formatNumber(metric.count),
+        })),
         {
           label: "Participants given a discount code",
           value: formatNumber(rollup.assistedParticipants),
@@ -381,8 +394,9 @@ export default async function ProgramImpactReportPage({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {metricRows.map((row) => (
-                    <TableRow key={row.label}>
+                  {/* By position: a tenant's metric may share a built-in label. */}
+                  {metricRows.map((row, index) => (
+                    <TableRow key={`${index}-${row.label}`}>
                       <TableCell>{row.label}</TableCell>
                       <TableCell>{row.value}</TableCell>
                     </TableRow>

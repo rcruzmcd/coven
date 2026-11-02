@@ -330,6 +330,26 @@ function PersonQuestionFields({
           onCheckedChange={(checked) => onUpdate({ askOnMyDetails: checked })}
         />
       </Field>
+
+      <Field orientation="horizontal">
+        <FieldContent>
+          <FieldLabel htmlFor={`${id}-snapshot`}>
+            Copy the answer at check-in
+          </FieldLabel>
+          <FieldDescription>
+            Keeps the answer as it was on the day, so a past event&apos;s
+            figures and breakdown never change when someone updates it.
+          </FieldDescription>
+        </FieldContent>
+        <Switch
+          id={`${id}-snapshot`}
+          checked={question.snapshotAtCheckin}
+          disabled={disabled}
+          onCheckedChange={(checked) =>
+            onUpdate({ snapshotAtCheckin: checked })
+          }
+        />
+      </Field>
     </>
   );
 }

@@ -2,12 +2,14 @@ import type { Metadata } from "next";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/auth/permissions";
 import { toPersonQuestion, type PersonQuestion } from "@/lib/person-questions";
+import { toPersonAnswerMetric } from "@/lib/person-answer-metrics";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { PortalBreadcrumbs } from "@/components/portal/breadcrumbs";
 import {
   ProfileQuestionsEditor,
   type QuestionUsage,
 } from "./profile-questions-editor";
+import { ProfileMetricsEditor } from "./profile-metrics-editor";
 
 const TITLE = "Profile questions";
 
@@ -25,26 +27,38 @@ export default async function ProfileQuestionsPage() {
   const supabase = await createSupabaseServerClient();
   await requirePermission(supabase, "person_answers", "manage", TITLE);
 
-  const [questionsResult, scopesResult, programsResult, usageResult] =
-    await Promise.all([
-      supabase
-        .from("person_questions")
-        .select(
-          "id, key, kind, prompt, help, column_label, required, options, allow_other, min_value, max_value, place_granularity, place_allow_other, show_if, ask_after_registration, ask_on_my_details, snapshot_at_checkin, archived_at, sort_order, created_at",
-        )
-        .order("sort_order")
-        .order("created_at"),
-      supabase.from("person_question_scopes").select("question_id, program_id"),
-      // Retired ones too: a question scoped to one must still be unscopable.
-      supabase.from("programs").select("id, name").order("name"),
-      supabase.rpc("person_question_usage"),
-    ]);
+  const [
+    questionsResult,
+    scopesResult,
+    programsResult,
+    usageResult,
+    metricsResult,
+  ] = await Promise.all([
+    supabase
+      .from("person_questions")
+      .select(
+        "id, key, kind, prompt, help, column_label, required, options, allow_other, min_value, max_value, place_granularity, place_allow_other, show_if, ask_after_registration, ask_on_my_details, snapshot_at_checkin, archived_at, sort_order, created_at",
+      )
+      .order("sort_order")
+      .order("created_at"),
+    supabase.from("person_question_scopes").select("question_id, program_id"),
+    // Retired ones too: a question scoped to one must still be unscopable.
+    supabase.from("programs").select("id, name").order("name"),
+    supabase.rpc("person_question_usage"),
+    // #1745.
+    supabase
+      .from("person_answer_metrics")
+      .select("id, key, label, rule, question_ids, option_keys")
+      .order("sort_order")
+      .order("created_at"),
+  ]);
 
   const error =
     questionsResult.error ??
     scopesResult.error ??
     programsResult.error ??
-    usageResult.error;
+    usageResult.error ??
+    metricsResult.error;
 
   const scopes = new Map<string, string[]>();
   for (const scope of scopesResult.data ?? []) {
@@ -59,6 +73,10 @@ export default async function ProfileQuestionsPage() {
   });
   const current: PersonQuestion[] = all.filter((q) => q.archived_at === null);
   const archived: PersonQuestion[] = all.filter((q) => q.archived_at !== null);
+  const metrics = (metricsResult.data ?? []).flatMap((row) => {
+    const metric = toPersonAnswerMetric(row);
+    return metric ? [metric] : [];
+  });
   const usage: QuestionUsage = Object.fromEntries(
     (usageResult.data ?? []).map((row) => [
       row.question_id,
@@ -88,12 +106,15 @@ export default async function ProfileQuestionsPage() {
             </AlertDescription>
           </Alert>
         ) : (
-          <ProfileQuestionsEditor
-            questions={current}
-            archived={archived}
-            programs={programsResult.data ?? []}
-            usage={usage}
-          />
+          <div className="flex flex-col gap-6">
+            <ProfileQuestionsEditor
+              questions={current}
+              archived={archived}
+              programs={programsResult.data ?? []}
+              usage={usage}
+            />
+            <ProfileMetricsEditor metrics={metrics} questions={all} />
+          </div>
         )}
       </div>
     </>

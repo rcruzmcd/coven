@@ -7760,6 +7760,122 @@ export type Database = {
           },
         ];
       };
+      person_answer_metrics: {
+        Row: {
+          created_at: string;
+          id: string;
+          key: string | null;
+          label: string;
+          option_keys: string[];
+          question_ids: string[];
+          rule: string;
+          sort_order: number;
+          tenant_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          key?: string | null;
+          label: string;
+          option_keys: string[];
+          question_ids: string[];
+          rule: string;
+          sort_order?: number;
+          tenant_id?: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          key?: string | null;
+          label?: string;
+          option_keys?: string[];
+          question_ids?: string[];
+          rule?: string;
+          sort_order?: number;
+          tenant_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "person_answer_metrics_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "public_tenant";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "person_answer_metrics_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      person_answer_snapshots: {
+        Row: {
+          answer_text: string;
+          id: string;
+          option_keys: string[];
+          question_id: string;
+          registration_id: string;
+          taken_at: string;
+          tenant_id: string;
+          value: Json;
+        };
+        Insert: {
+          answer_text: string;
+          id?: string;
+          option_keys?: string[];
+          question_id: string;
+          registration_id: string;
+          taken_at?: string;
+          tenant_id?: string;
+          value: Json;
+        };
+        Update: {
+          answer_text?: string;
+          id?: string;
+          option_keys?: string[];
+          question_id?: string;
+          registration_id?: string;
+          taken_at?: string;
+          tenant_id?: string;
+          value?: Json;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "person_answer_snapshots_question_fkey";
+            columns: ["tenant_id", "question_id"];
+            isOneToOne: false;
+            referencedRelation: "person_questions";
+            referencedColumns: ["tenant_id", "id"];
+          },
+          {
+            foreignKeyName: "person_answer_snapshots_registration_fkey";
+            columns: ["tenant_id", "registration_id"];
+            isOneToOne: false;
+            referencedRelation: "event_registrations";
+            referencedColumns: ["tenant_id", "id"];
+          },
+          {
+            foreignKeyName: "person_answer_snapshots_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "public_tenant";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "person_answer_snapshots_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       person_answers: {
         Row: {
           answer_text: string;
@@ -12156,6 +12272,10 @@ export type Database = {
         Returns: Json;
       };
       get_donation_import_mapping: { Args: never; Returns: Json };
+      get_event_answer_breakdown: {
+        Args: { p_event_id: string };
+        Returns: Json;
+      };
       get_event_impact_derived_data: {
         Args: { p_event_id: string };
         Returns: Json;
@@ -12886,6 +13006,10 @@ export type Database = {
         }[];
       };
       permission_rank: { Args: { p_level: string }; Returns: number };
+      person_answer_metric_counts: {
+        Args: { p_event_ids: string[]; p_tenant_id: string };
+        Returns: Json;
+      };
       person_claim_candidates: {
         Args: { p_claim_id: string };
         Returns: {
@@ -12921,6 +13045,10 @@ export type Database = {
         }[];
       };
       person_portal_access: { Args: { p_person_id: string }; Returns: boolean };
+      person_question_in_use: {
+        Args: { p_question_id: string };
+        Returns: boolean;
+      };
       person_question_usage: {
         Args: never;
         Returns: {
@@ -13173,6 +13301,10 @@ export type Database = {
         };
         Returns: Json;
       };
+      question_option_keys: {
+        Args: { p_options: Json; p_value: Json };
+        Returns: string[];
+      };
       question_shown: {
         Args: { p_show_if: Json; p_shown: Json };
         Returns: boolean;
@@ -13363,6 +13495,15 @@ export type Database = {
       registration_option_defaults: {
         Args: { p_tenant_id: string };
         Returns: Json;
+      };
+      registration_profile_answers: {
+        Args: { p_registration_ids: string[]; p_tenant_id: string };
+        Returns: {
+          option_keys: string[];
+          question_id: string;
+          registration_id: string;
+          value: Json;
+        }[];
       };
       registration_requires_instagram: { Args: never; Returns: boolean };
       registration_service_area: { Args: never; Returns: Json };
@@ -13845,6 +13986,10 @@ export type Database = {
           p_notes: Json;
         };
         Returns: string;
+      };
+      save_person_answer_metrics: {
+        Args: { p_metrics: Json };
+        Returns: undefined;
       };
       save_person_questions: {
         Args: { p_questions: Json };

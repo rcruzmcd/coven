@@ -78,6 +78,15 @@ const derived: EventImpactDerived = {
     codes: [],
   },
   placeReach: null,
+  answerMetrics: [
+    {
+      id: "m1",
+      key: null,
+      label: "Beginner participants",
+      count: 7,
+      answered: 20,
+    },
+  ],
 };
 
 const emptyMoney = {
@@ -394,6 +403,9 @@ describe("ResultsTab", () => {
     });
     expect(participation).toHaveTextContent("42");
     expect(participation).toHaveTextContent("First time on snow");
+    // #1745: a tenant's metric row, by label, qualified while coverage is short.
+    expect(participation).toHaveTextContent("Beginner participants");
+    expect(participation).toHaveTextContent("Of 20 who answered");
     expect(
       screen.getByRole("region", { name: "People served" }),
     ).toHaveTextContent("$80.00");
@@ -427,6 +439,7 @@ describe("ResultsTab", () => {
           discountCodesAssigned: null,
           rentalSubsidies: null,
           assistance: null,
+          answerMetrics: null,
         }}
         formId="report-form"
         mode="view"
@@ -435,6 +448,7 @@ describe("ResultsTab", () => {
     );
 
     expect(screen.queryByText("First time on snow")).toBeNull();
+    expect(screen.queryByText("Beginner participants")).toBeNull();
     expect(
       screen.queryByRole("region", { name: "Assistance given" }),
     ).toBeNull();
