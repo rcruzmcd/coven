@@ -60,15 +60,7 @@ const registrants: EventRegistrant[] = [
       emergency_contact_name: "Sam Rivera",
       emergency_contact_phone: "555-0102",
     },
-    rider: {
-      riding_discipline_at_event: null,
-      ski_experience_level_at_event: null,
-      snowboard_experience_level_at_event: null,
-      riding_discipline: null,
-      ski_experience_level: null,
-      snowboard_experience_level: null,
-      preferred_mountain: null,
-    },
+    profileSummary: null,
   },
   {
     id: "reg-2",
@@ -109,15 +101,7 @@ const registrants: EventRegistrant[] = [
     group_chat_added_at: null,
     group_chat_added_by_name: null,
     minorContacts: null,
-    rider: {
-      riding_discipline_at_event: "snowboard",
-      ski_experience_level_at_event: null,
-      snowboard_experience_level_at_event: "beginner",
-      riding_discipline: "both",
-      ski_experience_level: "advanced",
-      snowboard_experience_level: "advanced",
-      preferred_mountain: "Hunter",
-    },
+    profileSummary: "Snowboard · Beginner",
   },
 ];
 
@@ -127,9 +111,6 @@ const derivedFigures: EventImpactDerived = {
   firstTimeParticipants: 1,
   recurringParticipants: 0,
   volunteerParticipants: 0,
-  beginnerParticipants: null,
-  firstTimeOnSnow: null,
-  profiledAttendees: null,
   discountCodesAssigned: null,
   rentalSubsidies: null,
   assistance: null,
@@ -203,7 +184,6 @@ function payload(
     registrationOptions: null,
     registrationQuestions: [],
     photoConsentInForce: false,
-    riderMountains: null,
     groupChat: null,
     ...overrides,
   };
@@ -260,18 +240,19 @@ describe("RegistrantsTab", () => {
     ).toBeInTheDocument();
   });
 
-  test("Rides shows the level snapshotted at check-in, not the current profile", async () => {
+  // #1746. The summary is decided upstream (`profileSummary()`); the column
+  // shows it as handed over.
+  test("the Profile column shows each registrant's summary", async () => {
     render(<RegistrantsTab capacity={null} mode="view" {...slices()} />);
     await screen.findByText("Alex Chen");
 
-    // Alex now rides both at advanced, but was a snowboard beginner on the day.
+    expect(screen.getByText("Profile")).toBeInTheDocument();
     expect(screen.getByText("Snowboard · Beginner")).toBeInTheDocument();
-    expect(screen.queryByText(/Both/)).toBeNull();
   });
 
-  test("no Rides column where nobody may see rider answers", async () => {
-    // What listEventRegistrantsAction returns on a tenant without the
-    // rider_profile module (#1408): every registrant's `rider` is null.
+  test("no Profile column where nobody may see profile answers", async () => {
+    // What listEventRegistrantsAction returns for a reader without
+    // person_answers:view: every registrant's `profileSummary` is null.
     const base = slices();
     render(
       <RegistrantsTab
@@ -281,18 +262,18 @@ describe("RegistrantsTab", () => {
         registrants={{
           ...base.registrants,
           data: payload({
-            registrants: registrants.map((row) => ({ ...row, rider: null })),
+            registrants: registrants.map((row) => ({
+              ...row,
+              profileSummary: null,
+            })),
           }),
         }}
       />,
     );
     await screen.findByText("Alex Chen");
 
-    expect(screen.queryByText("Rides")).toBeNull();
+    expect(screen.queryByText("Profile")).toBeNull();
     expect(screen.queryByText("Snowboard · Beginner")).toBeNull();
-    expect(
-      screen.queryByRole("button", { name: /Rider profile for/ }),
-    ).toBeNull();
   });
 
   test("view mode hides check-in controls", async () => {

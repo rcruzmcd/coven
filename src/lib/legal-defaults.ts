@@ -80,7 +80,7 @@ export type LegalOrgContext = {
  * Printed on every document here. Bump it in the same commit as any change to
  * the prose below: a stale date on a legal page is worse than none.
  */
-export const PLATFORM_LEGAL_LAST_UPDATED = "October 31, 2026";
+export const PLATFORM_LEGAL_LAST_UPDATED = "November 2, 2026";
 
 type Prose = (org: LegalOrgContext) => string[];
 
@@ -161,7 +161,12 @@ const PRIVACY: DocumentProse = {
           // organization's claim, made in its own `events.photo_consent`
           // paragraphs. This sentence describes only the record and the
           // remedy, which are facts about this software (rule 2).
-          "**Event registration** — your name, email address, party size, and, optionally, your phone number, social handle and any notes you add. If you fill in a participant profile, we also store what it asks for: which activity you do, your experience level, and where you prefer to go. We use it to hold your spot, plan the event around who is coming, and send you the details. Where we ask you to accept a participant agreement before you register, we keep a record that you accepted it, when, and which version of it you were shown. We ask whether anyone in your party is under 18, and if you say yes we ask for the name and number of the adult coming with them and for an emergency contact — we never ask anyone's date of birth or age. The people running the event see that your party includes someone under 18; only the people who run the organization see those two contacts. Where the event pages say what we do with photos and video, you can tell us at any time that you'd rather not be photographed — say so to any organizer at the event, email us, or, if you have an account here, from your registration page. We keep that with your registration, with the date and a copy of what you were shown, so that the people running the event know.",
+          "**Event registration** — your name, email address, party size, and, optionally, your phone number, social handle and any notes you add. We use it to hold your spot, plan the event around who is coming, and send you the details. Where we ask you to accept a participant agreement before you register, we keep a record that you accepted it, when, and which version of it you were shown. We ask whether anyone in your party is under 18, and if you say yes we ask for the name and number of the adult coming with them and for an emergency contact — we never ask anyone's date of birth or age. The people running the event see that your party includes someone under 18; only the people who run the organization see those two contacts. Where the event pages say what we do with photos and video, you can tell us at any time that you'd rather not be photographed — say so to any organizer at the event, email us, or, if you have an account here, from your registration page. We keep that with your registration, with the date and a copy of what you were shown, so that the people running the event know.",
+        // #1746, replacing the participant-profile sentence in the
+        // registration bullet: the questions are the organization's own, so
+        // the policy can name only their shape.
+        surfaces.profileQuestions &&
+          "**Answers to the profile questions this organization asks you** — after you register for an event, or on your details page if you have an account. Each answer is about you rather than one event, so we keep your latest answer and show it to you again next time. When you're checked in at an event we keep a copy of the answers that event's figures count, so a later change doesn't rewrite what happened on the day. Only the people whose role covers these answers can see them, and you can ask us to delete them at any time.",
         surfaces.gearRequests &&
           "**Gear requests** — your name, email address, and, optionally, your phone number and any notes about what you need. We use it to match you with what you asked for and arrange a time to hand it over.",
         surfaces.artworkSubmissions &&
@@ -178,7 +183,7 @@ const PRIVACY: DocumentProse = {
         surfaces.constituentAccounts &&
           "**Matching your account to our records** — the name we would have you under, and, if you give them, an email address, a phone number, a social handle and a note explaining who you are. Somebody here reads it and decides whether the record is yours. We keep what you sent either way, so there is a record of the decision.",
         surfaces.constituentAccounts &&
-          "**What you keep up to date yourself** — once your account is matched to a record, you can correct the name you prefer, your pronouns, your phone number, your social handle and your postal address, tell us which activity you do, your experience level and where you prefer to go, and choose which of our emails you get. What you save replaces what we had.",
+          `**What you keep up to date yourself** — once your account is matched to a record, you can correct the name you prefer, your pronouns, your phone number, your social handle and your postal address,${surfaces.profileQuestions ? " answer the profile questions this organization asks there," : ""} and choose which of our emails you get. What you save replaces what we had.`,
         surfaces.volunteerHours &&
           "**Hours you log yourself** — if you volunteer with us and log your own hours: how many, the date, which event and which role they were for, and any note you add. They stay pending until somebody here confirms them.",
       ]),

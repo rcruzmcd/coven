@@ -19,7 +19,7 @@ export const PEOPLE_WITH_ROLES = "people_with_roles";
  * What kind of record this is, as opposed to what roles it holds (#625).
  * Exclusive and staff-asserted, where roles are additive and derived: it
  * decides the shape of the record -- an organization has a logo, a website, a
- * primary contact and org memberships; an individual has a rider profile.
+ * primary contact and org memberships; an individual has profile answers.
  */
 export const PERSON_TYPES = [
   { value: "individual", label: "Individual" },
@@ -87,10 +87,6 @@ export type PersonRow = {
   person_type: PersonType;
   primary_contact_person_id: string | null;
   primary_contact: PersonSummary | null;
-  riding_discipline: string | null;
-  ski_experience_level: string | null;
-  snowboard_experience_level: string | null;
-  preferred_mountain: string | null;
   /** The postal address (#1164), which the person may also correct themselves. */
   address_line1: string | null;
   address_line2: string | null;

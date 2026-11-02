@@ -43,12 +43,12 @@ import { directoryPersonAccount, resolvePersonAccount } from "./person-account";
 export async function PersonProfileCard({
   person,
   canManage,
-  canDeleteRiderProfile,
+  canDeleteAnswers,
   answerAccess,
 }: {
   person: PersonRow;
   canManage: boolean;
-  canDeleteRiderProfile: boolean;
+  canDeleteAnswers: boolean;
   /** Profile questions (#1744); nothing is read without `canView`. */
   answerAccess: { canView: boolean; canManage: boolean };
 }) {
@@ -79,7 +79,7 @@ export async function PersonProfileCard({
       person={person}
       people={people}
       canManage={canManage}
-      canDeleteRiderProfile={canDeleteRiderProfile}
+      canDeleteAnswers={canDeleteAnswers}
       sponsorWallPublic={sponsorTag?.is_public ?? false}
       profileQuestions={questions}
       profileAnswers={answers.get(person.id) ?? []}

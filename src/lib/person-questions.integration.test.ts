@@ -41,6 +41,9 @@ const registeredEmails: string[] = [];
 beforeAll(async () => {
   tenantId = await seededTenantId();
   restoreModule = await enableModule(tenantId, "constituent_accounts");
+  // The seed gives the tenant the rider questions (#1746); this file saves
+  // its own full sets, keys included, so it starts from none.
+  await clearQuestions();
 });
 
 afterAll(async () => {
@@ -58,6 +61,10 @@ afterAll(async () => {
 
 async function clearQuestions() {
   await service.from("person_answers").delete().eq("tenant_id", tenantId);
+  await service
+    .from("person_answer_metrics")
+    .delete()
+    .eq("tenant_id", tenantId);
   await service.from("person_questions").delete().eq("tenant_id", tenantId);
 }
 

@@ -96,12 +96,9 @@ describe("get_program_impact_rollup_data (integration)", () => {
       discountCodes: after.data.discount_codes,
       eventVolunteers: after.data.event_volunteers,
       volunteerHourPeople: after.data.volunteer_hour_people,
-      beginnerAttendees: after.data.beginner_attendees,
-      firstTimeAttendees: after.data.first_time_attendees,
       assistanceExpenses: after.data.assistance_expenses,
       offeredCodes: after.data.offered_codes,
       optionCounts: after.data.option_counts,
-      profiledAttendees: after.data.profiled_attendees,
     });
     expect(rollup.volunteerHours).toBe(4.5);
     // The same person signed up and logged hours, so they count once.
@@ -171,12 +168,9 @@ describe("get_program_impact_rollup_data with shared events (integration)", () =
         discountCodes: result.data.discount_codes,
         eventVolunteers: result.data.event_volunteers,
         volunteerHourPeople: result.data.volunteer_hour_people,
-        beginnerAttendees: result.data.beginner_attendees,
-        firstTimeAttendees: result.data.first_time_attendees,
         assistanceExpenses: result.data.assistance_expenses,
         offeredCodes: result.data.offered_codes,
         optionCounts: result.data.option_counts,
-        profiledAttendees: result.data.profiled_attendees,
       });
       // The full figure for each program, not a split: both genuinely ran it.
       expect(rollup.volunteerHours).toBe(3);

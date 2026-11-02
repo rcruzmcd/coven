@@ -15,8 +15,6 @@ import { publicGiveawayRulesPath } from "@/lib/giveaway-rules-path";
 import { getEventGiveawayRulesLink } from "@/lib/giveaway-rules-publication";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getPublicSite } from "@/lib/public-site";
-import type { PublicRiderProfile } from "@/lib/rider-profile";
-import { getPublicRiderProfile } from "@/lib/rider-profile-settings";
 import {
   loadEventPersonQuestions,
   loadMyPersonQuestions,
@@ -106,7 +104,6 @@ function EventDetailBody({
   registrationQuestions,
   profileQuestions,
   myProfileAnswers,
-  riderProfile,
 }: {
   event: PublicEvent;
   viewer: EventViewer | null;
@@ -151,8 +148,6 @@ function EventDetailBody({
    * else, since the anonymous form is never pre-filled (#1409 section 3).
    */
   myProfileAnswers: RegistrationAnswers;
-  /** The riding questions on step 2 (#1415), or null without the module. */
-  riderProfile: PublicRiderProfile | null;
 }) {
   const registrationWindow = checkRegistrationWindow(event);
   // Only a linked constituent can have one to find: `my_event_registration()`
@@ -253,7 +248,6 @@ function EventDetailBody({
                   registrationQuestions={registrationQuestions}
                   profileQuestions={profileQuestions}
                   profileAnswers={myProfileAnswers}
-                  riderProfile={riderProfile}
                 />
               ) : (
                 /* Signed in without an approved claim (#1162) still registers
@@ -275,7 +269,6 @@ function EventDetailBody({
                   registrationOptions={registrationOptions}
                   registrationQuestions={registrationQuestions}
                   profileQuestions={profileQuestions}
-                  riderProfile={riderProfile}
                 />
               )}
             </EventRegistrationDisclosure>
@@ -349,13 +342,8 @@ export async function EventDetailContent({ event }: { event: PublicEvent }) {
     profileQuestions.length > 0 && viewer?.kind === "linked"
       ? (await loadMyPersonQuestions(supabase)).answers
       : {};
-  // The riding questions on registration's step 2 (#1408, #1415), only for a
-  // tenant with the module and only where there is a registration form.
-  const riderProfile = event.registration_enabled
-    ? await getPublicRiderProfile(supabase)
-    : null;
   // Whether registration asks about under-18s (#1416). Only where there is a
-  // registration form, like the riding questions, and never on an 18+ event
+  // registration form, like the profile questions, and never on an 18+ event
   // (#1417), which asks for its confirmation instead.
   const asksAboutMinors =
     event.registration_enabled && !event.adults_only
@@ -472,7 +460,6 @@ export async function EventDetailContent({ event }: { event: PublicEvent }) {
             registrationQuestions={registrationQuestions}
             profileQuestions={profileQuestions}
             myProfileAnswers={myProfileAnswers}
-            riderProfile={riderProfile}
           />
           {hasPublicEventMedia(media) && (
             <div className="mt-12">

@@ -3,7 +3,7 @@
 import { useCallback, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Ban, Check, Download, Eye, Snowflake, Undo2 } from "lucide-react";
+import { Ban, Check, Download, Eye, Undo2 } from "lucide-react";
 import type {
   EventRegistrant,
   EventRegistrantsData,
@@ -19,11 +19,6 @@ import {
 } from "./registrants-shared";
 import { useRegistrantRowActions } from "./use-registrant-row-actions";
 import { isMissingRequired } from "./registrants-view-state";
-import { effectiveRider, riderStats, ridersLine } from "./rider-stats";
-import {
-  experienceLevelLabel,
-  ridingDisciplineLabel,
-} from "@/lib/rider-profile";
 import {
   attendedBeforeLabel,
   countSelfReportedFirstTimers,
@@ -67,28 +62,6 @@ import {
   type EventCarpools,
 } from "@/lib/event-carpools";
 import { EmptyState } from "@/components/portal/empty-state";
-
-/**
- * What the door sees in the Rides column, read the way `effectiveRider` reads
- * it: the check-in snapshot first, the person's current profile only when
- * there is none.
- */
-function ridesSummary(registrant: EventRegistrant): string | null {
-  if (!registrant.rider) return null;
-  const rider = effectiveRider(registrant.rider);
-  const discipline = ridingDisciplineLabel(rider.discipline);
-  if (!discipline) return null;
-
-  const levels = [
-    experienceLevelLabel(rider.ski),
-    experienceLevelLabel(rider.snowboard),
-  ].filter((level): level is string => level !== null);
-
-  const distinct = [...new Set(levels)];
-  return distinct.length > 0
-    ? `${discipline} · ${distinct.join(" / ")}`
-    : discipline;
-}
 
 const NO_QUESTIONS: RegistrationQuestion[] = [];
 
@@ -365,7 +338,6 @@ export function RegistrantsTab({
   const canManage = messaging !== null;
   const refreshRegistrants = registrantsData.refresh;
   const refreshDerived = derived.refresh;
-  const [riderTarget, setRiderTarget] = useState<EventRegistrant | null>(null);
   // #1418
   const [cancelTarget, setCancelTarget] = useState<EventRegistrant | null>(
     null,
@@ -411,20 +383,17 @@ export function RegistrantsTab({
     0,
   );
   const checkedInCount = list.filter((r) => r.checked_in_at !== null).length;
-  // Null across the board means this viewer isn't cleared for rider data.
-  // Derived from the whole list, not the preview slice, so the column doesn't
-  // appear and disappear between the card and the sheet.
-  const showRides = list.some((registrant) => registrant.rider !== null);
-  const riderBreakdown = useMemo(() => {
-    const riders = list.flatMap((registrant) =>
-      registrant.rider ? [registrant.rider] : [],
-    );
-    return riders.length > 0 ? riderStats(riders) : null;
-  }, [list]);
+  // Null across the board means this viewer isn't cleared for profile
+  // answers, or nobody has any (#1746). Derived from the whole list, not the
+  // preview slice, so the column doesn't appear and disappear between the
+  // card and the sheet.
+  const showProfile = list.some(
+    (registrant) => registrant.profileSummary !== null,
+  );
   // #1259. The column and the count appear only once somebody has answered:
   // before this shipped every row is null, and a column of dashes is a column
   // that costs width and says nothing. Derived from the whole list for the
-  // same reason `showRides` is, so it does not appear and disappear between
+  // same reason `showProfile` is, so it does not appear and disappear between
   // the card and the sheet.
   const showAttendedBefore = hasAnyAttendedBeforeAnswer(list);
   const selfReportedFirstTimers = countSelfReportedFirstTimers(list);
@@ -570,17 +539,17 @@ export function RegistrantsTab({
             } satisfies PortalDataTableColumn<EventRegistrant>,
           ]
         : []),
-      ...(showRides
+      ...(showProfile
         ? [
             {
-              key: "rides",
-              label: "Rides",
+              key: "profile",
+              label: "Profile",
               sortValue: (registrant: EventRegistrant) =>
-                ridesSummary(registrant),
+                registrant.profileSummary,
               hideBelow: "lg",
               cellClassName: "app-muted",
               render: (registrant: EventRegistrant) =>
-                ridesSummary(registrant) ?? "—",
+                registrant.profileSummary ?? "—",
             } satisfies PortalDataTableColumn<EventRegistrant>,
           ]
         : []),
@@ -621,27 +590,6 @@ export function RegistrantsTab({
             </Tooltip>
             {mode === "edit" && (
               <>
-                {/* The profile hangs off the person record, so a
-                    registration never linked to one has nowhere to put it —
-                    link it from the People module first. */}
-                {registrant.rider && registrant.person_id && (
-                  <Tooltip>
-                    <TooltipTrigger
-                      render={
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon-sm"
-                          aria-label={`Rider profile for ${registrant.name}`}
-                          onClick={() => setRiderTarget(registrant)}
-                        />
-                      }
-                    >
-                      <Snowflake />
-                    </TooltipTrigger>
-                    <TooltipContent>{`Rider profile for ${registrant.name}`}</TooltipContent>
-                  </Tooltip>
-                )}
                 <Tooltip>
                   <TooltipTrigger
                     render={
@@ -698,7 +646,7 @@ export function RegistrantsTab({
       registrationOptions,
       registrationQuestions,
       showAttendedBefore,
-      showRides,
+      showProfile,
       mode,
       canManage,
       isRowPending,
@@ -732,9 +680,6 @@ export function RegistrantsTab({
             the difference -- "said" is doing the work. */}
         {showAttendedBefore &&
           ` · ${selfReportedFirstTimers} said it would be their first`}
-        {riderBreakdown && riderBreakdown.answered > 0 && (
-          <span className="block">{ridersLine(riderBreakdown)}</span>
-        )}
         {/* #1407. Per option, against its cap where it has one: the number
             an organizer orders tickets or gear from. */}
         {registrationOptions && (
@@ -753,7 +698,9 @@ export function RegistrantsTab({
   // #1501. Behind `events: manage` here and, more to the point, in the route
   // handler itself, since a link is only a link.
   const downloadAction =
-    canManage && (registrationQuestions.length > 0 || showRides) ? (
+    canManage &&
+    (registrationQuestions.length > 0 ||
+      (data?.profileQuestions?.length ?? 0) > 0) ? (
       // A styled anchor rather than <Button render={<a/>}>: it is a file
       // download, and should be announced and behave as a link.
       <a
@@ -915,8 +862,6 @@ export function RegistrantsTab({
         onDetailClosed={() => setDetailId(null)}
         cancelTarget={cancelTarget}
         onCancelClosed={() => setCancelTarget(null)}
-        riderTarget={riderTarget}
-        onRiderClosed={() => setRiderTarget(null)}
         onChanged={refreshAll}
         onRegistrantsChanged={refreshRegistrants}
       />

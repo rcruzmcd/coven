@@ -90,7 +90,7 @@ function registrant(overrides: Partial<EventRegistrant>): EventRegistrant {
     group_chat_added_at: null,
     group_chat_added_by_name: null,
     minorContacts: null,
-    rider: null,
+    profileSummary: null,
     ...overrides,
   };
 }
@@ -157,7 +157,6 @@ function payload(
       ],
     },
     registrationQuestions: [],
-    riderMountains: null,
     groupChat: null,
     ...overrides,
   };
@@ -219,55 +218,8 @@ describe("RegistrantsPage", () => {
     expect(summary.getByText("of 3")).toBeInTheDocument();
   });
 
-  test("breaks riders down by discipline and level", async () => {
-    const rider = {
-      riding_discipline_at_event: null,
-      ski_experience_level_at_event: null,
-      snowboard_experience_level_at_event: null,
-      riding_discipline: null,
-      ski_experience_level: null,
-      snowboard_experience_level: null,
-      preferred_mountain: null,
-    };
-    data = payload({
-      registrants: [
-        registrant({
-          id: "reg-1",
-          rider: {
-            ...rider,
-            riding_discipline: "ski",
-            ski_experience_level: "beginner",
-          },
-        }),
-        registrant({
-          id: "reg-2",
-          rider: {
-            ...rider,
-            riding_discipline: "both",
-            ski_experience_level: "advanced",
-            snowboard_experience_level: "beginner",
-          },
-        }),
-        registrant({ id: "reg-3", rider }),
-      ],
-    });
-    renderPage();
-    const riders = within(
-      await screen.findByRole("region", { name: /^Riders/ }),
-    );
-    expect(
-      riders.getByText("Riders · 1 skis, 0 snowboard, 1 both"),
-    ).toBeInTheDocument();
-    expect(
-      riders.getByText("2 of 3 registrations answered"),
-    ).toBeInTheDocument();
-    expect(riders.getByRole("heading", { name: "Skis" })).toBeInTheDocument();
-    expect(
-      riders.getByRole("heading", { name: "Snowboard" }),
-    ).toBeInTheDocument();
-  });
-
-  test("no Riders section for a reader without rider answers", async () => {
+  // #1746. The Riders breakdown is the event page's Profile answers card.
+  test("no Riders section any more", async () => {
     renderPage();
     await screen.findByLabelText("Summary");
     expect(screen.queryByRole("region", { name: /^Riders/ })).toBeNull();

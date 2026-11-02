@@ -17,6 +17,7 @@ import {
   createPerson,
   createPublishedEvent,
   signInAs,
+  setProfileAnswers,
   uniqueEmail,
 } from "../../../../../test/integration-setup";
 
@@ -34,7 +35,6 @@ const {
   undoCheckInAction,
   createWalkInCheckInAction,
   addRegistrantAction,
-  setRegistrantRiderProfileAction,
 } = await import("./registrants-actions");
 
 afterEach(() => {
@@ -86,43 +86,6 @@ async function seedRegistrationFor(eventId: string, personId: string) {
     .single();
   if (error) throw error;
   return data.id as string;
-}
-
-async function setRiderProfile(
-  personId: string,
-  profile: {
-    riding_discipline: string | null;
-    ski_experience_level?: string | null;
-    snowboard_experience_level?: string | null;
-  },
-) {
-  const { error } = await adminClient
-    .from("people")
-    .update({
-      ski_experience_level: null,
-      snowboard_experience_level: null,
-      ...profile,
-    })
-    .eq("id", personId);
-  if (error) throw error;
-}
-
-async function readRegistration(registrationId: string) {
-  const { data, error } = await adminClient
-    .from("event_registrations")
-    .select(
-      "riding_discipline_at_event, ski_experience_level_at_event, snowboard_experience_level_at_event, checked_in_at",
-    )
-    .eq("id", registrationId)
-    .single();
-  if (error) throw error;
-  return data;
-}
-
-function riderForm(fields: Record<string, string>) {
-  const formData = new FormData();
-  for (const [key, value] of Object.entries(fields)) formData.set(key, value);
-  return formData;
 }
 
 function walkInPerson(personId: string) {
@@ -334,170 +297,38 @@ describe("event registrant check-in actions (integration)", () => {
     await event.cleanup();
   });
 
-  // Issue #653: the rider level is a point-in-time person attribute, so the
-  // event's copy has to stop moving once the door has seen them.
-  test("check-in snapshots the rider level, and a later profile edit doesn't move it", async () => {
+  // #1746, replacing the Rides column's tests (#653): the Profile column
+  // reads the check-in snapshot first, and only events:manage with
+  // person_answers:view sees it at all.
+  test("the Profile summary is as of check-in, and only for events:manage", async () => {
     const event = await createPublishedEvent();
     const person = await createPerson();
-    await setRiderProfile(person.id, {
+    await setProfileAnswers(person.id, {
       riding_discipline: "snowboard",
-      snowboard_experience_level: "beginner",
+      snowboard_level: "beginner",
     });
     const registrationId = await seedRegistrationFor(event.id, person.id);
+
     currentSupabase = await signInAs(SEEDED_USERS.coordinator);
-
-    expect(await readRegistration(registrationId)).toMatchObject({
-      riding_discipline_at_event: null,
-    });
-
     expect(await checkInRegistrantAction(registrationId)).toEqual({
       success: true,
     });
-    expect(await readRegistration(registrationId)).toMatchObject({
-      riding_discipline_at_event: "snowboard",
-      snowboard_experience_level_at_event: "beginner",
-      ski_experience_level_at_event: null,
-    });
-
-    await setRiderProfile(person.id, {
+    // Moved on since the day; the row still says what the door saw.
+    await setProfileAnswers(person.id, {
       riding_discipline: "snowboard",
-      snowboard_experience_level: "advanced",
-    });
-    expect(await readRegistration(registrationId)).toMatchObject({
-      snowboard_experience_level_at_event: "beginner",
+      snowboard_level: "advanced",
     });
 
-    await event.cleanup();
-    await person.cleanup();
-  });
-
-  test("a walk-in checked in on insert is snapshotted too", async () => {
-    const event = await createPublishedEvent();
-    const person = await createPerson();
-    await setRiderProfile(person.id, {
-      riding_discipline: "ski",
-      ski_experience_level: "intermediate",
-    });
-    currentSupabase = await signInAs(SEEDED_USERS.coordinator);
-
-    expect(
-      await createWalkInCheckInAction(event.id, walkInPerson(person.id), 1),
-    ).toEqual({ success: true });
-
-    const { data } = await adminClient
-      .from("event_registrations")
-      .select("ski_experience_level_at_event")
-      .eq("event_id", event.id)
-      .single();
-    expect(data?.ski_experience_level_at_event).toBe("intermediate");
-
-    await event.cleanup();
-    await person.cleanup();
-  });
-
-  test("check-in leaves the snapshot empty when no profile is on file", async () => {
-    const event = await createPublishedEvent();
-    const person = await createPerson();
-    const registrationId = await seedRegistrationFor(event.id, person.id);
-    currentSupabase = await signInAs(SEEDED_USERS.coordinator);
-
-    expect(await checkInRegistrantAction(registrationId)).toEqual({
-      success: true,
-    });
-    expect(await readRegistration(registrationId)).toMatchObject({
-      riding_discipline_at_event: null,
-    });
-
-    await event.cleanup();
-    await person.cleanup();
-  });
-
-  test("door-side capture writes the person's profile and the event snapshot", async () => {
-    const event = await createPublishedEvent();
-    const person = await createPerson();
-    const registrationId = await seedRegistrationFor(event.id, person.id);
-    currentSupabase = await signInAs(SEEDED_USERS.coordinator);
-
-    await checkInRegistrantAction(registrationId);
-    expect(
-      await setRegistrantRiderProfileAction(
-        registrationId,
-        riderForm({
-          ridingDiscipline: "both",
-          skiExperienceLevel: "beginner",
-          snowboardExperienceLevel: "intermediate",
-          preferredMountain: "Hunter",
-        }),
-      ),
-    ).toEqual({ success: true });
-
-    // The coordinator holds people:view but not people:manage, so this only
-    // works because the RPC is security definer.
-    const { data: personRow } = await adminClient
-      .from("people")
-      .select(
-        "riding_discipline, ski_experience_level, snowboard_experience_level, preferred_mountain",
-      )
-      .eq("id", person.id)
-      .single();
-    expect(personRow).toMatchObject({
-      riding_discipline: "both",
-      ski_experience_level: "beginner",
-      snowboard_experience_level: "intermediate",
-      preferred_mountain: "Hunter",
-    });
-
-    expect(await readRegistration(registrationId)).toMatchObject({
-      riding_discipline_at_event: "both",
-      ski_experience_level_at_event: "beginner",
-      snowboard_experience_level_at_event: "intermediate",
-    });
-
-    await event.cleanup();
-    await person.cleanup();
-  });
-
-  test("door-side capture is refused without events:manage", async () => {
-    const event = await createPublishedEvent();
-    const person = await createPerson();
-    const registrationId = await seedRegistrationFor(event.id, person.id);
-    currentSupabase = await signInAs(SEEDED_USERS.volunteer);
-
-    expect(
-      await setRegistrantRiderProfileAction(
-        registrationId,
-        riderForm({
-          ridingDiscipline: "ski",
-          skiExperienceLevel: "beginner",
-        }),
-      ),
-    ).toEqual(DENIED);
-
-    await event.cleanup();
-    await person.cleanup();
-  });
-
-  test("only events:manage sees rider columns on the registrants list", async () => {
-    const event = await createPublishedEvent();
-    const person = await createPerson();
-    await setRiderProfile(person.id, {
-      riding_discipline: "ski",
-      ski_experience_level: "beginner",
-    });
-    await seedRegistrationFor(event.id, person.id);
-
-    currentSupabase = await signInAs(SEEDED_USERS.coordinator);
     const asCoordinator = await listEventRegistrantsAction(event.id);
     if (!("data" in asCoordinator)) throw new Error("expected data");
-    expect(asCoordinator.data.registrants[0].rider).toMatchObject({
-      riding_discipline: "ski",
-      ski_experience_level: "beginner",
-    });
+    expect(asCoordinator.data.registrants[0].profileSummary).toBe(
+      "Snowboard · Beginner",
+    );
 
     currentSupabase = await signInAs(SEEDED_USERS.volunteer);
     const asVolunteer = await listEventRegistrantsAction(event.id);
     if (!("data" in asVolunteer)) throw new Error("expected data");
-    expect(asVolunteer.data.registrants[0].rider).toBeNull();
+    expect(asVolunteer.data.registrants[0].profileSummary).toBeNull();
 
     await event.cleanup();
     await person.cleanup();

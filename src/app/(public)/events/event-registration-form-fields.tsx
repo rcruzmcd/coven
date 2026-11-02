@@ -10,13 +10,6 @@ import {
   contactSummaryRows,
   eventSummaryRows,
 } from "./registration-summary";
-import {
-  EMPTY_RIDING,
-  RidingFields,
-  ridingSummaryRows,
-  setRidingFields,
-  type RidingValues,
-} from "./riding-fields";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -75,7 +68,6 @@ import {
   type AccountOffer,
 } from "@/components/record-account-offer";
 import type { EventViewerAccount } from "./my-registration";
-import type { PublicRiderProfile } from "@/lib/rider-profile";
 
 /**
  * The anonymous registration form, optionally prefilled from the caller's own
@@ -109,7 +101,6 @@ export function EventRegistrationForm({
   registrationOptions = null,
   registrationQuestions = [],
   profileQuestions = [],
-  riderProfile = null,
 }: {
   eventId: string;
   account?: EventViewerAccount | null;
@@ -191,20 +182,10 @@ export function EventRegistrationForm({
   /**
    * The organization's profile questions asked after registering for this
    * event (#1744), answered about the person rather than the registration.
-   * Never pre-filled, for the reason the riding questions below are not.
+   * Never pre-filled, for the reason given below.
    * Empty for a tenant asking none.
    */
   profileQuestions?: RegistrationQuestion[];
-  /**
-   * The riding questions on step 2 (#1415), and the mountains they offer.
-   * Null -- the default -- on every tenant without the rider_profile module
-   * (#1408), which leaves step 2 "This event" and asks nothing about riding.
-   *
-   * Never prefilled here, even for a signed-in account: this form's reader has
-   * no linked record, and the only other source would be the record a typed
-   * email matches -- which would show anybody's answers to whoever typed it.
-   */
-  riderProfile?: PublicRiderProfile | null;
 }) {
   const [name, setName] = useState(account?.name ?? "");
   const [email, setEmail] = useState(account?.email ?? "");
@@ -224,7 +205,6 @@ export function EventRegistrationForm({
   // #1417. Unticked, always, for the reason the waiver's box is.
   const [adultsOnlyConfirmed, setAdultsOnlyConfirmed] = useState(false);
   const [notes, setNotes] = useState("");
-  const [riding, setRiding] = useState<RidingValues>(EMPTY_RIDING);
   // #1407. Every option starts at nothing: a preselected answer is one the
   // form gave on their behalf.
   const [optionCounts, setOptionCountsState] = useState<OptionCounts>({});
@@ -313,7 +293,6 @@ export function EventRegistrationForm({
     if (adultsOnly && adultsOnlyConfirmed) {
       formData.set(ADULTS_ONLY_CONFIRMED_FIELD, "on");
     }
-    if (riderProfile) setRidingFields(formData, riding);
     if (registrationOptions) setOptionCounts(formData, optionCounts);
     if (registrationQuestions.length > 0) setAnswersField(formData, answers);
     if (profileQuestions.length > 0) {
@@ -405,7 +384,6 @@ export function EventRegistrationForm({
       isPending={isPending}
       onSubmit={handleSubmit}
       submitVariant="rainbow"
-      eventLegend={riderProfile ? "Your riding" : undefined}
       about={
         <>
           {account?.email && (
@@ -444,7 +422,7 @@ export function EventRegistrationForm({
             />
           </Field>
           {/* Instagram and pronouns stay here (#1403): they are about the
-              person, and "Your riding" (#1415) is about how they ride. */}
+              person. */}
           <InstagramOrContactFields
             idPrefix="registration"
             values={contact}
@@ -536,15 +514,6 @@ export function EventRegistrationForm({
               disabled={isPending}
             />
           )}
-          {riderProfile && (
-            <RidingFields
-              idPrefix="registration"
-              mountains={riderProfile.mountains}
-              values={riding}
-              onChange={setRiding}
-              disabled={isPending}
-            />
-          )}
           {registrationOptions && (
             <RegistrationOptionCountsField
               idPrefix="registration"
@@ -596,7 +565,6 @@ export function EventRegistrationForm({
           partyIncludesMinor,
           minorContacts,
           adultsOnlyConfirmed: adultsOnly && adultsOnlyConfirmed,
-          riding: riderProfile ? ridingSummaryRows(riding) : [],
           registrationOptions,
           optionCounts,
           answers: [

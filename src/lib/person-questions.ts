@@ -102,6 +102,32 @@ export type PersonAnswerRow = {
  */
 export const PROFILE_ANSWERS_FIELD = "profileAnswers";
 
+/**
+ * One line for a registrant's row (#1746): their answers to the questions
+ * snapshotted at check-in, in question order, as of check-in where the
+ * registration was snapshotted and as they stand now where it was not -- the
+ * rule every figure reads (20261104120000), all or nothing per registration.
+ * "Snowboard · Beginner" where Chatter Snow's Rides column said it. Null
+ * where there is nothing to say.
+ */
+export function profileSummary(
+  questions: readonly PersonQuestion[],
+  snapshots: readonly {
+    question_id: string | null;
+    answer_text: string;
+  }[] = [],
+  answers: readonly { question_id: string | null; answer_text: string }[] = [],
+): string | null {
+  const source = snapshots.length > 0 ? snapshots : answers;
+  const words = questions
+    .filter((question) => question.snapshot_at_checkin)
+    .flatMap((question) => {
+      const answer = source.find((row) => row.question_id === question.id);
+      return answer ? [answer.answer_text] : [];
+    });
+  return words.length > 0 ? words.join(" · ") : null;
+}
+
 /** The columns `PersonAnswerRow` reads off `person_answers`. */
 export const PERSON_ANSWER_COLUMNS =
   "person_id, question_id, value, prompt_as_shown, answer_text";

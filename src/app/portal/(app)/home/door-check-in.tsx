@@ -80,7 +80,7 @@ function buzz() {
  * The desktop sheet renders the whole Registrants card, which at 390px left
  * room for a row and a half under its summary and toolbar. This keeps the
  * header, the search and the tabs fixed above a list of rows that each carry
- * one large button, and moves the rest -- the row's rider profile and cancel,
+ * one large button, and moves the rest -- the row's profile answers and cancel,
  * the card's composers and export -- into the details view and a menu.
  *
  * A check-in paints at once rather than when the server answers, so nobody
@@ -120,7 +120,6 @@ export function DoorCheckIn({
   const [query, setQuery] = useState("");
   const [missingOnly, setMissingOnly] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
-  const [riderTarget, setRiderTarget] = useState<EventRegistrant | null>(null);
   const [cancelTarget, setCancelTarget] = useState<EventRegistrant | null>(
     null,
   );
@@ -233,7 +232,8 @@ export function DoorCheckIn({
   const rows = doorRows(filtered, tab, query);
   const searching = query.trim() !== "";
   const cancelled = cancelledMatches(data?.cancelled ?? [], query);
-  const showRides = list.some((row) => row.rider !== null);
+  // #1746. The answers export carries the profile answers too.
+  const hasProfileQuestions = (data?.profileQuestions?.length ?? 0) > 0;
   const orgEmailOff =
     messaging && !messaging.orgEmailEnabled
       ? "Outbound email is switched off for this organization."
@@ -540,7 +540,7 @@ export function DoorCheckIn({
                 Announce
               </DropdownMenuItem>
             )}
-            {canManage && (questions.length > 0 || showRides) && (
+            {canManage && (questions.length > 0 || hasProfileQuestions) && (
               <DropdownMenuItem
                 className="min-h-11"
                 render={<a href={registrantAnswersCsvHref(eventId)} download />}
@@ -566,18 +566,12 @@ export function DoorCheckIn({
         onDetailClosed={() => setDetailId(null)}
         cancelTarget={cancelTarget}
         onCancelClosed={() => setCancelTarget(null)}
-        riderTarget={riderTarget}
-        onRiderClosed={() => setRiderTarget(null)}
         onChanged={refreshAll}
         onRegistrantsChanged={refreshRegistrants}
         detailDoor={(registrant) => ({
           pending: pendingIds.has(registrant.id),
           onToggleCheckIn: () =>
             toggle(registrant, registrant.checked_in_at !== null),
-          onRiderProfile:
-            registrant.rider && registrant.person_id
-              ? () => setRiderTarget(registrant)
-              : undefined,
           // #1418. Not once they are through the door.
           onCancel:
             canManage && registrant.checked_in_at === null

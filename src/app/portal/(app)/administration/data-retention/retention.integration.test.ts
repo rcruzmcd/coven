@@ -227,6 +227,10 @@ const OWNED_TABLES = [
   "event_registration_answers",
   // #1502. Cascades from the registration too.
   "event_registration_answer_requests",
+  // #1746. Snapshots name registrations; answers name people and questions.
+  "person_answer_snapshots",
+  "person_answers",
+  "person_questions",
   "event_registrations",
   "event_registration_questions",
   "inventory_items",
@@ -544,6 +548,7 @@ describe("run_retention_purge", () => {
   describe("who is exempt", () => {
     let donorId: string;
     let plainId: string;
+    let donorRegistrationId: string;
 
     beforeAll(async () => {
       const donor = await createPerson(
@@ -558,15 +563,96 @@ describe("run_retention_purge", () => {
       plainId = plain.id;
       cleanups.push(donor.cleanup, plain.cleanup);
 
+      // #1746. Checked in before they answered, so the registration has no
+      // snapshot and still reads through the answers -- which is what the
+      // purge has to backfill before it deletes them.
+      const event = await createPublishedEvent({}, admin);
+      cleanups.push(event.cleanup);
+      const { data: registration, error: registrationError } = await admin
+        .from("event_registrations")
+        .insert({
+          event_id: event.id,
+          name: "Retention Donor",
+          email: uniqueEmail("retention-donor-reg"),
+          person_id: donorId,
+          checked_in_at: new Date().toISOString(),
+        })
+        .select("id")
+        .single();
+      if (registrationError) throw registrationError;
+      donorRegistrationId = registration.id as string;
+
+      // This file's own tenant, so its questions and answers are written
+      // directly: a discipline, and the level it shows, both snapshotted.
+      const ski = { id: crypto.randomUUID(), key: "ski", label: "Skis" };
+      const beginner = {
+        id: crypto.randomUUID(),
+        key: "beginner",
+        label: "Beginner",
+      };
+      const disciplineId = crypto.randomUUID();
+      const levelId = crypto.randomUUID();
+      const { error: questionsError } = await serviceClient
+        .from("person_questions")
+        .insert([
+          {
+            id: disciplineId,
+            tenant_id: retentionTenantId,
+            key: "riding_discipline",
+            kind: "single_choice",
+            prompt: "Do you ski or ride?",
+            options: [
+              ski,
+              { id: crypto.randomUUID(), key: "snowboard", label: "Snowboard" },
+            ],
+            snapshot_at_checkin: true,
+            sort_order: 0,
+            show_if: null,
+          },
+          {
+            id: levelId,
+            tenant_id: retentionTenantId,
+            key: "ski_level",
+            kind: "single_choice",
+            prompt: "How would you describe your skiing?",
+            options: [
+              beginner,
+              { id: crypto.randomUUID(), key: "advanced", label: "Advanced" },
+            ],
+            snapshot_at_checkin: true,
+            sort_order: 1,
+            show_if: {
+              any: [{ question_id: disciplineId, option_ids: [ski.id] }],
+            },
+          },
+        ]);
+      if (questionsError) throw questionsError;
       for (const id of [donorId, plainId]) {
-        const { error } = await admin
-          .from("people")
-          .update({
-            riding_discipline: "ski",
-            ski_experience_level: "beginner",
-          })
-          .eq("id", id);
-        if (error) throw error;
+        const { error: answersError } = await serviceClient
+          .from("person_answers")
+          .insert([
+            {
+              tenant_id: retentionTenantId,
+              person_id: id,
+              question_id: disciplineId,
+              kind: "single_choice",
+              value: ski.id,
+              answer_text: ski.label,
+              prompt_as_shown: "Do you ski or ride?",
+              answered_via: "staff",
+            },
+            {
+              tenant_id: retentionTenantId,
+              person_id: id,
+              question_id: levelId,
+              kind: "single_choice",
+              value: beginner.id,
+              answer_text: beginner.label,
+              prompt_as_shown: "How would you describe your skiing?",
+              answered_via: "staff",
+            },
+          ]);
+        if (answersError) throw answersError;
       }
 
       const { data, error } = await admin
@@ -589,7 +675,7 @@ describe("run_retention_purge", () => {
     // a foreign key outside retention_purgeable_person_refs still points at the
     // person. If this ever fails, the job is anonymizing donors.
     test("a donor keeps their identity", async () => {
-      await setMode("rider_profiles", "enforce");
+      await setMode("person_answers", "enforce");
       await runPurge({ dryRun: false, asOf: clockAt(2 * YEAR + DAY) });
 
       const { data } = await admin
@@ -601,24 +687,32 @@ describe("run_retention_purge", () => {
       expect(data!.name).not.toBeNull();
     });
 
-    // ...but the rider profile is on its own clock, and a donation does not
-    // extend it. The two ideas are deliberately separate in the SQL.
-    test("a donor's rider profile still expires", async () => {
-      await setMode("rider_profiles", "enforce");
+    // ...but their profile answers are on their own clock, and a donation does
+    // not extend it. The two ideas are deliberately separate in the SQL.
+    // Snapshots first (#1746): the event they checked in to keeps the level
+    // it counted, so its figures do not move.
+    test("a donor's profile answers still expire, after the snapshot", async () => {
+      await setMode("person_answers", "enforce");
       await runPurge({ dryRun: false, asOf: clockAt(2 * YEAR + DAY) });
 
-      const { data } = await admin
-        .from("people")
-        .select("riding_discipline, ski_experience_level")
-        .eq("id", donorId)
-        .single();
-      expect(data!.riding_discipline).toBeNull();
-      // Cleared as a group, or people_ski_level_requires_ski would have fired.
-      expect(data!.ski_experience_level).toBeNull();
+      const { count } = await serviceClient
+        .from("person_answers")
+        .select("id", { count: "exact", head: true })
+        .eq("person_id", donorId);
+      expect(count).toBe(0);
+
+      const { data: snapshots } = await serviceClient
+        .from("person_answer_snapshots")
+        .select("answer_text")
+        .eq("registration_id", donorRegistrationId);
+      expect((snapshots ?? []).map((row) => row.answer_text).sort()).toEqual([
+        "Beginner",
+        "Skis",
+      ]);
     });
 
     test("a person nothing else references is anonymized", async () => {
-      await setMode("rider_profiles", "enforce");
+      await setMode("person_answers", "enforce");
       await runPurge({ dryRun: false, asOf: clockAt(2 * YEAR + DAY) });
 
       const { data } = await admin
@@ -1455,7 +1549,7 @@ describe("run_retention_purge", () => {
       await setMode("audit_log_snapshots", "off");
       await setMode("person_merge_snapshots", "off");
 
-      const { error } = await admin.rpc("delete_rider_profile", {
+      const { error } = await admin.rpc("delete_person_answers", {
         p_person_id: personId,
         p_reason: "Asked us to delete their profile",
       });

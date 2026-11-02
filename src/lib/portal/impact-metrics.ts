@@ -94,7 +94,7 @@ export type AssistanceExpenseRow = {
   amount: number | string;
 };
 
-/** A person attached to an event: volunteer signups, hours loggers, beginners. */
+/** A person attached to an event: volunteer signups, hours loggers. */
 export type PersonEventRow = {
   event_id: string | null;
   person_id: string | null;
@@ -474,40 +474,6 @@ export function countVolunteerParticipants(
   return countDistinctPeoplePerEvent(signups, hoursLoggers);
 }
 
-/**
- * Checked-in attendees recorded as beginner on ski or snowboard.
- *
- * Scoped to checked-in registrants so it is comparable with first-time
- * participants. The level comes from the snapshot taken at check-in, falling
- * back to the person's live profile where there is none (issue #653) — the RPCs
- * resolve that, so both surfaces see one already-decided answer.
- *
- * The rider profile is still opt-in, so show this against
- * `countProfiledAttendees` as a denominator whenever coverage is short of the
- * checked-in headcount; on an event with no profiles it reads 0.
- */
-export function countBeginnerParticipants(
-  beginnerAttendees: PersonEventRow[],
-): number {
-  return countDistinctPeoplePerEvent(beginnerAttendees);
-}
-
-/**
- * Checked-in attendees whose rider level was first time on snow (#1588),
- * counted like beginners. A first-timer is not also a beginner: the levels are
- * exclusive, so the two figures never overlap.
- */
-export function countFirstTimeOnSnow(firstTimers: PersonEventRow[]): number {
-  return countDistinctPeoplePerEvent(firstTimers);
-}
-
-/** Checked-in attendees with any rider profile on file — the honest denominator. */
-export function countProfiledAttendees(
-  profiledAttendees: PersonEventRow[],
-): number {
-  return countDistinctPeoplePerEvent(profiledAttendees);
-}
-
 // ---------------------------------------------------------------------------
 // Per-event figures (Results card's Outcomes + Attendance card)
 // ---------------------------------------------------------------------------
@@ -520,9 +486,6 @@ export type EventImpactDerivedInput = {
   volunteerHourPeople: PersonEventRow[];
   /** null when the caller lacks event_impact:view — see 20260904030000. */
   discountCodes: DiscountCodeRow[] | null;
-  beginnerAttendees: PersonEventRow[] | null;
-  firstTimeAttendees: PersonEventRow[] | null;
-  profiledAttendees: PersonEventRow[] | null;
   autoAssignDiscountCodes: boolean;
   distributions: DistributedMovementRow[];
   /** null when the caller lacks event_impact:view. */
@@ -550,11 +513,6 @@ export type EventImpactDerived = {
   firstTimeParticipants: number;
   recurringParticipants: number;
   volunteerParticipants: number;
-  /** null when the viewer may not see rider-profile data. */
-  beginnerParticipants: number | null;
-  /** First time on snow; null when the viewer may not see rider-profile data. */
-  firstTimeOnSnow: number | null;
-  profiledAttendees: number | null;
   /** null when the viewer may not see discount data. */
   discountCodesAssigned: number | null;
   /** Rental-kind codes held by a registrant; null like discountCodesAssigned. */
@@ -596,15 +554,6 @@ export function computeEventImpactDerived(
       input.eventVolunteers,
       input.volunteerHourPeople,
     ),
-    beginnerParticipants: input.beginnerAttendees
-      ? countBeginnerParticipants(input.beginnerAttendees)
-      : null,
-    firstTimeOnSnow: input.firstTimeAttendees
-      ? countFirstTimeOnSnow(input.firstTimeAttendees)
-      : null,
-    profiledAttendees: input.profiledAttendees
-      ? countProfiledAttendees(input.profiledAttendees)
-      : null,
     discountCodesAssigned: input.discountCodes
       ? countSubsidizedTickets(input.discountCodes)
       : null,
@@ -642,12 +591,9 @@ export function computeEventImpactDerived(
 export type ProgramImpactRollup = {
   eventCount: number;
   participants: number;
-  /** Checked-in registrations — the denominator rider-profile coverage is measured against. */
+  /** Checked-in registrations — the denominator profile-answer coverage is measured against. */
   checkedIn: number;
   firstTimeParticipants: number;
-  beginnerParticipants: number;
-  firstTimeOnSnow: number;
-  profiledAttendees: number;
   volunteerParticipants: number;
   /** Registrants holding a code on an event that does not auto-assign them. */
   assistedParticipants: number;
@@ -678,9 +624,6 @@ export type ProgramImpactRollupInput = {
   discountCodes: DiscountCodeRow[];
   eventVolunteers: PersonEventRow[];
   volunteerHourPeople: PersonEventRow[];
-  beginnerAttendees: PersonEventRow[];
-  firstTimeAttendees: PersonEventRow[];
-  profiledAttendees: PersonEventRow[];
   assistanceExpenses: AssistanceExpenseRow[];
   offeredCodes: OfferedCodeRow[];
   optionCounts: PricedOptionCountRow[];
@@ -702,9 +645,6 @@ export function computeProgramImpactRollup(
       input.registrations,
       input.checkinCounts,
     ),
-    beginnerParticipants: countBeginnerParticipants(input.beginnerAttendees),
-    firstTimeOnSnow: countFirstTimeOnSnow(input.firstTimeAttendees),
-    profiledAttendees: countProfiledAttendees(input.profiledAttendees),
     volunteerParticipants: countVolunteerParticipants(
       input.eventVolunteers,
       input.volunteerHourPeople,

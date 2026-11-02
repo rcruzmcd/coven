@@ -27,7 +27,6 @@ export const MERGEABLE_FIELDS = [
   "website",
   "person_type",
   "source_type",
-  "preferred_mountain",
   "address_line1",
   "address_line2",
   "address_city",

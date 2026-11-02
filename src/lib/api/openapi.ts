@@ -3,6 +3,7 @@ import {
   contactMessageSchema,
   eventRegistrationSchema,
   gearRequestSchema,
+  personAnswersSchema,
   riderProfileSchema,
   volunteerApplicationSchema,
   volunteerStatusLookupSchema,
@@ -266,8 +267,20 @@ const ENDPOINTS: Endpoint[] = [
     operationId: "saveRiderProfile",
     summary: "Attach a rider profile to a registration made in the last day",
     description:
-      "Only for an organization with the Rider Profile add-on; everywhere else it is a 404, like any section an organization does not offer.",
+      "Kept for v1: the four fields are mapped onto the organization's profile questions keyed riding_discipline, ski_level, snowboard_level and preferred_mountain (#1746). An organization without all four answers 410; use /person-answers.",
     body: riderProfileSchema,
+    response: savedResponse,
+    status: 201,
+  },
+  {
+    path: "/person-answers",
+    method: "post",
+    operationId: "savePersonAnswers",
+    summary:
+      "Answer the organization's profile questions after a registration made in the last day",
+    description:
+      "The questions the organization asks after registering for that event, keyed by question key. Never pre-filled: a question left out keeps the stored answer.",
+    body: personAnswersSchema,
     response: savedResponse,
     status: 201,
   },

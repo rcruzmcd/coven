@@ -28,6 +28,8 @@ export type ApiErrorCode =
   | "origin_not_allowed"
   /** The write conflicts with the state of the thing (full, closed, taken). */
   | "conflict"
+  /** A v1 route this organization can no longer answer (#1746). */
+  | "gone"
   /** Something broke on this side. */
   | "server_error";
 
@@ -37,6 +39,7 @@ const STATUS: Record<ApiErrorCode, number> = {
   rate_limited: 429,
   origin_not_allowed: 403,
   conflict: 409,
+  gone: 410,
   server_error: 500,
 };
 
@@ -122,6 +125,17 @@ const RPC_ERRORS: Record<
   RIDER_PROFILE_UNAVAILABLE: {
     code: "not_found",
     message: "No recent registration to attach a rider profile to.",
+  },
+  PERSON_ANSWERS_UNAVAILABLE: {
+    code: "not_found",
+    message: "No recent registration to attach profile answers to.",
+  },
+  // #1746. The rider profile is profile questions now; an organization
+  // without the four keyed questions has nothing this contract can write to.
+  RIDER_PROFILE_GONE: {
+    code: "gone",
+    message:
+      "This organization no longer asks the rider profile questions. Use /person-answers.",
   },
 
   // State of the thing, not of the request.
@@ -271,7 +285,19 @@ const RPC_ERRORS: Record<
   },
   INVALID_RIDER_PROFILE: {
     code: "invalid_request",
-    message: "The riding discipline and experience levels do not agree.",
+    message:
+      "The riding discipline and experience levels do not agree, or name an option this organization does not offer.",
+  },
+  PERSON_ANSWERS_INVALID: {
+    code: "invalid_request",
+    message:
+      "answers names a question this organization does not ask after registering for this event, or an answer that does not fit its question.",
+    field: "answers",
+  },
+  PERSON_ANSWERS_REQUIRED: {
+    code: "invalid_request",
+    message: "A required profile question was left unanswered.",
+    field: "answers",
   },
   NO_ITEMS: {
     code: "invalid_request",

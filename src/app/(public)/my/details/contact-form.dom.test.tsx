@@ -32,10 +32,6 @@ const DETAILS: MyContactDetails = {
   phone: "555-1234",
   pronouns: "she/her",
   instagram_handle: "jane.doe",
-  preferred_mountain: "Hunter",
-  riding_discipline: null,
-  ski_experience_level: null,
-  snowboard_experience_level: null,
   address_line1: "1 Summit Road",
   address_line2: null,
   address_city: "Hunter",
@@ -75,32 +71,11 @@ describe("ContactForm", () => {
   test("gives each group its own section and its legend as the heading", () => {
     render(<ContactForm details={DETAILS} />);
 
-    for (const legend of [
-      "How to reach you",
-      "Where to send things",
-      "What you ride",
-    ]) {
+    for (const legend of ["How to reach you", "Where to send things"]) {
       expect(screen.getByRole("group", { name: legend })).toBeInTheDocument();
     }
-    // The card that used to hold all fourteen of them.
+    // The card that used to hold all fourteen of them (ten since #1746).
     expect(screen.queryByText("Everything else")).toBeNull();
-  });
-
-  test("leaves out the rider group without the rider_profile module, and still sends the stored answers", async () => {
-    // #1408. The group is the module's; the values travel as loaded so
-    // set_my_contact_details() -- which ignores them without the module --
-    // never sees a blank it could mistake for a deletion.
-    const user = userEvent.setup();
-    render(<ContactForm details={DETAILS} showRider={false} />);
-
-    expect(screen.queryByRole("group", { name: "What you ride" })).toBeNull();
-    expect(screen.queryByLabelText("Home mountain")).toBeNull();
-
-    await user.type(screen.getByLabelText("Phone"), "9");
-    await user.click(save());
-
-    const formData = saveMock.mock.calls[0]![0] as FormData;
-    expect(formData.get("preferredMountain")).toBe("Hunter");
   });
 
   // Both boxes used to live in one Field, the second carrying only an
@@ -159,11 +134,11 @@ describe("ContactForm", () => {
       const user = userEvent.setup();
       render(<ContactForm details={DETAILS} />);
 
-      const mountain = screen.getByLabelText("Home mountain");
-      await user.clear(mountain);
+      const city = screen.getByLabelText("City");
+      await user.clear(city);
       expect(save()).toBeEnabled();
 
-      await user.type(mountain, "Hunter");
+      await user.type(city, "Hunter");
       expect(save()).toBeDisabled();
     });
   });

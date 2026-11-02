@@ -31,10 +31,8 @@ import { IconLink } from "@/components/portal/icon-link";
 import { StatusBadge, VisibilityBadge } from "./event-badges";
 import { FiltersSheet } from "@/components/filters-sheet";
 import { OutstandingTasksSheet } from "./outstanding-tasks-sheet";
-import { RiderMountainsSheet } from "./rider-mountains-sheet";
 import { RegistrationSettingsSheet } from "./registration-settings-sheet";
 import { MediaSettingsSheet } from "./media-settings-sheet";
-import { getRiderProfileMountains } from "@/lib/rider-profile-settings";
 import {
   getEventMediaRetentionDays,
   getEventMediaUploadsEnabled,
@@ -105,11 +103,6 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
   // The route layout already requires events:view; asked so the tasks list
   // says who it is for. A view-only role sees it without check-off controls.
   const canViewEvents = hasPermission(permissions, "events", "view");
-  const canManageRiderMountains = hasPermission(
-    permissions,
-    "rider_profiles",
-    "manage",
-  );
   // Events stays a top-level module rather than nesting under Calendar (#530);
   // this is the cross-link that replaces that nesting.
   const canViewCalendar = hasPermission(
@@ -229,7 +222,6 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
   const [
     programsResult,
     eventTasks,
-    riderMountains,
     asksAboutMinors,
     requiresInstagram,
     serviceArea,
@@ -243,11 +235,6 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
           canEdit: canManage,
           nowIso,
         })
-      : Promise.resolve(null),
-    // The rider profile's mountain list (#1408). rider_profiles carries the
-    // rider_profile module, so on a tenant without it nobody pays the read.
-    canManageRiderMountains
-      ? getRiderProfileMountains(supabase)
       : Promise.resolve(null),
     // Registration's under-18 setting (#1416), for whoever can change it.
     canManage
@@ -431,8 +418,6 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
             <LinkPendingPulse>View on Calendar</LinkPendingPulse>
           </Button>
         )}
-
-        {riderMountains && <RiderMountainsSheet mountains={riderMountains} />}
 
         {asksAboutMinors !== null && (
           <RegistrationSettingsSheet

@@ -2,16 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import type { SupabaseClient } from "@supabase/supabase-js";
-import { parsePersonForm, type PersonFormData } from "./person-form";
+import { parsePersonForm } from "./person-form";
 import { parsePublicTeamForm } from "./public-team-form";
 import type { PersonType } from "./people-shared";
-import {
-  checkPermission,
-  checkAnyPermission,
-  getCurrentUserPermissions,
-  hasPermission,
-} from "@/lib/auth/permissions";
+import { checkPermission, checkAnyPermission } from "@/lib/auth/permissions";
 import { checkUser } from "@/lib/auth/current-user";
 import { friendlyError } from "@/lib/db-errors";
 import {
@@ -134,28 +128,6 @@ async function emailConflictError(
   };
 }
 
-/**
- * The person form's payload, minus the four rider columns for a caller without
- * rider_profiles:manage (#1408) -- which is everyone on a tenant without the
- * rider_profile module. Left out rather than nulled, so an update keeps what
- * is stored ("off" is frozen, never cleared) and an insert takes the column
- * default. The form hides the fields for the same reader; this is what makes
- * that more than a convention.
- */
-async function riderFieldsIfAllowed(
-  supabase: SupabaseClient,
-  data: PersonFormData,
-): Promise<Partial<PersonFormData>> {
-  const permissions = await getCurrentUserPermissions(supabase);
-  if (hasPermission(permissions, "rider_profiles", "manage")) return data;
-  const rest: Partial<PersonFormData> = { ...data };
-  delete rest.riding_discipline;
-  delete rest.ski_experience_level;
-  delete rest.snowboard_experience_level;
-  delete rest.preferred_mountain;
-  return rest;
-}
-
 export async function createPersonAction(
   formData: FormData,
   primaryContactPersonId: string | null = null,
@@ -178,7 +150,7 @@ export async function createPersonAction(
   const { data, error } = await supabase
     .from("people")
     .insert({
-      ...(await riderFieldsIfAllowed(supabase, parsed.data)),
+      ...parsed.data,
       is_anonymous: false,
       source_type: "other",
       primary_contact_person_id: primaryContactPersonId,
@@ -257,7 +229,7 @@ export async function updatePersonAction(
   const { error } = await supabase
     .from("people")
     .update({
-      ...(await riderFieldsIfAllowed(supabase, parsed.data)),
+      ...parsed.data,
       primary_contact_person_id: primaryContactPersonId,
     })
     .eq("id", id);
@@ -524,20 +496,20 @@ export async function updatePersonNotificationEmailAction(
 }
 
 /**
- * Honours a request to delete a rider profile.
+ * Honours a request to delete a person's profile answers (#1746, was the
+ * rider profile's).
  *
- * /privacy keeps a rider profile "until you ask us to delete your profile, or
- * after 2 years of inactivity" (#602). The scheduled purge covers the second
+ * /privacy keeps them "until you ask us to delete your profile, or after 2
+ * years of inactivity" (#602). The scheduled purge covers the second
  * half; this is the first, and it is the only retention action a person outside
  * Administration can take.
  *
  * Gated on events:manage as well as people:manage because that request reaches
  * whoever is running the event at least as often as it reaches the directory,
  * and a lead working the door holds events:manage without necessarily holding
- * people:view -- the same asymmetry set_registrant_rider_profile was written
- * around. The RPC re-checks both rather than trusting this call site.
+ * people:view -- the same asymmetry set_registrant_person_answers() serves. The RPC re-checks both rather than trusting this call site.
  */
-export async function deleteRiderProfileAction(
+export async function deletePersonAnswersAction(
   personId: string,
   reason?: string,
 ): Promise<{ error: string } | { success: true }> {
@@ -545,7 +517,7 @@ export async function deleteRiderProfileAction(
 
   const userResult = await checkUser(
     supabase,
-    "You must be signed in to delete a rider profile.",
+    "You must be signed in to delete profile answers.",
   );
   if ("error" in userResult) return userResult;
 
@@ -555,13 +527,13 @@ export async function deleteRiderProfileAction(
   ]);
   if (permissionError) return permissionError;
 
-  const { error } = await supabase.rpc("delete_rider_profile", {
+  const { error } = await supabase.rpc("delete_person_answers", {
     p_person_id: personId,
     p_reason: reason?.trim() ? reason.trim() : null,
   });
 
   if (error) {
-    return { error: "Could not delete this rider profile. Please try again." };
+    return { error: "Could not delete these answers. Please try again." };
   }
 
   revalidatePath("/portal/people");

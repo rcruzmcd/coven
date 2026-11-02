@@ -241,45 +241,86 @@ describe("sharesContact", () => {
   });
 });
 
-describe("registrantAnswersCsv rider columns", () => {
-  const RIDER = {
-    riding_discipline_at_event: null,
-    ski_experience_level_at_event: null,
-    snowboard_experience_level_at_event: null,
-    riding_discipline: "both",
-    ski_experience_level: "advanced",
-    snowboard_experience_level: "beginner",
+// #1746. The rider profile's three columns became one per profile question.
+describe("registrantAnswersCsv profile columns", () => {
+  const DISCIPLINE = {
+    id: "pq-discipline",
+    prompt: "Do you ski or ride?",
+    column_label: "Rides",
+    snapshot_at_checkin: true,
+  };
+  const MOUNTAIN = {
+    id: "pq-mountain",
+    prompt: "Which mountain do you usually ride?",
+    column_label: null,
+    snapshot_at_checkin: false,
   };
 
-  test("Rides, Ski level and Snowboard level, after the questions and before contact", () => {
+  test("one column per question, after the questions and before contact", () => {
     const csv = registrantAnswersCsv(
       [GETTING_THERE, SHARE],
       [
         registration({
-          rider: RIDER,
           answers: [{ question_id: SHARE.id, answer_text: "Yes", value: true }],
+          profile: {
+            snapshots: [],
+            answers: [
+              { question_id: DISCIPLINE.id, answer_text: "Both" },
+              { question_id: MOUNTAIN.id, answer_text: "Hunter" },
+            ],
+          },
         }),
-        registration({ name: "Sam Lee", party_size: 1, rider: null }),
+        registration({ name: "Sam Lee", party_size: 1 }),
       ],
-      { riders: true },
+      { profileQuestions: [DISCIPLINE, MOUNTAIN] },
     );
 
     expect(lines(csv)).toEqual([
-      "Name,Party size,Getting there,OK to share my contact details with our partner,Answers changed,Rides,Ski level,Snowboard level,Instagram,Preferred contact,Email,Phone,Contact detail",
-      "Jamie Rivera,2,,Yes,,Both,Advanced,Beginner,jamie.rides,,jamie@example.test,555-0100,",
-      "Sam Lee,1,,,,,,,jamie.rides,,,,",
+      "Name,Party size,Getting there,OK to share my contact details with our partner,Answers changed,Rides,Which mountain do you usually ride?,Instagram,Preferred contact,Email,Phone,Contact detail",
+      "Jamie Rivera,2,,Yes,,Both,Hunter,jamie.rides,,jamie@example.test,555-0100,",
+      "Sam Lee,1,,,,,,jamie.rides,,,,",
     ]);
   });
 
-  test("left out without the flag, whatever the rows carry", () => {
+  // The rule every figure reads: a snapshotted question as of check-in where
+  // the registration was snapshotted; anything else as it stands now.
+  test("a snapshotted question reads the check-in snapshot first", () => {
+    const csv = registrantAnswersCsv(
+      [],
+      [
+        registration({
+          profile: {
+            snapshots: [
+              { question_id: DISCIPLINE.id, answer_text: "Snowboard" },
+            ],
+            answers: [
+              { question_id: DISCIPLINE.id, answer_text: "Both" },
+              { question_id: MOUNTAIN.id, answer_text: "Hunter" },
+            ],
+          },
+        }),
+      ],
+      { profileQuestions: [DISCIPLINE, MOUNTAIN] },
+    );
+    expect(lines(csv)[1]).toBe("Jamie Rivera,2,,Snowboard,Hunter,jamie.rides,");
+  });
+
+  test("left out without profile questions, whatever the rows carry", () => {
     const csv = registrantAnswersCsv(
       [GETTING_THERE],
-      [registration({ rider: RIDER })],
+      [
+        registration({
+          profile: {
+            snapshots: [],
+            answers: [{ question_id: DISCIPLINE.id, answer_text: "Both" }],
+          },
+        }),
+      ],
     );
     expect(lines(csv)[0]).toBe(
       "Name,Party size,Getting there,Answers changed,Instagram,Preferred contact",
     );
-    expect(csv).not.toContain("Advanced");
+    expect(csv).not.toContain("Both");
   });
 });
 

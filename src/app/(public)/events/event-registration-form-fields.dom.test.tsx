@@ -41,7 +41,7 @@ type Clicker = { click: (element: Element) => Promise<unknown> };
  * case can call it without knowing which step it is on.
  */
 async function toThisEvent(user: Clicker = userEvent) {
-  if (screen.queryByRole("group", { name: /This event|Your riding/ })) return;
+  if (screen.queryByRole("group", { name: /This event/ })) return;
   await user.click(screen.getByRole("button", { name: "Next" }));
 }
 
@@ -700,96 +700,6 @@ describe("EventRegistrationForm and the minors question", () => {
       expect(photos).toBeGreaterThan(notice);
       expect(agreement).toBeGreaterThan(photos);
     });
-  });
-});
-
-// #1415. The riding questions are step 2 where the tenant has the module, and
-// the follow-up after the confirmation is gone.
-describe("EventRegistrationForm and the riding questions", () => {
-  const RIDER_PROFILE = { mountains: ["Whistler", "Mount Hood"] };
-
-  beforeEach(() => {
-    registerForEventActionMock.mockClear();
-  });
-
-  test("a tenant without the module is asked nothing about riding", async () => {
-    const user = userEvent.setup();
-    render(<EventRegistrationForm eventId="event-1" />);
-
-    await fillAboutYou(user);
-    await toThisEvent(user);
-    expect(screen.getByRole("group", { name: /This event/ })).toBeVisible();
-    expect(
-      screen.queryByText(/Do you ski or snowboard/),
-    ).not.toBeInTheDocument();
-
-    await sayNoMinors(user);
-    await submit(user);
-    expect(lastSubmission()).not.toHaveProperty("ridingAsked");
-    expect(await screen.findByText(/You're registered/)).toBeVisible();
-    expect(
-      screen.queryByText(/Do you ski or snowboard/),
-    ).not.toBeInTheDocument();
-  });
-
-  test('step 2 is "Your riding", and the discipline is required', async () => {
-    const user = userEvent.setup();
-    render(
-      <EventRegistrationForm eventId="event-1" riderProfile={RIDER_PROFILE} />,
-    );
-
-    await fillAboutYou(user);
-    await toThisEvent(user);
-    expect(screen.getByRole("group", { name: /Your riding/ })).toBeVisible();
-
-    await sayNoMinors(user);
-    await user.click(screen.getByRole("button", { name: "Next" }));
-    // Unanswered, so Next stays on the step.
-    expect(screen.getByRole("group", { name: /Your riding/ })).toBeVisible();
-    expect(registerForEventActionMock).not.toHaveBeenCalled();
-  });
-
-  test("posts the answers, shows them on review, and asks nothing after", async () => {
-    const user = userEvent.setup();
-    render(
-      <EventRegistrationForm eventId="event-1" riderProfile={RIDER_PROFILE} />,
-    );
-
-    await fillAboutYou(user);
-    await sayNoMinors(user);
-    await user.click(
-      screen.getByRole("combobox", { name: /ski or snowboard/ }),
-    );
-    await user.click(screen.getByRole("option", { name: "Skis" }));
-    await user.click(
-      screen.getByRole("combobox", { name: /Experience on skis/ }),
-    );
-    await user.click(screen.getByRole("option", { name: "Advanced" }));
-    await user.click(screen.getByRole("combobox", { name: /mountain/ }));
-    await user.click(screen.getByRole("option", { name: "Mount Hood" }));
-    await user.click(screen.getByRole("button", { name: "Next" }));
-
-    const review = screen.getByRole("group", { name: /Review and agree/ });
-    expect(review).toHaveTextContent("Skis or snowboard");
-    expect(review).toHaveTextContent("Mount Hood");
-    expect(
-      screen.getByRole("button", { name: "Edit your riding" }),
-    ).toBeInTheDocument();
-
-    await user.click(
-      screen.getByRole("button", { name: "Complete registration" }),
-    );
-    expect(lastSubmission()).toMatchObject({
-      ridingAsked: "on",
-      ridingDiscipline: "ski",
-      skiExperienceLevel: "advanced",
-      preferredMountain: "Mount Hood",
-    });
-    expect(await screen.findByText(/You're registered/)).toBeVisible();
-    expect(screen.queryByText("One more thing")).not.toBeInTheDocument();
-    expect(
-      screen.queryByText(/Do you ski or snowboard/),
-    ).not.toBeInTheDocument();
   });
 });
 

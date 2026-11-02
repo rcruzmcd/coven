@@ -581,3 +581,33 @@ export async function requireVisiblePage(
     notFound();
   }
 }
+
+/**
+ * Whether the tenant asks a person any profile question after registration or
+ * on `/my/details` (#1746): the privacy policy's `profileQuestions` surface.
+ * `public_asks_profile_questions()` on the public side, its portal twin for
+ * the selected tenant. Fails open, like the module reads: describing a
+ * question nobody is asked is survivable, leaving out one that is is not.
+ */
+async function readAsksProfileQuestions(
+  supabase: SupabaseClient,
+  rpc: "public_asks_profile_questions" | "tenant_asks_profile_questions",
+): Promise<boolean> {
+  const { data, error } = await supabase.rpc(rpc);
+  if (error) {
+    console.error(
+      `[page-visibility] could not read ${rpc}; the privacy policy is describing profile questions`,
+      error,
+    );
+    return true;
+  }
+  return data !== false;
+}
+
+export const getPublicAsksProfileQuestions = cache((supabase: SupabaseClient) =>
+  readAsksProfileQuestions(supabase, "public_asks_profile_questions"),
+);
+
+export const getTenantAsksProfileQuestions = cache((supabase: SupabaseClient) =>
+  readAsksProfileQuestions(supabase, "tenant_asks_profile_questions"),
+);

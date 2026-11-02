@@ -3,15 +3,6 @@
 import { PERSON_TYPES, type PersonType, type RoleKey } from "./people-shared";
 import { PERSON_ROLES, personRoleLabel } from "@/lib/person-roles";
 import { useLexicon } from "@/components/lexicon-context";
-import { useRiderProfileAccess } from "@/lib/portal/rider-profile-context";
-import {
-  EXPERIENCE_LEVELS,
-  RIDING_DISCIPLINES,
-  experienceLevelLabel,
-  ridesSki,
-  ridesSnowboard,
-  ridingDisciplineLabel,
-} from "@/lib/rider-profile";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -45,10 +36,6 @@ export type PersonFormState = {
    */
   sponsorWallPublic: boolean;
   personType: PersonType;
-  ridingDiscipline: string;
-  skiExperienceLevel: string;
-  snowboardExperienceLevel: string;
-  preferredMountain: string;
   /**
    * The postal address (#1164). Staff-editable here and self-editable on
    * `/my/details`, which is the only pair of surfaces that write it -- the
@@ -88,10 +75,6 @@ export function emptyPersonForm(
     },
     sponsorWallPublic: false,
     personType: defaultPersonType,
-    ridingDiscipline: "",
-    skiExperienceLevel: "",
-    snowboardExperienceLevel: "",
-    preferredMountain: "",
     addressLine1: "",
     addressLine2: "",
     addressCity: "",
@@ -140,12 +123,6 @@ export function PersonFormFields({
   // on eight segment pages and inside the profile card's edit mode, and a prop
   // threaded through all of them is one that gets dropped.
   const vocabulary = useLexicon();
-  // The rider fields are the rider_profile module's (#1408), and editing them
-  // takes rider_profiles:manage. Hidden rather than disabled: on a tenant
-  // without the module they are not a thing this form is about. The values
-  // stay in `form` and are sent as loaded, and the server action leaves them
-  // out for this reader anyway.
-  const showRider = useRiderProfileAccess().canManage;
 
   function toggleRole(key: RoleKey, checked: boolean) {
     update("roles", { ...form.roles, [key]: checked });
@@ -307,7 +284,7 @@ export function PersonFormFields({
         </Select>
         <FieldDescription>
           Decides what the record holds: an organization has a logo, a website
-          and members; an individual has a rider profile.
+          and members; an individual has profile answers.
         </FieldDescription>
       </Field>
 
@@ -379,116 +356,6 @@ export function PersonFormFields({
         </Field>
       )}
 
-      {!isOrganization && showRider && (
-        <Field orientation="responsive">
-          <Field>
-            <FieldLabel htmlFor={`${idPrefix}-ridingDiscipline`}>
-              Rides
-            </FieldLabel>
-            <Select
-              value={form.ridingDiscipline}
-              onValueChange={(value) =>
-                update("ridingDiscipline", String(value ?? ""))
-              }
-            >
-              <SelectTrigger
-                id={`${idPrefix}-ridingDiscipline`}
-                className="w-full"
-              >
-                <SelectValue placeholder="Not recorded">
-                  {(value: string) => ridingDisciplineLabel(value)}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {RIDING_DISCIPLINES.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
-          <Field>
-            <FieldLabel htmlFor={`${idPrefix}-preferredMountain`}>
-              Home mountain
-            </FieldLabel>
-            <Input
-              id={`${idPrefix}-preferredMountain`}
-              value={form.preferredMountain}
-              onChange={(event) =>
-                update("preferredMountain", event.target.value)
-              }
-            />
-          </Field>
-        </Field>
-      )}
-
-      {!isOrganization &&
-        showRider &&
-        (ridesSki(form.ridingDiscipline) ||
-          ridesSnowboard(form.ridingDiscipline)) && (
-          <Field orientation="responsive">
-            {ridesSki(form.ridingDiscipline) && (
-              <Field>
-                <FieldLabel htmlFor={`${idPrefix}-skiExperienceLevel`}>
-                  Ski experience
-                </FieldLabel>
-                <Select
-                  value={form.skiExperienceLevel}
-                  onValueChange={(value) =>
-                    update("skiExperienceLevel", String(value ?? ""))
-                  }
-                >
-                  <SelectTrigger
-                    id={`${idPrefix}-skiExperienceLevel`}
-                    className="w-full"
-                  >
-                    <SelectValue placeholder="Not recorded">
-                      {(value: string) => experienceLevelLabel(value)}
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {EXPERIENCE_LEVELS.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
-            )}
-            {ridesSnowboard(form.ridingDiscipline) && (
-              <Field>
-                <FieldLabel htmlFor={`${idPrefix}-snowboardExperienceLevel`}>
-                  Snowboard experience
-                </FieldLabel>
-                <Select
-                  value={form.snowboardExperienceLevel}
-                  onValueChange={(value) =>
-                    update("snowboardExperienceLevel", String(value ?? ""))
-                  }
-                >
-                  <SelectTrigger
-                    id={`${idPrefix}-snowboardExperienceLevel`}
-                    className="w-full"
-                  >
-                    <SelectValue placeholder="Not recorded">
-                      {(value: string) => experienceLevelLabel(value)}
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {EXPERIENCE_LEVELS.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
-            )}
-          </Field>
-        )}
-
       <Field>
         <FieldLabel htmlFor={`${idPrefix}-notes`}>Notes</FieldLabel>
         <Textarea
@@ -558,10 +425,6 @@ export function packPersonFormData(form: PersonFormState) {
   // whole tag set each time, so an omitted flag would read as "unpublish".
   formData.set("sponsorWallPublic", String(form.sponsorWallPublic));
   formData.set("personType", form.personType);
-  formData.set("ridingDiscipline", form.ridingDiscipline);
-  formData.set("skiExperienceLevel", form.skiExperienceLevel);
-  formData.set("snowboardExperienceLevel", form.snowboardExperienceLevel);
-  formData.set("preferredMountain", form.preferredMountain);
   formData.set("addressLine1", form.addressLine1);
   formData.set("addressLine2", form.addressLine2);
   formData.set("addressCity", form.addressCity);

@@ -15,23 +15,8 @@ import {
 import { FieldRow } from "@/components/field-row";
 import { Input } from "@/components/ui/input";
 import { PronounsField } from "@/components/pronouns-field";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
-import {
-  EXPERIENCE_LEVELS,
-  RIDING_DISCIPLINES,
-  experienceLevelLabel,
-  ridesSki,
-  ridesSnowboard,
-  ridingDisciplineLabel,
-} from "@/lib/rider-profile";
 import type {
   ContactFieldErrors,
   ContactFieldName,
@@ -55,22 +40,16 @@ import {
 const FIELD_IDS: Record<ContactFieldName, string> = {
   pronouns: "my-pronouns",
   instagramHandle: "my-instagramHandle",
-  ridingDiscipline: "my-ridingDiscipline",
 };
 
 /** What the summary calls each field, matching its label on screen. */
 const FIELD_LABELS: Record<ContactFieldName, string> = {
   pronouns: "Pronouns",
   instagramHandle: "Instagram",
-  ridingDiscipline: "Rides",
 };
 
 /** Reading order, which is the order to list problems and to focus in. */
-const FIELD_ORDER: ContactFieldName[] = [
-  "pronouns",
-  "instagramHandle",
-  "ridingDiscipline",
-];
+const FIELD_ORDER: ContactFieldName[] = ["pronouns", "instagramHandle"];
 
 function errorId(name: ContactFieldName): string {
   return `${FIELD_IDS[name]}-error`;
@@ -106,10 +85,6 @@ type ContactFormValues = {
   phone: string;
   pronouns: string;
   instagramHandle: string;
-  preferredMountain: string;
-  ridingDiscipline: string;
-  skiExperienceLevel: string;
-  snowboardExperienceLevel: string;
   addressLine1: string;
   addressLine2: string;
   addressCity: string;
@@ -124,10 +99,6 @@ function valuesOf(details: MyContactDetails): ContactFormValues {
     phone: details.phone ?? "",
     pronouns: details.pronouns ?? "",
     instagramHandle: details.instagram_handle ?? "",
-    preferredMountain: details.preferred_mountain ?? "",
-    ridingDiscipline: details.riding_discipline ?? "",
-    skiExperienceLevel: details.ski_experience_level ?? "",
-    snowboardExperienceLevel: details.snowboard_experience_level ?? "",
     addressLine1: details.address_line1 ?? "",
     addressLine2: details.address_line2 ?? "",
     addressCity: details.address_city ?? "",
@@ -168,19 +139,14 @@ function valuesOf(details: MyContactDetails): ContactFormValues {
  * shadcn's label-beside-control layout, and used as a two-column grid it
  * centred each pair against itself and sized each column to its contents.
  *
- * The rider group renders only for a tenant with the rider_profile module
- * (#1408). The values still travel with the form, as they were loaded, and
- * `set_my_contact_details()` ignores them without the module -- so hiding the
- * group can never blank what a person told the organization before.
+ * What a person rides is a profile question now (#1746), in the group below.
  */
 export function ContactForm({
   details,
-  showRider = true,
   profileQuestions = [],
   profileAnswers = {},
 }: {
   details: MyContactDetails;
-  showRider?: boolean;
   /**
    * The organization's profile questions asked here (#1744), and the
    * reader's own current answers. Empty for a tenant asking none, which
@@ -289,8 +255,8 @@ export function ContactForm({
       setFieldErrors(result.fieldErrors ?? {});
       // Take somebody who pressed Save at the foot of the page to the problem,
       // rather than telling them one exists somewhere above. getElementById
-      // rather than a ref because one of the three is a Select whose trigger
-      // this component does not hold; the id is the handle all three share.
+      // rather than a ref because the pronouns control is a component whose
+      // input this one does not hold; the id is the handle both share.
       const firstInvalid = FIELD_ORDER.find(
         (name) => result.fieldErrors?.[name],
       );
@@ -459,135 +425,6 @@ export function ContactForm({
           </FieldGroup>
         </FieldSet>
       </div>
-
-      {showRider && (
-        <div className={GROUP_CLASS}>
-          <FieldSet className={FIELDSET_CLASS}>
-            <FieldLegend className={LEGEND_CLASS}>What you ride</FieldLegend>
-            <FieldGroup>
-              <FieldRow>
-                <Field>
-                  <FieldLabel htmlFor="my-ridingDiscipline">Rides</FieldLabel>
-                  <Select
-                    value={form.ridingDiscipline}
-                    onValueChange={(value) =>
-                      update("ridingDiscipline", String(value ?? ""))
-                    }
-                  >
-                    <SelectTrigger
-                      id="my-ridingDiscipline"
-                      className="w-full"
-                      aria-invalid={
-                        fieldErrors.ridingDiscipline ? true : undefined
-                      }
-                      aria-describedby={
-                        fieldErrors.ridingDiscipline
-                          ? errorId("ridingDiscipline")
-                          : undefined
-                      }
-                    >
-                      <SelectValue placeholder="Not recorded">
-                        {(value: string) => ridingDisciplineLabel(value)}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {RIDING_DISCIPLINES.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {fieldErrors.ridingDiscipline && (
-                    <FieldError id={errorId("ridingDiscipline")}>
-                      {fieldErrors.ridingDiscipline}
-                    </FieldError>
-                  )}
-                </Field>
-                <Field>
-                  <FieldLabel htmlFor="my-preferredMountain">
-                    Home mountain
-                  </FieldLabel>
-                  <Input
-                    id="my-preferredMountain"
-                    value={form.preferredMountain}
-                    onChange={(event) =>
-                      update("preferredMountain", event.target.value)
-                    }
-                  />
-                </Field>
-              </FieldRow>
-
-              {(ridesSki(form.ridingDiscipline) ||
-                ridesSnowboard(form.ridingDiscipline)) && (
-                <FieldRow>
-                  {ridesSki(form.ridingDiscipline) && (
-                    <Field>
-                      <FieldLabel htmlFor="my-skiExperienceLevel">
-                        Ski experience
-                      </FieldLabel>
-                      <Select
-                        value={form.skiExperienceLevel}
-                        onValueChange={(value) =>
-                          update("skiExperienceLevel", String(value ?? ""))
-                        }
-                      >
-                        <SelectTrigger
-                          id="my-skiExperienceLevel"
-                          className="w-full"
-                        >
-                          <SelectValue placeholder="Not recorded">
-                            {(value: string) => experienceLevelLabel(value)}
-                          </SelectValue>
-                        </SelectTrigger>
-                        <SelectContent>
-                          {EXPERIENCE_LEVELS.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </Field>
-                  )}
-                  {ridesSnowboard(form.ridingDiscipline) && (
-                    <Field>
-                      <FieldLabel htmlFor="my-snowboardExperienceLevel">
-                        Snowboard experience
-                      </FieldLabel>
-                      <Select
-                        value={form.snowboardExperienceLevel}
-                        onValueChange={(value) =>
-                          update(
-                            "snowboardExperienceLevel",
-                            String(value ?? ""),
-                          )
-                        }
-                      >
-                        <SelectTrigger
-                          id="my-snowboardExperienceLevel"
-                          className="w-full"
-                        >
-                          <SelectValue placeholder="Not recorded">
-                            {(value: string) => experienceLevelLabel(value)}
-                          </SelectValue>
-                        </SelectTrigger>
-                        <SelectContent>
-                          {EXPERIENCE_LEVELS.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </Field>
-                  )}
-                </FieldRow>
-              )}
-            </FieldGroup>
-          </FieldSet>
-        </div>
-      )}
 
       {profileQuestions.length > 0 && (
         <div className={GROUP_CLASS}>

@@ -22,7 +22,7 @@ import {
  * differently from the other.
  *
  * A select with a placeholder rather than a required choice, the same shape
- * the rider-profile questions use: leaving it alone is the third state, and it
+ * the profile questions use: leaving it alone is the third state, and it
  * is stored as null rather than as "no". The question is optional and the
  * description says so, because a registration is already saved either way.
  *

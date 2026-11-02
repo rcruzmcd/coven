@@ -19,6 +19,7 @@ import {
   createPublishedEvent,
   seededTenantId,
   serviceRoleClient,
+  setProfileAnswers,
   signInAs,
 } from "../../../../../test/integration-setup";
 import { SEEDED_EVENT_IDS } from "../../../../../test/seed-fixtures";
@@ -133,6 +134,28 @@ async function seedEvent() {
   };
 }
 
+/** One of the seeded tenant's metric rows (#1746), by key. */
+function metric(
+  data: {
+    answerMetrics:
+      { key: string | null; count: number; answered: number }[] | null;
+  },
+  key: string,
+) {
+  return data.answerMetrics?.find((row) => row.key === key);
+}
+
+/** Checks the registration in again, which is what takes the snapshot. */
+async function recheckIn(registrationId: string) {
+  for (const checked_in_at of [null, new Date().toISOString()]) {
+    const { error } = await adminClient
+      .from("event_registrations")
+      .update({ checked_in_at })
+      .eq("id", registrationId);
+    if (error) throw error;
+  }
+}
+
 describe("get_event_impact_derived_data (integration)", () => {
   test("admin sees participation, volunteer and discount figures", async () => {
     const seeded = await seedEvent();
@@ -213,62 +236,56 @@ describe("get_event_impact_derived_data (integration)", () => {
     await seeded.cleanup();
   });
 
-  // Issue #653: the beginner figure reads the level frozen at check-in, and
-  // only falls back to the live person row where no snapshot was taken.
-  test("beginner participants follow the check-in snapshot, not later profile edits", async () => {
+  // Issue #653, on profile questions since #1746: the beginner figure reads
+  // the level snapshotted at check-in, and only falls back to the current
+  // answer where no snapshot was taken.
+  test("beginner participants follow the check-in snapshot, not later edits", async () => {
     const seeded = await seedEvent();
-    const setSnapshot = await adminClient
-      .from("event_registrations")
-      .update({
-        riding_discipline_at_event: "snowboard",
-        snowboard_experience_level_at_event: "beginner",
-      })
-      .eq("event_id", seeded.event.id);
-    if (setSnapshot.error) throw setSnapshot.error;
+    await setProfileAnswers(seeded.person.id, {
+      riding_discipline: "snowboard",
+      snowboard_level: "beginner",
+    });
+    await recheckIn(seeded.registrationId);
 
     // The person has since moved on; the event's figure must not.
-    const movedOn = await adminClient
-      .from("people")
-      .update({
-        riding_discipline: "snowboard",
-        snowboard_experience_level: "advanced",
-      })
-      .eq("id", seeded.person.id);
-    if (movedOn.error) throw movedOn.error;
+    await setProfileAnswers(seeded.person.id, {
+      riding_discipline: "snowboard",
+      snowboard_level: "advanced",
+    });
 
     currentSupabase = await signInAs(SEEDED_USERS.admin);
     const result = await getEventImpactDerivedAction(seeded.event.id);
     if ("error" in result) throw new Error(result.error);
 
-    expect(result.data.beginnerParticipants).toBe(1);
-    expect(result.data.profiledAttendees).toBe(1);
+    expect(metric(result.data, "beginner_participants")).toMatchObject({
+      count: 1,
+      answered: 1,
+    });
 
     await seeded.cleanup();
   });
 
-  test("with no snapshot the live profile still counts", async () => {
+  test("with no snapshot the current answer still counts", async () => {
     const seeded = await seedEvent();
 
     currentSupabase = await signInAs(SEEDED_USERS.admin);
     const before = await getEventImpactDerivedAction(seeded.event.id);
     if ("error" in before) throw new Error(before.error);
-    expect(before.data.profiledAttendees).toBe(0);
+    expect(metric(before.data, "beginner_participants")?.answered).toBe(0);
 
-    // Entered after the event, the way the People module or the door-side
-    // dialog would for somebody nobody asked at the time.
-    const filledIn = await adminClient
-      .from("people")
-      .update({
-        riding_discipline: "ski",
-        ski_experience_level: "beginner",
-      })
-      .eq("id", seeded.person.id);
-    if (filledIn.error) throw filledIn.error;
+    // Answered after the event, the way the person form or the door would
+    // for somebody nobody asked at the time.
+    await setProfileAnswers(seeded.person.id, {
+      riding_discipline: "ski",
+      ski_level: "beginner",
+    });
 
     const after = await getEventImpactDerivedAction(seeded.event.id);
     if ("error" in after) throw new Error(after.error);
-    expect(after.data.beginnerParticipants).toBe(1);
-    expect(after.data.profiledAttendees).toBe(1);
+    expect(metric(after.data, "beginner_participants")).toMatchObject({
+      count: 1,
+      answered: 1,
+    });
 
     await seeded.cleanup();
   });
@@ -332,24 +349,22 @@ describe("get_event_impact_derived_data (integration)", () => {
     await seeded.cleanup();
   });
 
-  test("first time on snow reads the first_time level at check-in", async () => {
+  // Seeded with `any`, which is what the rider columns counted: a first
+  // time on either board counts, even beside a beginner level on the other.
+  test("first time on snow counts a first_time level on either discipline", async () => {
     const seeded = await seedEvent();
-    const setSnapshot = await adminClient
-      .from("event_registrations")
-      .update({
-        riding_discipline_at_event: "ski",
-        ski_experience_level_at_event: "first_time",
-      })
-      .eq("event_id", seeded.event.id);
-    if (setSnapshot.error) throw setSnapshot.error;
+    await setProfileAnswers(seeded.person.id, {
+      riding_discipline: "both",
+      ski_level: "first_time",
+      snowboard_level: "beginner",
+    });
+    await recheckIn(seeded.registrationId);
 
     currentSupabase = await signInAs(SEEDED_USERS.admin);
     const result = await getEventImpactDerivedAction(seeded.event.id);
     if ("error" in result) throw new Error(result.error);
-    expect(result.data.firstTimeOnSnow).toBe(1);
-    // The levels are exclusive: a first-timer is not also a beginner.
-    expect(result.data.beginnerParticipants).toBe(0);
-    expect(result.data.profiledAttendees).toBe(1);
+    expect(metric(result.data, "first_time_on_snow")?.count).toBe(1);
+    expect(metric(result.data, "beginner_participants")?.count).toBe(1);
     await seeded.cleanup();
   });
 

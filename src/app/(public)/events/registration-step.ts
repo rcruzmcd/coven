@@ -30,7 +30,7 @@ const ABOUT_ERROR_CODES = new Set([
   ...REGISTRATION_CONTACT_ERROR_CODES,
 ]);
 
-/** RPC error codes about something typed on "This event" ("Your riding"). */
+/** RPC error codes about something typed on "This event". */
 const EVENT_ERROR_CODES = new Set([
   "INVALID_PARTY_SIZE",
   MINOR_CONTACTS_REQUIRED_CODE,
@@ -41,8 +41,6 @@ const EVENT_ERROR_CODES = new Set([
   ...REGISTRATION_OPTION_ERROR_CODES,
   // #1501. The event's questions are asked on this step too.
   ...REGISTRATION_ANSWER_ERROR_CODES,
-  // #1415. The riding questions are asked on this step.
-  "INVALID_RIDER_PROFILE",
 ]);
 
 /**
@@ -64,7 +62,6 @@ const EVENT_FIELDS = new Set([
   "partySize",
   "partyIncludesMinor",
   "minorContacts",
-  "riding",
   "answers",
 ]);
 
