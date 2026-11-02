@@ -379,6 +379,24 @@ export const PERMISSION_DOCS: Record<string, PermissionDoc> = {
       },
     ],
   },
+  person_answers: {
+    view: "See the organization's profile questions and people's answers to them, wherever the surrounding screen is already open to you.",
+    manage:
+      "Create, edit, reorder, scope and archive the profile questions at People › Profile questions, and edit a person's answers: on the person form (which also needs People at Manage) and at the door from an event's registrants (which also needs Events at Manage).",
+    excludes: [
+      { key: "people", covers: "the rest of a person's record" },
+      {
+        key: "events",
+        covers: "the questions one event asks at registration",
+      },
+    ],
+    notes: [
+      "One permission for every question; there is no per-question restriction yet.",
+      "Belongs to the Profile questions module, which is on for every organization. An organization with no questions asks nobody anything.",
+      "Seeded from each role's Rider profiles access, which it will replace, so nobody's access changed when it arrived.",
+      "A person answering on their own (after registering for an event, or on their details page) needs no permission: those paths check the registration or the signed-in account instead.",
+    ],
+  },
   people_intake: {
     view: null,
     manage:

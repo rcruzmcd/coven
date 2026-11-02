@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Eye } from "lucide-react";
+import { Eye, ListChecks } from "lucide-react";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   getCurrentUserPermissions,
@@ -38,6 +38,7 @@ import {
 } from "@/components/portal/list-navigation";
 import { StatTile } from "../home/stat-tile";
 import { NewPersonDialog } from "./new-person-dialog";
+import { PROFILE_QUESTIONS_PATH } from "./profile-questions/profile-questions-draft";
 import {
   accountEmailToShow,
   PEOPLE_WITH_ROLES,
@@ -114,6 +115,13 @@ export async function PeopleDirectory({
   const canReviewClaims = hasPermission(
     permissions,
     "constituent_claims",
+    "manage",
+  );
+  // The settings view beside this list (#1743): what the organization asks
+  // about a person. Its module gates the permission, as with claims.
+  const canEditProfileQuestions = hasPermission(
+    permissions,
+    "person_answers",
     "manage",
   );
   // Every word this page shows -- the heading, the New button, the role facet,
@@ -305,6 +313,19 @@ export async function PeopleDirectory({
                 render={<Link href="/portal/people/claims" />}
               >
                 <LinkPendingPulse>Account claims</LinkPendingPulse>
+              </Button>
+            )}
+
+            {/* Beside the other whole-directory entries: the questions are
+              asked of everybody, whatever segment they sit in. */}
+            {canEditProfileQuestions && segment.isAllPeople && (
+              <Button
+                variant="outline"
+                nativeButton={false}
+                render={<Link href={PROFILE_QUESTIONS_PATH} />}
+              >
+                <ListChecks className="size-4" />
+                <LinkPendingPulse>Profile questions</LinkPendingPulse>
               </Button>
             )}
 
