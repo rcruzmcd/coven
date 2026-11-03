@@ -6,12 +6,18 @@ import {
   ArchiveRestore,
   ArrowDown,
   ArrowUp,
+  ChevronRight,
   Plus,
   Trash2,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import {
   Field,
   FieldContent,
@@ -190,6 +196,7 @@ export function QuestionCard({
   onMove,
   onRemove,
   children,
+  groups,
 }: {
   questions: readonly QuestionDraft[];
   index: number;
@@ -205,6 +212,13 @@ export function QuestionCard({
   onRemove: () => void;
   /** What this owner adds to a question, above its condition. */
   children?: ReactNode;
+  /**
+   * Lays the card out in titled groups (#1761) instead of one column: the
+   * question itself, who is asked (this owner's fields, then the condition)
+   * and a collapsed Data group (the column name, then this owner's fields).
+   * `children` is ignored when given. Absent, the card is unchanged.
+   */
+  groups?: { whoIsAsked: ReactNode; data: ReactNode };
 }) {
   const question = questions[index];
   const number = index + 1;
@@ -230,8 +244,8 @@ export function QuestionCard({
 
   const offered = question.options.filter((option) => !option.archived).length;
 
-  return (
-    <li className="flex flex-col gap-4 rounded-lg border p-3">
+  const header = (
+    <>
       <div className="flex items-center gap-2">
         <span className="flex-1 text-sm font-medium">Question {number}</span>
         <IconAction
@@ -253,7 +267,10 @@ export function QuestionCard({
           onClick={onRemove}
         />
       </div>
-
+    </>
+  );
+  const promptField = (
+    <>
       <Field>
         <FieldLabel htmlFor={`${id}-prompt`} required>
           Prompt
@@ -267,7 +284,10 @@ export function QuestionCard({
           onChange={(event) => onUpdate({ prompt: event.target.value })}
         />
       </Field>
-
+    </>
+  );
+  const columnLabelField = (
+    <>
       {/* #1512. The prompt is a sentence; the registrants list needs a word
           or two to head a column with. */}
       <Field>
@@ -289,7 +309,10 @@ export function QuestionCard({
             : columnLabel.description}
         </FieldDescription>
       </Field>
-
+    </>
+  );
+  const kindField = (
+    <>
       <Field>
         <FieldLabel htmlFor={`${id}-kind`}>Answer type</FieldLabel>
         <Select
@@ -311,7 +334,10 @@ export function QuestionCard({
           </SelectContent>
         </Select>
       </Field>
-
+    </>
+  );
+  const helpField = (
+    <>
       <Field>
         <FieldLabel htmlFor={`${id}-help`}>Help text</FieldLabel>
         <Input
@@ -323,7 +349,10 @@ export function QuestionCard({
           onChange={(event) => onUpdate({ help: event.target.value })}
         />
       </Field>
-
+    </>
+  );
+  const kindSettings = (
+    <>
       {isChoiceKind(question.kind) && (
         <FieldSet>
           <FieldLegend variant="label">Options</FieldLegend>
@@ -528,7 +557,10 @@ export function QuestionCard({
           </Field>
         </>
       )}
-
+    </>
+  );
+  const requiredField = (
+    <>
       {question.kind === "consent" ? (
         <Field orientation="horizontal">
           <FieldContent>
@@ -561,9 +593,10 @@ export function QuestionCard({
           <FieldLabel htmlFor={`${id}-required`}>Required</FieldLabel>
         </Field>
       )}
-
-      {children}
-
+    </>
+  );
+  const condition = (
+    <>
       <ConditionField
         questions={questions}
         index={index}
@@ -571,7 +604,84 @@ export function QuestionCard({
         disabled={disabled}
         onUpdate={onUpdate}
       />
+    </>
+  );
+
+  if (groups) {
+    return (
+      <div className="flex flex-col gap-6">
+        {header}
+        <QuestionGroup title="Question">
+          {promptField}
+          {kindField}
+          {kindSettings}
+          {helpField}
+          {requiredField}
+        </QuestionGroup>
+        <QuestionGroup title="Who's asked">
+          {groups.whoIsAsked}
+          {condition}
+        </QuestionGroup>
+        <QuestionGroup title="Data" collapsible>
+          {columnLabelField}
+          {groups.data}
+        </QuestionGroup>
+      </div>
+    );
+  }
+
+  return (
+    <li className="flex flex-col gap-4 rounded-lg border p-3">
+      {header}
+      {promptField}
+      {columnLabelField}
+      {kindField}
+      {helpField}
+      {kindSettings}
+      {requiredField}
+      {children}
+      {condition}
     </li>
+  );
+}
+
+/**
+ * One titled group of a grouped card (#1761). A collapsible one starts
+ * closed and keeps its fields mounted, so a value typed there survives it
+ * closing.
+ */
+function QuestionGroup({
+  title,
+  collapsible,
+  children,
+}: {
+  title: string;
+  collapsible?: boolean;
+  children: ReactNode;
+}) {
+  if (!collapsible) {
+    return (
+      <section className="flex flex-col gap-4">
+        <h2 className="text-sm font-semibold">{title}</h2>
+        {children}
+      </section>
+    );
+  }
+  return (
+    <Collapsible render={<section />} className="flex flex-col gap-4">
+      <h2 className="text-sm font-semibold">
+        <CollapsibleTrigger className="group flex items-center gap-1.5 rounded-sm focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none">
+          <ChevronRight
+            aria-hidden="true"
+            className="size-4 transition-transform group-data-[panel-open]:rotate-90"
+          />
+          {title}
+        </CollapsibleTrigger>
+      </h2>
+      <CollapsibleContent keepMounted className="flex flex-col gap-4">
+        {children}
+      </CollapsibleContent>
+    </Collapsible>
   );
 }
 

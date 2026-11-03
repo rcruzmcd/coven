@@ -1,29 +1,33 @@
 "use client";
 
-import { FormEvent, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import {
+  FormEvent,
+  useEffect,
+  useRef,
+  useState,
+  useTransition,
+  type ReactNode,
+} from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ArchiveRestore, Plus } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
-  Field,
-  FieldContent,
-  FieldDescription,
-  FieldLabel,
-  FieldLegend,
-  FieldSet,
-} from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { Spinner } from "@/components/ui/spinner";
-import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { runAction } from "@/components/portal/action-toast";
-import { QuestionList } from "@/components/portal/question-editor";
-import {
-  MAX_QUESTIONS,
-  QUESTION_OPTION_KEY_MAX_LENGTH,
-} from "@/lib/registration-questions";
+import { QuestionCard } from "@/components/portal/question-editor";
+import { useUnsavedChangesGuard } from "@/components/portal/unsaved-changes-guard";
+import { useUrlTabState } from "@/components/portal/use-url-tab-state";
+import { usePortalDevice } from "@/lib/portal/device-context";
+import { cn } from "@/lib/utils";
+import { MAX_QUESTIONS } from "@/lib/registration-questions";
 import { normalizeConditions } from "@/lib/question-drafts";
 import {
   PERSON_QUESTION_KINDS,
@@ -31,18 +35,25 @@ import {
 } from "@/lib/person-questions";
 import {
   newPersonQuestionDraft,
+  personQuestionChanges,
   personQuestionDrafts,
   personQuestionsDraftError,
   personQuestionsPayload,
-  samePersonQuestions,
   type PersonQuestionDraft,
 } from "./profile-questions-draft";
+import {
+  DataFields,
+  QuestionPreview,
+  WhoIsAskedFields,
+  type ProgramOption,
+} from "./profile-question-fields";
+import { ProfileQuestionList, answeredBy } from "./profile-question-list";
 import {
   savePersonQuestionsAction,
   type ProfileQuestionsActionResult,
 } from "./actions";
 
-export type ProgramOption = { id: string; name: string };
+export type { ProgramOption };
 
 /** How many people answered a question, by its id. */
 export type QuestionUsage = Record<string, number>;
@@ -54,105 +65,330 @@ const COLUMN_LABEL = {
     "A word or two, like “Level”. Left blank, the start of the prompt is used.",
 };
 
+const TABS = ["questions", "metrics", "archived"] as const;
+type Tab = (typeof TABS)[number];
+
+function isTab(value: string): value is Tab {
+  return (TABS as readonly string[]).includes(value);
+}
+
+/** The selected question's param, beside `?tab=`. */
+const QUESTION_PARAM = "question";
+
 /**
- * The tenant's profile questions (#1743), edited as one ordered list with
- * #1501's question card and saved together. A question removed while people
- * have answered it is archived with their answers and listed below, where it
- * can be restored.
+ * The tenant's profile questions (#1743), redesigned in #1761 as a list to
+ * scan beside one question's editor, with the figures and the archived
+ * questions on tabs of their own. Every question is still saved together,
+ * in one `savePersonQuestionsAction` call, from a save bar that stays on
+ * screen while anything is unsaved. The selected question is in
+ * `?question=`, so it can be linked and survives Back; on a phone the list
+ * fills the page and the editor opens in a sheet.
+ *
+ * A question removed while people have answered it is archived with their
+ * answers and listed on Archived, where it can be restored.
  */
 export function ProfileQuestionsEditor({
   questions,
   archived,
   programs,
   usage,
+  metrics,
 }: {
   questions: PersonQuestion[];
   archived: PersonQuestion[];
   programs: ProgramOption[];
   usage: QuestionUsage;
+  /** The Metrics tab's own editor, saved apart from the questions. */
+  metrics?: ReactNode;
 }) {
   const router = useRouter();
-  const [saved] = useState(() => personQuestionDrafts(questions));
+  const searchParams = useSearchParams();
+  const phone = usePortalDevice() === "mobile";
+  const [tab, setTab] = useUrlTabState<Tab>({
+    fallback: "questions",
+    isValid: isTab,
+  });
+  const [saved, setSaved] = useState(() => personQuestionDrafts(questions));
   const [drafts, setDrafts] = useState(saved);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-  const dirty = !samePersonQuestions(drafts, saved);
+  const changes = personQuestionChanges(drafts, saved);
+  const dirty = changes > 0;
+  useUnsavedChangesGuard(dirty);
+
   const restorable = personQuestionDrafts(archived).filter(
     (draft) => !drafts.some((other) => other.id === draft.id),
   );
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  const linked = searchParams.get(QUESTION_PARAM);
+  const linkedIndex = drafts.findIndex((draft) => draft.id === linked);
+  // A desktop always shows an editor; a phone only while one is picked.
+  const selectedIndex = linkedIndex >= 0 || phone ? linkedIndex : 0;
+  const selected = drafts[selectedIndex] ?? null;
+
+  // Selecting a question moves focus to its editor (#1761), but loading the
+  // page or pressing Back does not: only `select()` asks for it.
+  const editor = useRef<HTMLElement>(null);
+  const focusEditor = useRef(false);
+  useEffect(() => {
+    if (!focusEditor.current) return;
+    focusEditor.current = false;
+    editor.current?.focus();
+  }, [selected?.id]);
+
+  function select(id: string) {
+    if (id === selected?.id && !phone) {
+      editor.current?.focus();
+      return;
+    }
+    focusEditor.current = !phone;
+    setTab("questions", { [QUESTION_PARAM]: id });
+  }
+
+  function closeSheet() {
+    setTab("questions", { [QUESTION_PARAM]: null });
+  }
+
+  function setQuestions(next: PersonQuestionDraft[]) {
+    // A condition an edit made impossible is dropped at once.
+    setDrafts(normalizeConditions(next));
+  }
+
+  function update(index: number, patch: Partial<PersonQuestionDraft>) {
+    setQuestions(
+      drafts.map((draft, i) => (i === index ? { ...draft, ...patch } : draft)),
+    );
+  }
+
+  function addQuestion() {
+    const draft = newPersonQuestionDraft();
+    setDrafts([...drafts, draft]);
+    select(draft.id);
+  }
+
+  function discard() {
+    setDrafts(saved);
+    setError(null);
+  }
+
+  function save() {
     const problem = personQuestionsDraftError(drafts);
     setError(problem);
     if (problem) return;
+    const submitted = drafts;
     startTransition(async () => {
       await runAction<ProfileQuestionsActionResult>(
-        () => savePersonQuestionsAction(personQuestionsPayload(drafts)),
+        () => savePersonQuestionsAction(personQuestionsPayload(submitted)),
         {
           success: "Profile questions saved.",
           onError: setError,
-          onSuccess: () => router.refresh(),
+          onSuccess: () => {
+            setSaved(submitted);
+            router.refresh();
+          },
         },
       );
     });
   }
 
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    save();
+  }
+
+  const answers = selected ? (usage[selected.id] ?? 0) : 0;
+  const editorPane = selected ? (
+    <div className="flex flex-col gap-6">
+      {answers > 0 ? (
+        <p className="app-muted text-sm">
+          {answeredBy(answers)[0].toUpperCase() + answeredBy(answers).slice(1)}.
+          Its answer type can&apos;t change now; archive options people chose
+          rather than removing them.
+        </p>
+      ) : null}
+      <QuestionCard
+        questions={drafts}
+        index={selectedIndex}
+        idPrefix="profile"
+        kinds={PERSON_QUESTION_KINDS}
+        columnLabel={COLUMN_LABEL}
+        disabled={isPending}
+        onUpdate={(patch) =>
+          // The card edits the shared fields only, so its patch is one of ours.
+          update(selectedIndex, patch as Partial<PersonQuestionDraft>)
+        }
+        onMove={(by) => {
+          const next = [...drafts];
+          const [moved] = next.splice(selectedIndex, 1);
+          next.splice(selectedIndex + by, 0, moved);
+          setQuestions(next);
+        }}
+        onRemove={() => {
+          setQuestions(drafts.filter((_, i) => i !== selectedIndex));
+          closeSheet();
+        }}
+        groups={{
+          whoIsAsked: (
+            <WhoIsAskedFields
+              question={selected}
+              programs={programs}
+              disabled={isPending}
+              onUpdate={(patch) => update(selectedIndex, patch)}
+            />
+          ),
+          data: (
+            <DataFields
+              question={selected}
+              disabled={isPending}
+              onUpdate={(patch) => update(selectedIndex, patch)}
+            />
+          ),
+        }}
+      />
+      <QuestionPreview question={selected} />
+    </div>
+  ) : null;
+
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            <h2 className="text-lg font-semibold">Questions</h2>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          <p className="app-muted text-sm">
-            Each person has one current answer to each question. Staff see every
-            question on the person form; the switches on each question say where
-            people are asked themselves. Removing a question people have
-            answered archives it with their answers.
-          </p>
-          {error ? (
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          ) : null}
+    <div className="flex flex-col gap-6">
+      {error ? (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      ) : null}
 
-          {drafts.length === 0 ? (
-            <p className="app-muted text-sm">
-              No questions yet. Until you add one, nobody is asked anything.
+      <Tabs value={tab} onValueChange={(value) => setTab(value as Tab)}>
+        <TabsList variant="line">
+          <TabsTrigger value="questions">Questions</TabsTrigger>
+          <TabsTrigger value="metrics">Metrics</TabsTrigger>
+          <TabsTrigger value="archived">
+            Archived{restorable.length > 0 ? ` (${restorable.length})` : ""}
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="questions" className="mt-4">
+          <form onSubmit={handleSubmit}>
+            <p className="app-muted max-w-2xl text-sm">
+              Each person has one current answer to each question. Staff see
+              every question on the person form; where it&apos;s asked says
+              where people are asked themselves. Removing a question people have
+              answered archives it with their answers.
             </p>
-          ) : null}
 
-          <QuestionList
-            value={drafts}
-            onChange={setDrafts}
-            idPrefix="profile"
-            kinds={PERSON_QUESTION_KINDS}
-            columnLabel={COLUMN_LABEL}
-            disabled={isPending}
-            renderExtras={(question, update) => (
-              <PersonQuestionFields
-                question={question}
-                programs={programs}
-                answers={usage[question.id] ?? 0}
-                disabled={isPending}
-                onUpdate={update}
-              />
-            )}
+            <div className="mt-4 grid gap-6 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
+              <div className="flex min-w-0 flex-col gap-3 lg:sticky lg:top-4 lg:self-start">
+                {drafts.length === 0 ? (
+                  <p className="app-muted text-sm">
+                    No questions yet. Until you add one, nobody is asked
+                    anything.
+                  </p>
+                ) : (
+                  <ProfileQuestionList
+                    questions={drafts}
+                    selectedId={selected?.id ?? null}
+                    usage={usage}
+                    disabled={isPending}
+                    onSelect={select}
+                    onReorder={setQuestions}
+                  />
+                )}
+                <div>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    disabled={isPending || drafts.length >= MAX_QUESTIONS}
+                    onClick={addQuestion}
+                  >
+                    <Plus /> Add question
+                  </Button>
+                </div>
+              </div>
+
+              {phone ? null : (
+                <section
+                  ref={editor}
+                  tabIndex={-1}
+                  aria-label={
+                    selected
+                      ? `Question ${selectedIndex + 1} editor`
+                      : "Question editor"
+                  }
+                  className="min-w-0 rounded-xl border border-[var(--line)] p-4 outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                >
+                  {editorPane ?? (
+                    <p className="app-muted text-sm">
+                      Add a question to start.
+                    </p>
+                  )}
+                </section>
+              )}
+            </div>
+          </form>
+        </TabsContent>
+
+        <TabsContent value="metrics" className="mt-4">
+          {metrics}
+        </TabsContent>
+
+        <TabsContent value="archived" className="mt-4">
+          <ArchivedQuestions
+            restorable={restorable}
+            usage={usage}
+            disabled={isPending || drafts.length >= MAX_QUESTIONS}
+            onRestore={(draft) =>
+              // Its condition may name a question that has gone since.
+              setDrafts(normalizeConditions([...drafts, draft]))
+            }
           />
+        </TabsContent>
+      </Tabs>
 
-          <div className="flex flex-wrap gap-2">
+      {phone ? (
+        <Sheet
+          open={selected !== null}
+          onOpenChange={(open) => !open && closeSheet()}
+        >
+          <SheetContent size="lg">
+            <SheetHeader>
+              <SheetTitle>
+                {selected?.prompt.trim() || "Untitled question"}
+              </SheetTitle>
+              <SheetDescription>
+                Changes are kept here until you save the questions.
+              </SheetDescription>
+            </SheetHeader>
+            <div className="overflow-y-auto px-4 pb-4">{editorPane}</div>
+          </SheetContent>
+        </Sheet>
+      ) : null}
+
+      {dirty || isPending ? (
+        // Sticky for the reason Automatic replies' is: the control that
+        // commits should not be the thing you scroll to find. On a phone it
+        // sits above the fixed bottom nav rather than under it.
+        <div
+          className={cn(
+            "rainbow-surface sticky z-10 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--line)] p-4 shadow-md",
+            phone
+              ? "bottom-[calc(4.5rem+env(safe-area-inset-bottom))]"
+              : "bottom-4",
+          )}
+        >
+          <p className="text-sm font-medium" aria-live="polite">
+            {changes === 1
+              ? "1 unsaved change to the questions"
+              : `${changes} unsaved changes to the questions`}
+          </p>
+          <div className="flex gap-2">
             <Button
               type="button"
               variant="secondary"
-              disabled={isPending || drafts.length >= MAX_QUESTIONS}
-              onClick={() => setDrafts([...drafts, newPersonQuestionDraft()])}
+              disabled={isPending}
+              onClick={discard}
             >
-              <Plus /> Add question
+              Discard
             </Button>
-            <Button type="submit" disabled={isPending || !dirty}>
+            <Button type="button" disabled={isPending} onClick={save}>
               {isPending ? (
                 <>
                   <Spinner /> Saving...
@@ -162,194 +398,58 @@ export function ProfileQuestionsEditor({
               )}
             </Button>
           </div>
-        </CardContent>
-      </Card>
-
-      {restorable.length > 0 ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              <h2 className="text-lg font-semibold">Archived questions</h2>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-3">
-            <p className="app-muted text-sm">
-              No longer asked. People&apos;s answers are kept. Restoring one
-              adds it to the end of the list above; save to ask it again.
-            </p>
-            <ul className="flex flex-col gap-2">
-              {restorable.map((draft) => (
-                <li
-                  key={draft.id}
-                  className="flex items-center justify-between gap-3 rounded-lg border p-3"
-                >
-                  <span className="min-w-0 text-sm">
-                    {draft.prompt}
-                    <span className="app-muted">
-                      {" "}
-                      &middot; {answeredBy(usage[draft.id] ?? 0)}
-                    </span>
-                  </span>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled={isPending || drafts.length >= MAX_QUESTIONS}
-                    onClick={() =>
-                      // Its condition may name a question that has gone since.
-                      setDrafts(normalizeConditions([...drafts, draft]))
-                    }
-                  >
-                    <ArchiveRestore /> Restore
-                  </Button>
-                </li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
+        </div>
       ) : null}
-    </form>
+    </div>
   );
 }
 
-function answeredBy(count: number) {
-  return count === 1 ? "answered by 1 person" : `answered by ${count} people`;
-}
-
-/** What a person question adds to #1501's card: its code, where and for whom it is asked. */
-function PersonQuestionFields({
-  question,
-  programs,
-  answers,
+function ArchivedQuestions({
+  restorable,
+  usage,
   disabled,
-  onUpdate,
+  onRestore,
 }: {
-  question: PersonQuestionDraft;
-  programs: ProgramOption[];
-  answers: number;
+  restorable: PersonQuestionDraft[];
+  usage: QuestionUsage;
   disabled?: boolean;
-  onUpdate: (patch: Partial<PersonQuestionDraft>) => void;
+  onRestore: (draft: PersonQuestionDraft) => void;
 }) {
-  const id = `profile-question-${question.id}`;
-
+  if (restorable.length === 0) {
+    return <p className="app-muted text-sm">No archived questions.</p>;
+  }
   return (
-    <>
-      {answers > 0 ? (
-        <p className="app-muted text-sm">
-          {answeredBy(answers)[0].toUpperCase() + answeredBy(answers).slice(1)}.
-          Its answer type can&apos;t change now; archive options people chose
-          rather than removing them.
-        </p>
-      ) : null}
-
-      <Field>
-        <FieldLabel htmlFor={`${id}-key`}>Code</FieldLabel>
-        <Input
-          id={`${id}-key`}
-          className="font-mono"
-          value={question.key}
-          maxLength={QUESTION_OPTION_KEY_MAX_LENGTH}
-          placeholder="Optional"
-          disabled={disabled}
-          aria-describedby={`${id}-key-description`}
-          onChange={(event) => onUpdate({ key: event.target.value })}
-        />
-        <FieldDescription id={`${id}-key-description`}>
-          An optional stable name, like ski_level, for anything that must keep
-          finding this question whatever its prompt says.
-        </FieldDescription>
-      </Field>
-
-      <Field orientation="horizontal">
-        <FieldContent>
-          <FieldLabel htmlFor={`${id}-after-registration`}>
-            Ask after event registration
-          </FieldLabel>
-          <FieldDescription>
-            On the step after someone registers for an event. They can skip it.
-          </FieldDescription>
-        </FieldContent>
-        <Switch
-          id={`${id}-after-registration`}
-          checked={question.askAfterRegistration}
-          disabled={disabled}
-          onCheckedChange={(checked) =>
-            onUpdate({ askAfterRegistration: checked })
-          }
-        />
-      </Field>
-
-      {question.askAfterRegistration && programs.length > 0 ? (
-        <FieldSet>
-          <FieldLegend variant="label">Only for events in</FieldLegend>
-          <FieldDescription>
-            None ticked asks after every event.
-          </FieldDescription>
-          {programs.map((program) => {
-            const programId = `${id}-program-${program.id}`;
-            return (
-              <Field key={program.id} orientation="horizontal">
-                <Checkbox
-                  id={programId}
-                  checked={question.programIds.includes(program.id)}
-                  disabled={disabled}
-                  onCheckedChange={(checked) =>
-                    onUpdate({
-                      // In the page's order, whatever order they were ticked in.
-                      programIds: programs
-                        .map((other) => other.id)
-                        .filter((other) =>
-                          other === program.id
-                            ? checked === true
-                            : question.programIds.includes(other),
-                        ),
-                    })
-                  }
-                />
-                <FieldLabel htmlFor={programId}>{program.name}</FieldLabel>
-              </Field>
-            );
-          })}
-        </FieldSet>
-      ) : null}
-
-      <Field orientation="horizontal">
-        <FieldContent>
-          <FieldLabel htmlFor={`${id}-my-details`}>
-            Ask on their details page
-          </FieldLabel>
-          <FieldDescription>
-            Where someone signed in to the website keeps their own record up to
-            date.
-          </FieldDescription>
-        </FieldContent>
-        <Switch
-          id={`${id}-my-details`}
-          checked={question.askOnMyDetails}
-          disabled={disabled}
-          onCheckedChange={(checked) => onUpdate({ askOnMyDetails: checked })}
-        />
-      </Field>
-
-      <Field orientation="horizontal">
-        <FieldContent>
-          <FieldLabel htmlFor={`${id}-snapshot`}>
-            Copy the answer at check-in
-          </FieldLabel>
-          <FieldDescription>
-            Keeps the answer as it was on the day, so a past event&apos;s
-            figures and breakdown never change when someone updates it.
-          </FieldDescription>
-        </FieldContent>
-        <Switch
-          id={`${id}-snapshot`}
-          checked={question.snapshotAtCheckin}
-          disabled={disabled}
-          onCheckedChange={(checked) =>
-            onUpdate({ snapshotAtCheckin: checked })
-          }
-        />
-      </Field>
-    </>
+    <div className="flex flex-col gap-3">
+      <h2 className="text-lg font-semibold">Archived questions</h2>
+      <p className="app-muted text-sm">
+        No longer asked. People&apos;s answers are kept. Restoring one adds it
+        to the end of the questions; save to ask it again.
+      </p>
+      <ul className="flex flex-col gap-2">
+        {restorable.map((draft) => (
+          <li
+            key={draft.id}
+            className="flex items-center justify-between gap-3 rounded-lg border p-3"
+          >
+            <span className="min-w-0 text-sm">
+              {draft.prompt}
+              <span className="app-muted">
+                {" "}
+                &middot; {answeredBy(usage[draft.id] ?? 0)}
+              </span>
+            </span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={disabled}
+              onClick={() => onRestore(draft)}
+            >
+              <ArchiveRestore /> Restore
+            </Button>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
