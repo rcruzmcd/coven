@@ -46,6 +46,7 @@ import { MyEventRegistrationForm } from "./my-registration-form";
 import { RegistrationEmailStep } from "./registration-email-step";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { signInCodeOffered } from "@/lib/notifications/sign-in-code";
+import { eventCarpoolNotice } from "@/lib/event-carpools";
 import {
   loadEventViewer,
   loadRegistrationAccountOffer,
@@ -159,8 +160,8 @@ function EventDetailBody({
   /** A staff preview (#1764): the form makes a test registration. */
   /**
    * Whether a visitor with no session starts with the email-first step
-   * (#1765). False for a signed-in reader, a staff preview, and a tenant with
-   * email off, which have the form as it was.
+   * (#1765). False for a signed-in reader and a tenant with email off, which
+   * have the form as it was. A staff preview shows it, sending nothing.
    */
   offersSignInCode: boolean;
   preview: boolean;
@@ -290,7 +291,7 @@ function EventDetailBody({
                   profileAnswers={myProfileAnswers}
                 />
               ) : offersSignInCode ? (
-                <RegistrationEmailStep eventId={event.id}>
+                <RegistrationEmailStep eventId={event.id} preview={preview}>
                   {anonymousForm}
                 </RegistrationEmailStep>
               ) : (
@@ -360,8 +361,12 @@ export async function EventDetailContent({
   const photoConsent = content.paragraphs("events.photo_consent");
   // #1650. The cost-split notice, off the same read, and only on an event
   // that organizes carpools: everywhere else the form says nothing about them.
+  // The event's own words, or none, when it has set them.
   const carpoolCostNotice = event.carpools_enabled
-    ? content.paragraphs("events.carpool_cost_notice")
+    ? eventCarpoolNotice(
+        event.carpool_cost_notice,
+        content.paragraphs("events.carpool_cost_notice"),
+      )
     : [];
   // The event's own registration question (#1407). Only where registration
   // is on at all, so the events that take none pay no query for it.
@@ -392,12 +397,12 @@ export async function EventDetailContent({
   const requiresInstagram = event.registration_enabled
     ? await getPublicRequiresInstagram(supabase)
     : false;
-  // Email-first registration (#1765): only for a visitor with no session, on
-  // a real page rather than a staff preview, where there is a form to open,
-  // and on a tenant whose email is on -- a code that can never arrive is not
-  // an offer.
+  // Email-first registration (#1765): only for a visitor with no session (a
+  // staff preview has none), where there is a form to open, and on a tenant
+  // whose email is on -- a code that can never arrive is not an offer. A
+  // preview shows the step but sends nothing (RegistrationEmailStep).
   const offersSignInCode =
-    !preview && viewer === null && event.registration_enabled
+    viewer === null && event.registration_enabled
       ? await signInCodeOffered(supabase, createSupabaseAdminClient())
       : false;
   const waiverBlock = waiver ? (

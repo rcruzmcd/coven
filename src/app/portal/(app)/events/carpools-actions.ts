@@ -23,7 +23,11 @@ import {
   fromGuard,
   type ActionFailure,
 } from "@/lib/portal/action-result";
-import { CARPOOL_ERROR_MESSAGES, carpoolsHref } from "@/lib/event-carpools";
+import {
+  CARPOOL_ERROR_MESSAGES,
+  carpoolsHref,
+  toEventCarpoolNotice,
+} from "@/lib/event-carpools";
 
 /**
  * The carpool board's writes (#1649). Each is gated on `events: manage` here
@@ -171,7 +175,9 @@ export async function emailCarpoolAssignmentsAction(input: {
   const [event, rows] = await Promise.all([
     supabase
       .from("events")
-      .select("id, name, tenant_id, timezone, carpools_enabled")
+      .select(
+        "id, name, tenant_id, timezone, carpools_enabled, carpool_cost_notice",
+      )
       .eq("id", input.eventId)
       .maybeSingle<{
         id: string;
@@ -179,6 +185,7 @@ export async function emailCarpoolAssignmentsAction(input: {
         tenant_id: string;
         timezone: string;
         carpools_enabled: boolean;
+        carpool_cost_notice: unknown;
       }>(),
     loadCarpoolAssignmentRows(supabase, input.eventId),
   ]);
@@ -211,6 +218,7 @@ export async function emailCarpoolAssignmentsAction(input: {
     eventId: event.data.id,
     eventName: event.data.name,
     timeZone: event.data.timezone,
+    eventNotice: toEventCarpoolNotice(event.data.carpool_cost_notice),
     batchId: input.batchId,
     recipients,
     sentBy: userResult.user.id,

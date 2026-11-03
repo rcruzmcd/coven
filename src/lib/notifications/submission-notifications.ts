@@ -27,6 +27,7 @@ import { renderGearRequestConfirmationEmail } from "@/lib/notifications/gear-req
 import { formatRegistrationContact } from "@/lib/registration-contact";
 import { renderEventRegistrationConfirmationEmail } from "@/lib/notifications/event-registration-confirmation-email";
 import { loadCarpoolCostNotice } from "@/lib/notifications/carpool-cost-notice";
+import { toEventCarpoolNotice } from "@/lib/event-carpools";
 import type { IssuedAnswersLink } from "@/lib/notifications/registration-answer-self-links";
 import { publicEventAnswersPath } from "@/app/(public)/events/event-path";
 import { renderVolunteerApplicationConfirmationEmail } from "@/lib/notifications/volunteer-application-confirmation-email";
@@ -973,6 +974,7 @@ type ConfirmationEventRow = {
   timezone: string;
   confirmation_note: string | null;
   carpools_enabled: boolean;
+  carpool_cost_notice: unknown;
 };
 
 const EVENT_REGISTRATION_SELECT =
@@ -1086,7 +1088,7 @@ export async function sendEventRegistrationConfirmation(
       admin
         .from("events")
         .select(
-          "name, starts_at, ends_at, location, timezone, confirmation_note, carpools_enabled",
+          "name, starts_at, ends_at, location, timezone, confirmation_note, carpools_enabled, carpool_cost_notice",
         )
         .eq("id", data.event_id)
         .eq("tenant_id", data.tenant_id)
@@ -1142,9 +1144,10 @@ export async function sendEventRegistrationConfirmation(
   if (!event.data) return "skipped";
   const registered = event.data;
   // #1650. Only on an event that organizes carpools, so every other
-  // confirmation costs no read.
+  // confirmation costs no read; and none when the event sets its own.
   const carpoolNotice = registered.carpools_enabled
-    ? await loadCarpoolCostNotice(admin, data.tenant_id)
+    ? (toEventCarpoolNotice(registered.carpool_cost_notice) ??
+      (await loadCarpoolCostNotice(admin, data.tenant_id)))
     : [];
 
   return deliverEmail(admin, {

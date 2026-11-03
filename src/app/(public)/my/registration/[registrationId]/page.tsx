@@ -11,6 +11,7 @@ import {
 } from "@/lib/registration-questions";
 import { RegistrationContactCard } from "@/app/(public)/events/registration-contact-card";
 import { CarpoolAssignmentCard } from "@/components/carpool-assignment-card";
+import { eventCarpoolNotice } from "@/lib/event-carpools";
 import { toRegistrantCarpool } from "@/lib/carpool-assignment";
 import { PhotoConsentCard } from "./photo-consent-card";
 import { RegistrationAnswersCard } from "./registration-answers-card";
@@ -147,7 +148,10 @@ export default async function MyRegistrationPage({
     <CarpoolAssignmentCard
       carpool={carpool}
       orgName={site.name ?? "the organizers"}
-      notice={content.paragraphs("events.carpool_cost_notice")}
+      notice={eventCarpoolNotice(
+        carpool.notice,
+        content.paragraphs("events.carpool_cost_notice"),
+      )}
     />
   ) : null;
 

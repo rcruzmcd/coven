@@ -177,4 +177,33 @@ describe("RegistrationEmailStep", () => {
     ).toBeInTheDocument();
     expect(screen.queryByLabelText(/^Code/)).not.toBeInTheDocument();
   });
+
+  test("a staff preview walks the screens, sends and verifies nothing, then opens the form", async () => {
+    const calls = recorder();
+    const user = userEvent.setup();
+    render(
+      <RegistrationEmailStep eventId="event-1" preview>
+        <form aria-label="Anonymous registration" />
+      </RegistrationEmailStep>,
+    );
+    await user.type(screen.getByLabelText(/^Email/), "staff@example.com");
+    await user.click(
+      screen.getByRole("button", {
+        name: "Send me a code to fill in my details",
+      }),
+    );
+    expect(await screen.findByText(/^Preview: no code was sent/)).toBeTruthy();
+    await user.type(screen.getByLabelText(/^Code/), "123456");
+    await user.click(
+      screen.getByRole("button", { name: "Fill in my details" }),
+    );
+
+    expect(
+      await screen.findByRole("form", { name: "Anonymous registration" }),
+    ).toBeInTheDocument();
+    expect(sendSignInCodeAction).not.toHaveBeenCalled();
+    expect(verifyOtp).not.toHaveBeenCalled();
+    expect(refresh).not.toHaveBeenCalled();
+    expect(calls).toEqual([]);
+  });
 });

@@ -4608,6 +4608,7 @@ export type Database = {
           auto_assign_discount_codes: boolean;
           budget_amount: number | null;
           capacity: number | null;
+          carpool_cost_notice: Json | null;
           carpool_seats_question_id: string | null;
           carpools_enabled: boolean;
           confirmation_note: string | null;
@@ -4654,6 +4655,7 @@ export type Database = {
           auto_assign_discount_codes?: boolean;
           budget_amount?: number | null;
           capacity?: number | null;
+          carpool_cost_notice?: Json | null;
           carpool_seats_question_id?: string | null;
           carpools_enabled?: boolean;
           confirmation_note?: string | null;
@@ -4700,6 +4702,7 @@ export type Database = {
           auto_assign_discount_codes?: boolean;
           budget_amount?: number | null;
           capacity?: number | null;
+          carpool_cost_notice?: Json | null;
           carpool_seats_question_id?: string | null;
           carpools_enabled?: boolean;
           confirmation_note?: string | null;
@@ -11108,6 +11111,7 @@ export type Database = {
         Row: {
           adults_only: boolean | null;
           capacity: number | null;
+          carpool_cost_notice: Json | null;
           carpools_enabled: boolean | null;
           description: string | null;
           ends_at: string | null;
@@ -11123,6 +11127,7 @@ export type Database = {
         Insert: {
           adults_only?: boolean | null;
           capacity?: number | null;
+          carpool_cost_notice?: Json | null;
           carpools_enabled?: boolean | null;
           description?: string | null;
           ends_at?: string | null;
@@ -11138,6 +11143,7 @@ export type Database = {
         Update: {
           adults_only?: boolean | null;
           capacity?: number | null;
+          carpool_cost_notice?: Json | null;
           carpools_enabled?: boolean | null;
           description?: string | null;
           ends_at?: string | null;
@@ -13608,6 +13614,7 @@ export type Database = {
           auto_assign_discount_codes: boolean;
           budget_amount: number | null;
           capacity: number | null;
+          carpool_cost_notice: Json | null;
           carpool_seats_question_id: string | null;
           carpools_enabled: boolean;
           confirmation_note: string | null;
@@ -14351,6 +14358,7 @@ export type Database = {
           auto_assign_discount_codes: boolean;
           budget_amount: number | null;
           capacity: number | null;
+          carpool_cost_notice: Json | null;
           carpool_seats_question_id: string | null;
           carpools_enabled: boolean;
           confirmation_note: string | null;

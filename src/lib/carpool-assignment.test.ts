@@ -53,11 +53,23 @@ describe("toRegistrantCarpool", () => {
           },
         ],
       },
+      notice: null,
     });
   });
 
   test("not in a car yet is a view with no car; carpools off is no view", () => {
-    expect(toRegistrantCarpool({ car: null })).toEqual({ car: null });
+    expect(toRegistrantCarpool({ car: null })).toEqual({
+      car: null,
+      notice: null,
+    });
+    expect(toRegistrantCarpool({ car: null, notice: ["Split gas."] })).toEqual({
+      car: null,
+      notice: ["Split gas."],
+    });
+    expect(toRegistrantCarpool({ car: null, notice: [] })).toEqual({
+      car: null,
+      notice: [],
+    });
     expect(toRegistrantCarpool(null)).toBeNull();
     expect(toCarpoolAssignment({ role: "driver" })).toBeNull();
   });
