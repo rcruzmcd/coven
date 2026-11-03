@@ -3918,6 +3918,7 @@ export type Database = {
           cancelled_at: string | null;
           cancelled_by: string | null;
           checked_in_at: string | null;
+          confirmed_minimum_age: number | null;
           created_at: string;
           email: string;
           emergency_contact_name: string | null;
@@ -3961,6 +3962,7 @@ export type Database = {
           cancelled_at?: string | null;
           cancelled_by?: string | null;
           checked_in_at?: string | null;
+          confirmed_minimum_age?: number | null;
           created_at?: string;
           email: string;
           emergency_contact_name?: string | null;
@@ -4004,6 +4006,7 @@ export type Database = {
           cancelled_at?: string | null;
           cancelled_by?: string | null;
           checked_in_at?: string | null;
+          confirmed_minimum_age?: number | null;
           created_at?: string;
           email?: string;
           emergency_contact_name?: string | null;
@@ -4625,6 +4628,7 @@ export type Database = {
           id: string;
           lessons_learned: string | null;
           location: string | null;
+          minimum_age: number | null;
           name: string;
           registration_deadline: string | null;
           registration_enabled: boolean;
@@ -4672,6 +4676,7 @@ export type Database = {
           id?: string;
           lessons_learned?: string | null;
           location?: string | null;
+          minimum_age?: number | null;
           name: string;
           registration_deadline?: string | null;
           registration_enabled?: boolean;
@@ -4719,6 +4724,7 @@ export type Database = {
           id?: string;
           lessons_learned?: string | null;
           location?: string | null;
+          minimum_age?: number | null;
           name?: string;
           registration_deadline?: string | null;
           registration_enabled?: boolean;
@@ -11118,6 +11124,7 @@ export type Database = {
           flier_url: string | null;
           id: string | null;
           location: string | null;
+          minimum_age: number | null;
           name: string | null;
           registration_deadline: string | null;
           registration_enabled: boolean | null;
@@ -11134,6 +11141,7 @@ export type Database = {
           flier_url?: string | null;
           id?: string | null;
           location?: string | null;
+          minimum_age?: number | null;
           name?: string | null;
           registration_deadline?: string | null;
           registration_enabled?: boolean | null;
@@ -11150,6 +11158,7 @@ export type Database = {
           flier_url?: string | null;
           id?: string | null;
           location?: string | null;
+          minimum_age?: number | null;
           name?: string | null;
           registration_deadline?: string | null;
           registration_enabled?: boolean | null;
@@ -13631,6 +13640,7 @@ export type Database = {
           id: string;
           lessons_learned: string | null;
           location: string | null;
+          minimum_age: number | null;
           name: string;
           registration_deadline: string | null;
           registration_enabled: boolean;
@@ -14375,6 +14385,7 @@ export type Database = {
           id: string;
           lessons_learned: string | null;
           location: string | null;
+          minimum_age: number | null;
           name: string;
           registration_deadline: string | null;
           registration_enabled: boolean;

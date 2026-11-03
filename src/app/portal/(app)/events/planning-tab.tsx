@@ -41,6 +41,11 @@ import { formatCurrency, formatDateTime } from "@/lib/format";
 import { runAction } from "@/components/portal/action-toast";
 import { CONFIRMATION_NOTE_MAX_LENGTH } from "./event-form";
 import {
+  MINIMUM_AGES,
+  minimumAgeLabel,
+  parseMinimumAge,
+} from "@/lib/adults-only";
+import {
   RegistrationOptionsEditor,
   registrationOptionsDraft,
   sameRegistrationOptions,
@@ -123,6 +128,28 @@ function toDatetimeLocalValue(iso: string | null) {
   return utcIsoToDatetimeLocalInBrowser(iso);
 }
 
+/** #1782. The Select's value for no age requirement. */
+const NO_MINIMUM_AGE = "none";
+
+const MINIMUM_AGE_ITEMS = [
+  { value: NO_MINIMUM_AGE, label: "None" },
+  ...MINIMUM_AGES.map((age) => ({
+    value: String(age),
+    label: minimumAgeLabel(age),
+  })),
+];
+
+function minimumAgeChoice(stored: number | null | undefined): string {
+  const age = parseMinimumAge(stored);
+  return age === null ? NO_MINIMUM_AGE : String(age);
+}
+
+function minimumAgeItemLabel(value: string): string {
+  return (
+    MINIMUM_AGE_ITEMS.find((item) => item.value === value)?.label ?? "None"
+  );
+}
+
 function formStateFor(event: EventRow) {
   return {
     eventLead: event.event_lead,
@@ -130,7 +157,7 @@ function formStateFor(event: EventRow) {
     registrationEnabled: event.registration_enabled,
     registrationDeadline: toDatetimeLocalValue(event.registration_deadline),
     autoAssignDiscountCodes: event.auto_assign_discount_codes,
-    adultsOnly: event.adults_only ?? false,
+    minimumAge: minimumAgeChoice(event.minimum_age),
     confirmationNote: event.confirmation_note ?? "",
     groupChatEnabled: event.group_chat_enabled ?? false,
     groupChatLabel: event.group_chat_label ?? "",
@@ -257,7 +284,10 @@ export function PlanningTab({
       "autoAssignDiscountCodes",
       form.autoAssignDiscountCodes ? "on" : "off",
     );
-    formData.set("adultsOnly", form.adultsOnly ? "on" : "off");
+    formData.set(
+      "minimumAge",
+      form.minimumAge === NO_MINIMUM_AGE ? "" : form.minimumAge,
+    );
     formData.set("budgetAmount", form.budgetAmount);
     formData.set("confirmationNote", form.confirmationNote);
     formData.set("groupChatEnabled", form.groupChatEnabled ? "on" : "off");
@@ -382,8 +412,8 @@ export function PlanningTab({
             </>
           )}
         </ReadOnlyField>
-        <ReadOnlyField label="Adults only (18+)" htmlFor="planning-adultsOnly">
-          {form.adultsOnly ? "On" : "Off"}
+        <ReadOnlyField label="Age requirement" htmlFor="planning-minimumAge">
+          {minimumAgeItemLabel(form.minimumAge)}
         </ReadOnlyField>
         <ReadOnlyField
           label="Organize carpools"
@@ -528,21 +558,30 @@ export function PlanningTab({
           disabled={isPending}
         />
 
-        <Field orientation="horizontal">
-          <FieldContent>
-            <FieldLabel htmlFor="planning-adultsOnly">
-              Adults only (18+)
-            </FieldLabel>
-            <FieldDescription>
-              Shows an 18+ badge on the event and asks each registrant to
-              confirm everyone in their party is 18 or over.
-            </FieldDescription>
-          </FieldContent>
-          <Switch
-            id="planning-adultsOnly"
-            checked={form.adultsOnly}
-            onCheckedChange={(checked) => update("adultsOnly", checked)}
-          />
+        <Field>
+          <FieldLabel htmlFor="planning-minimumAge">Age requirement</FieldLabel>
+          <Select
+            value={form.minimumAge}
+            items={MINIMUM_AGE_ITEMS}
+            onValueChange={(value) => {
+              if (value !== null) update("minimumAge", String(value));
+            }}
+          >
+            <SelectTrigger id="planning-minimumAge" className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {MINIMUM_AGE_ITEMS.map((item) => (
+                <SelectItem key={item.value} value={item.value}>
+                  {item.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <FieldDescription>
+            Shows the age as a badge on the event and asks each registrant to
+            confirm everyone in their party is that age or over.
+          </FieldDescription>
         </Field>
 
         <Field orientation="horizontal">

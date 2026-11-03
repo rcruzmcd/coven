@@ -40,6 +40,7 @@ const registrants: EventRegistrant[] = [
     // render and the other row proves it renders on that one alone.
     party_includes_minor: true,
     adults_only_confirmed_at: null,
+    confirmed_minimum_age: null,
     cancelled_at: null,
     cancellation_reason: null,
     cancellation_note: null,
@@ -88,6 +89,7 @@ const registrants: EventRegistrant[] = [
     waiver_version: null,
     party_includes_minor: false,
     adults_only_confirmed_at: null,
+    confirmed_minimum_age: null,
     cancelled_at: null,
     cancellation_reason: null,
     cancellation_note: null,

@@ -287,7 +287,7 @@ export async function updateEventPlanningAction(
     registrationEnabled,
     registrationDeadline,
     autoAssignDiscountCodes,
-    adultsOnly,
+    minimumAge,
     budgetAmount,
     confirmationNote,
     groupChatEnabled,
@@ -308,7 +308,7 @@ export async function updateEventPlanningAction(
       registration_enabled: registrationEnabled,
       registration_deadline: registrationDeadline,
       auto_assign_discount_codes: autoAssignDiscountCodes,
-      ...(adultsOnly === null ? {} : { adults_only: adultsOnly }),
+      ...(minimumAge === undefined ? {} : { minimum_age: minimumAge }),
       budget_amount: budgetAmount,
       ...(confirmationNote === undefined
         ? {}

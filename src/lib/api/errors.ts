@@ -1,5 +1,11 @@
 import "server-only";
 
+import {
+  ADULTS_ONLY_CONFIRMATION_REQUIRED_CODE,
+  type MinimumAge,
+  parseMinimumAge,
+} from "@/lib/adults-only";
+
 /**
  * One error shape for the whole public API (#813 Phase 3).
  *
@@ -83,6 +89,11 @@ export class ApiError extends Error {
  * hits in a sliding window rather than blocking until a fixed moment.
  */
 export const RATE_LIMIT_WINDOW_SECONDS = 15 * 60;
+
+/** #1782. The confirmation refusal, naming the event's age. */
+function adultsOnlyConfirmationMessage(age: MinimumAge): string {
+  return `This event requires everyone to be ${age} or over. Send adults_only_confirmed once the person has confirmed everyone in their party is ${age} or over.`;
+}
 
 /**
  * What a `raise exception` from an intake RPC becomes over HTTP.
@@ -209,11 +220,11 @@ const RPC_ERRORS: Record<
       "A party that includes anyone under 18 needs an accompanying adult and an emergency contact.",
     field: "accompanying_adult_name",
   },
-  // #1417
+  // #1417. The message names the age from the error's DETAIL (#1782); this
+  // one is the 18+ fallback.
   ADULTS_ONLY_CONFIRMATION_REQUIRED: {
     code: "invalid_request",
-    message:
-      "This event is adults only (18+). Send adults_only_confirmed once the person has confirmed everyone in their party is 18 or over.",
+    message: adultsOnlyConfirmationMessage(18),
     field: "adults_only_confirmed",
   },
   // #1647. Only on an organization that requires a handle; every other
@@ -337,9 +348,19 @@ const RPC_ERRORS: Record<
 };
 
 /** Turns a PostgREST error into the `ApiError` the envelope is built from. */
-export function apiErrorFromRpc(error: { message?: string } | null): ApiError {
+export function apiErrorFromRpc(
+  error: { message?: string; details?: string } | null,
+): ApiError {
   const raw = error?.message?.trim() ?? "";
-  const known = RPC_ERRORS[raw];
+  const known =
+    raw === ADULTS_ONLY_CONFIRMATION_REQUIRED_CODE
+      ? {
+          ...RPC_ERRORS[raw],
+          message: adultsOnlyConfirmationMessage(
+            parseMinimumAge(error?.details) ?? 18,
+          ),
+        }
+      : RPC_ERRORS[raw];
 
   if (!known) {
     // Anything unrecognised is ours, not the caller's: a constraint violation,

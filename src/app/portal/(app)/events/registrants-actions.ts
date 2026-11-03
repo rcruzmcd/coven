@@ -223,6 +223,12 @@ export type EventRegistrant = {
    */
   adults_only_confirmed_at: string | null;
   /**
+   * Which age that confirmation was for (#1782): 18 or 21, set with
+   * `adults_only_confirmed_at`. An event moved from 18+ to 21+ afterwards
+   * still shows what this registrant said.
+   */
+  confirmed_minimum_age: number | null;
+  /**
    * What this person said about being photographed or recorded (#599), and the
    * only three-state field here where every state has to be legible.
    *
@@ -736,7 +742,7 @@ async function loadGroupChat(
 // `option_counts`, `answers` and `discount_codes` are embeds, not columns of
 // this table (#1407, #1501, #1589).
 const REGISTRANT_COLUMNS =
-  "id, event_id, is_test, name, email, phone, instagram_handle, has_no_instagram, preferred_contact_method, preferred_contact_detail, pronouns, party_size, notes, created_at, person_id, checked_in_at, attended_before, waiver_accepted_at, waiver_version, party_includes_minor, adults_only_confirmed_at, answers_changed_at, group_chat_added_at, group_chat_added_by, reminder_sent_at, cancelled_at, cancellation_reason, cancellation_note, photo_consent, photo_consent_at, photo_consent_text, option_counts:event_registration_option_counts(option_id, label, quantity, sort_order), answers:event_registration_answers(question_id, prompt_as_shown, answer_text, sort_order, value), answer_request:event_registration_answer_requests(requested_at, answered_at, source), discount_codes(code, pin)";
+  "id, event_id, is_test, name, email, phone, instagram_handle, has_no_instagram, preferred_contact_method, preferred_contact_detail, pronouns, party_size, notes, created_at, person_id, checked_in_at, attended_before, waiver_accepted_at, waiver_version, party_includes_minor, adults_only_confirmed_at, confirmed_minimum_age, answers_changed_at, group_chat_added_at, group_chat_added_by, reminder_sent_at, cancelled_at, cancellation_reason, cancellation_note, photo_consent, photo_consent_at, photo_consent_text, option_counts:event_registration_option_counts(option_id, label, quantity, sort_order), answers:event_registration_answers(question_id, prompt_as_shown, answer_text, sort_order, value), answer_request:event_registration_answer_requests(requested_at, answered_at, source), discount_codes(code, pin)";
 
 type RegistrantRow = Omit<
   EventRegistrant,

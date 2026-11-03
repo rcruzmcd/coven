@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AdultsOnlyBadge } from "@/components/adults-only-badge";
+import { parseMinimumAge } from "@/lib/adults-only";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -186,7 +187,7 @@ function EventDetailBody({
       waiverBlock={waiverBlock}
       asksAboutMinors={asksAboutMinors}
       requiresInstagram={requiresInstagram}
-      adultsOnly={event.adults_only ?? false}
+      minimumAge={parseMinimumAge(event.minimum_age)}
       minorAccompaniment={minorAccompaniment}
       photoConsent={photoConsent}
       carpoolCostNotice={carpoolCostNotice}
@@ -281,7 +282,7 @@ function EventDetailBody({
                   waiverOnFile={viewer.waiverOnFile}
                   asksAboutMinors={asksAboutMinors}
                   requiresInstagram={requiresInstagram}
-                  adultsOnly={event.adults_only ?? false}
+                  minimumAge={parseMinimumAge(event.minimum_age)}
                   minorAccompaniment={minorAccompaniment}
                   photoConsent={photoConsent}
                   carpoolCostNotice={carpoolCostNotice}
@@ -387,12 +388,12 @@ export async function EventDetailContent({
       ? (await loadMyPersonQuestions(supabase)).answers
       : {};
   // Whether registration asks about under-18s (#1416). Only where there is a
-  // registration form, like the profile questions, and never on an 18+ event
-  // (#1417), which asks for its confirmation instead.
+  // registration form, like the profile questions, and never on an 18+ or 21+
+  // event (#1417, #1782), which asks for its confirmation instead.
   const asksAboutMinors =
-    event.registration_enabled && !event.adults_only
+    event.registration_enabled && event.minimum_age == null
       ? await getPublicAsksAboutMinors(supabase)
-      : !event.adults_only;
+      : event.minimum_age == null;
   // #1647. Only where there is a registration form, like the setting above.
   const requiresInstagram = event.registration_enabled
     ? await getPublicRequiresInstagram(supabase)
@@ -472,7 +473,7 @@ export async function EventDetailContent({
             <h1 className="brand-display text-4xl font-semibold tracking-brand sm:text-5xl">
               {event.name}
               <AdultsOnlyBadge
-                adultsOnly={event.adults_only}
+                minimumAge={parseMinimumAge(event.minimum_age)}
                 className="ml-3 text-sm"
               />
             </h1>

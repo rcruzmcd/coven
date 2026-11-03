@@ -166,7 +166,11 @@ const eventSchema = z
     flier_url: z.union([z.string(), z.null()]),
     adults_only: z.boolean().meta({
       description:
-        "Adults only (18+). Registering for one requires adults_only_confirmed.",
+        "Whether the event has an age requirement (minimum_age is set). Registering for one requires adults_only_confirmed.",
+    }),
+    minimum_age: z.union([z.literal(18), z.literal(21), z.null()]).meta({
+      description:
+        "The age requirement: 18 or 21, or null for none. Registering for one requires adults_only_confirmed.",
     }),
     sponsors: z.array(sponsorSchema),
     programs: z.array(programSchema),

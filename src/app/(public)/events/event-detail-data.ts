@@ -17,7 +17,7 @@ import type { PublicEventSponsor } from "./event-sponsors";
  * presentations cannot drift into reading different shapes of the same row.
  */
 export const PUBLIC_EVENT_COLUMNS =
-  "id, name, location, starts_at, ends_at, timezone, description, capacity, registration_enabled, registration_deadline, flier_url, adults_only, carpools_enabled, carpool_cost_notice";
+  "id, name, location, starts_at, ends_at, timezone, description, capacity, registration_enabled, registration_deadline, flier_url, adults_only, minimum_age, carpools_enabled, carpool_cost_notice";
 
 /**
  * One event, with its sponsors and programs, for `/events/e/[id]`.

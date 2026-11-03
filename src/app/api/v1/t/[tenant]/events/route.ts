@@ -13,7 +13,7 @@ const route = publicRead(async ({ supabase }) => {
     supabase
       .from("public_events")
       .select(
-        "id, name, location, starts_at, ends_at, timezone, description, capacity, registration_enabled, registration_deadline, flier_url, adults_only",
+        "id, name, location, starts_at, ends_at, timezone, description, capacity, registration_enabled, registration_deadline, flier_url, adults_only, minimum_age",
       )
       .order("starts_at", { ascending: true }),
     supabase
