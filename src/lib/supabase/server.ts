@@ -58,41 +58,71 @@ export function tenantHost(requestHost: string | null): string | null {
  */
 export const createSupabaseServerClient = cache(
   async function createSupabaseServerClient() {
-    const [cookieStore, headerStore] = await Promise.all([
-      cookies(),
-      headers(),
-    ]);
-    // Same source the proxy routes on (src/proxy.ts); Vercel presents the
-    // custom domain here, not the deployment host -- except on a preview
-    // deployment, which is what TENANT_HOST_OVERRIDE is for.
-    const host = tenantHost(headerStore.get("host"));
-
-    return createServerClient<Db>(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
-      {
-        global: host ? { headers: { [TENANT_HOST_HEADER]: host } } : undefined,
-        // Scoped to the tenant's apex where one is configured, so a session
-        // established on `portal.<apex>` is sent to `www.<apex>` too (#1161).
-        // Derived from the *raw* Host header rather than `host` above:
-        // TENANT_HOST_OVERRIDE names which tenant a preview serves, which says
-        // nothing about where the browser will send its cookies back.
-        cookieOptions: sessionCookieOptions(headerStore.get("host")),
-        cookies: {
-          getAll() {
-            return cookieStore.getAll();
-          },
-          setAll(cookiesToSet) {
-            try {
-              cookiesToSet.forEach(({ name, value, options }) =>
-                cookieStore.set(name, value, options),
-              );
-            } catch {
-              // Cookie writes can fail in a Server Component; the proxy refreshes sessions.
-            }
-          },
-        },
-      },
-    );
+    return buildServerClient({});
   },
 );
+
+/**
+ * Header naming the one event a request previews (#1764).
+ *
+ * The public_* views a detail page reads also show the event it names --
+ * whatever its visibility or status -- to a signed-in member with
+ * `events: manage` in that event's tenant, on that tenant's own host
+ * (`event_previewed()` in SQL). Like the host header, it grants nothing by
+ * itself: anyone else sending it sees exactly what they saw before.
+ */
+export const EVENT_PREVIEW_HEADER = "x-event-preview";
+
+/**
+ * A client whose public_* reads also show event `eventId` to its manager
+ * (#1764). Only the preview page uses it, never a listing, so a private event
+ * never appears among public ones.
+ */
+export const createSupabasePreviewClient = cache(
+  async function createSupabasePreviewClient(eventId: string) {
+    return buildServerClient({ [EVENT_PREVIEW_HEADER]: eventId });
+  },
+);
+
+async function buildServerClient(extraHeaders: Record<string, string>) {
+  const [cookieStore, headerStore] = await Promise.all([cookies(), headers()]);
+  // Same source the proxy routes on (src/proxy.ts); Vercel presents the
+  // custom domain here, not the deployment host -- except on a preview
+  // deployment, which is what TENANT_HOST_OVERRIDE is for.
+  const host = tenantHost(headerStore.get("host"));
+  const requestHeaders = {
+    ...(host ? { [TENANT_HOST_HEADER]: host } : {}),
+    ...extraHeaders,
+  };
+
+  return createServerClient<Db>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+    {
+      global:
+        Object.keys(requestHeaders).length > 0
+          ? { headers: requestHeaders }
+          : undefined,
+      // Scoped to the tenant's apex where one is configured, so a session
+      // established on `portal.<apex>` is sent to `www.<apex>` too (#1161).
+      // Derived from the *raw* Host header rather than `host` above:
+      // TENANT_HOST_OVERRIDE names which tenant a preview serves, which says
+      // nothing about where the browser will send its cookies back.
+      cookieOptions: sessionCookieOptions(headerStore.get("host")),
+      cookies: {
+        getAll() {
+          return cookieStore.getAll();
+        },
+        setAll(cookiesToSet) {
+          try {
+            cookiesToSet.forEach(({ name, value, options }) =>
+              cookieStore.set(name, value, options),
+            );
+          } catch {
+            // Cookie writes can fail in a Server Component; the proxy refreshes sessions.
+          }
+        },
+      },
+    },
+  );
+}

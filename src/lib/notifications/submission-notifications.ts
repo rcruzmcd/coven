@@ -961,6 +961,8 @@ type EventRegistrationRow = {
   has_no_instagram: boolean | null;
   preferred_contact_method: string | null;
   preferred_contact_detail: string | null;
+  is_test: boolean;
+  tested_by: string | null;
 };
 
 type ConfirmationEventRow = {
@@ -974,7 +976,7 @@ type ConfirmationEventRow = {
 };
 
 const EVENT_REGISTRATION_SELECT =
-  "id, tenant_id, event_id, person_id, name, email, party_size, instagram_handle, has_no_instagram, preferred_contact_method, preferred_contact_detail";
+  "id, tenant_id, event_id, person_id, name, email, party_size, instagram_handle, has_no_instagram, preferred_contact_method, preferred_contact_detail, is_test, tested_by";
 
 /**
  * The registrant's own confirmation (#1068), shaped like the gear requester's
@@ -1065,8 +1067,12 @@ export async function sendEventRegistrationConfirmation(
   // generated uuid for a row it never inserted. A blank email is the staff-entered
   // shape 20260901010000 exists for -- a walk-in checked in from the portal whose
   // `people` row has no address on it -- and is nothing to report either.
-  const to = data?.email?.trim() ?? "";
-  if (!data || !data.person_id || !to) return "skipped";
+  // #1764. A test registration has no person, and its confirmation goes to
+  // the tester's own account address only -- never to whatever they typed.
+  const to = data?.is_test
+    ? await testerEmail(admin, data.tested_by)
+    : (data?.email?.trim() ?? "");
+  if (!data || (!data.person_id && !data.is_test) || !to) return "skipped";
 
   if (!(await isOrgEmailEnabled(admin, data.tenant_id))) return "skipped";
 
@@ -1193,11 +1199,34 @@ export async function sendEventRegistrationConfirmation(
         },
         reply.slots,
       );
-      options.onRendered?.(email);
-      return email;
+      const sent = data.is_test
+        ? { ...email, subject: `${TEST_SUBJECT_PREFIX}${email.subject}` }
+        : email;
+      options.onRendered?.(sent);
+      return sent;
     },
     logPrefix: "[event-registration-confirm]",
   });
+}
+
+/** What a test registration's confirmation subject starts with (#1764). */
+export const TEST_SUBJECT_PREFIX = "[Test] ";
+
+/** The account address of whoever made a test registration, or "". */
+async function testerEmail(
+  admin: SupabaseClient,
+  userId: string | null,
+): Promise<string> {
+  if (!userId) return "";
+  const { data, error } = await admin.auth.admin.getUserById(userId);
+  if (error) {
+    console.error(
+      "[submission-notify] could not read the tester for a test confirmation",
+      error,
+    );
+    return "";
+  }
+  return data.user?.email?.trim() ?? "";
 }
 
 type Recipient = { person_id: string; email: string };

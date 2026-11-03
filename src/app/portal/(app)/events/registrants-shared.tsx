@@ -3,6 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { MessageCircleOff, RotateCcw } from "lucide-react";
 import {
+  clearTestRegistrationsAction,
   setRegistrationsGroupChatAction,
   type EventRegistrant,
   type EventRegistrantsData,
@@ -21,6 +22,16 @@ import { announcementBatches } from "@/lib/event-announcements";
 import { NO_RECORD_MESSAGES } from "@/lib/outbound-messages";
 import type { RegistrationQuestion } from "@/lib/registration-questions";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   PortalDataTable,
   type PortalDataTableColumn,
@@ -207,6 +218,141 @@ export function CancelledRegistrations({
           shell="bare"
         />
       )}
+    </section>
+  );
+}
+
+/**
+ * Test registrations from the event's staff preview (#1764), apart from the
+ * list so one is never counted or mistaken for somebody coming. Hidden behind
+ * a toggle, and cleared all at once by someone who manages the event.
+ */
+export function TestRegistrations({
+  eventId,
+  tests,
+  canClear,
+  onCleared,
+}: {
+  eventId: string;
+  tests: readonly EventRegistrant[];
+  canClear: boolean;
+  onCleared: () => void;
+}) {
+  const [shown, setShown] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [pending, startClear] = useTransition();
+
+  const columns = useMemo<PortalDataTableColumn<EventRegistrant>[]>(
+    () => [
+      {
+        key: "name",
+        label: "Name",
+        sortValue: (registrant) => registrant.name,
+        cellClassName: "max-w-xs font-medium",
+        render: (registrant) => (
+          <span className="flex items-center gap-2">
+            <span className="truncate" title={registrant.name}>
+              {registrant.name}
+            </span>
+            <StatusBadge tone="info" className="font-normal">
+              Test
+            </StatusBadge>
+          </span>
+        ),
+      },
+      {
+        key: "party_size",
+        label: "Party size",
+        sortValue: (registrant) => registrant.party_size,
+        hideBelow: "sm",
+        render: (registrant) => registrant.party_size,
+      },
+      {
+        key: "created_at",
+        label: "Registered",
+        sortValue: (registrant) => registrant.created_at,
+        hideBelow: "md",
+        cellClassName: "app-muted whitespace-nowrap",
+        render: (registrant) => formatDateTime(registrant.created_at),
+      },
+    ],
+    [],
+  );
+
+  if (tests.length === 0) return null;
+
+  function clear() {
+    startClear(async () => {
+      await runAction(() => clearTestRegistrationsAction(eventId), {
+        success: "Test registrations cleared.",
+        onSuccess: () => {
+          setConfirming(false);
+          onCleared();
+        },
+      });
+    });
+  }
+
+  return (
+    <section className="flex flex-col gap-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          type="button"
+          variant="link"
+          size="sm"
+          className="px-0"
+          aria-expanded={shown}
+          onClick={() => setShown((open) => !open)}
+        >
+          {shown ? "Hide" : "Show"} test registrations ({tests.length})
+        </Button>
+        {canClear && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            disabled={pending}
+            onClick={() => setConfirming(true)}
+          >
+            Clear test registrations
+          </Button>
+        )}
+      </div>
+      {shown && (
+        <PortalDataTable
+          columns={columns}
+          rows={tests}
+          getRowKey={(registrant) => registrant.id}
+          defaultSort={{ key: "created_at", dir: "desc" }}
+          emptyMessage="No test registrations."
+          shell="bare"
+        />
+      )}
+      <AlertDialog open={confirming} onOpenChange={setConfirming}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Clear {tests.length} test registration
+              {tests.length === 1 ? "" : "s"}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Every test registration on this event is deleted, with its
+              answers. Real registrations are not touched. This can&apos;t be
+              undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              disabled={pending}
+              onClick={clear}
+            >
+              Clear
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </section>
   );
 }

@@ -72,6 +72,17 @@ beforeEach(() => {
 });
 
 describe("RegistrationQuestionsEditor", () => {
+  // #1731: not "Registration questions", which read as the per-person options.
+  test("labels the section Additional questions", () => {
+    render(<Harness initial={[]} />);
+    expect(screen.getByText("Additional questions")).toBeTruthy();
+    expect(
+      screen.getByText(
+        "Optional. Asked once per registration. Deleting a question that has answers archives it, so the answers are kept.",
+      ),
+    ).toBeTruthy();
+  });
+
   test("adds a single-choice question with two blank options", async () => {
     const user = userEvent.setup();
     render(<Harness initial={[]} />);

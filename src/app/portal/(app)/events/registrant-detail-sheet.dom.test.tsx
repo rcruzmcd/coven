@@ -11,6 +11,7 @@ import type { RegistrationQuestion } from "@/lib/registration-questions";
 const REGISTRANT: EventRegistrant = {
   id: "11111111-1111-4111-8111-111111111111",
   event_id: "22222222-2222-4222-8222-222222222222",
+  is_test: false,
   name: "Jamie Rivera",
   email: "jamie@example.test",
   phone: "555-0100",

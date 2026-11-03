@@ -138,8 +138,8 @@ const SETTINGS_PAGES = [
     level: "manage",
   },
   {
-    href: "/portal/people/profile-questions",
-    label: "Profile questions",
+    href: "/portal/people/settings",
+    label: "People settings",
     detail: "People",
     resource: "person_answers",
     level: "manage",

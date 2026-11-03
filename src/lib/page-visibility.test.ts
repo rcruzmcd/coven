@@ -1,9 +1,10 @@
 import { describe, expect, spyOn, test } from "bun:test";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { readFileSync, readdirSync, statSync } from "node:fs";
+import { dirname, join, relative, sep } from "node:path";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   PUBLIC_PAGE_SLOTS,
+  REQUIRED_PUBLIC_PAGES,
   getPageVisibility,
   getTenantPageVisibility,
   hiddenSlots,
@@ -171,6 +172,94 @@ describe("PUBLIC_PAGE_SLOTS", () => {
     expect(
       PUBLIC_PAGE_SLOTS.find((entry) => entry.key === "gears")?.defaultVisible,
     ).toBe(true);
+  });
+});
+
+/**
+ * Every directory under `src/app/(public)` holding a `page.tsx`, relative to
+ * that group and with `/` separators -- `""` is the group root.
+ */
+function publicPageDirs(): string[] {
+  const root = join(import.meta.dirname, "..", "app", "(public)");
+  const found: string[] = [];
+  const walk = (dir: string) => {
+    for (const entry of readdirSync(dir)) {
+      const path = join(dir, entry);
+      if (statSync(path).isDirectory()) walk(path);
+      else if (entry === "page.tsx") {
+        found.push(relative(root, dir).split(sep).join("/"));
+      }
+    }
+  };
+  walk(root);
+  return found.sort();
+}
+
+const under = (dir: string, base: string) =>
+  dir === base || dir.startsWith(`${base}/`);
+
+/**
+ * Whether a slot's gate covers a page directory: a gating layout covers its
+ * own directory and everything beneath it, a gating page only itself.
+ */
+function gatedBySlot(dir: string): boolean {
+  return PUBLIC_PAGE_SLOTS.some((slot) => {
+    const gates = slot.gate
+      ? [slot.gate].flat()
+      : [`(public)/${slot.key}/layout.tsx`];
+    return gates.some((gate) => {
+      if (!gate.startsWith("(public)/")) return false;
+      const gateDir = dirname(gate.slice("(public)/".length));
+      return gate.endsWith("/layout.tsx")
+        ? under(dir, gateDir)
+        : dir === gateDir;
+    });
+  });
+}
+
+function requiredBy(dir: string): boolean {
+  return REQUIRED_PUBLIC_PAGES.some((page) =>
+    page.routes.some((route) =>
+      route === "" ? dir === "" : under(dir, route),
+    ),
+  );
+}
+
+describe("REQUIRED_PUBLIC_PAGES", () => {
+  // #1726: a new public page has to be a slot or listed as always on, so
+  // nobody ships one without deciding whether the board can hide it.
+  test("every (public) route is gated by a slot or listed as required", () => {
+    const undecided = publicPageDirs().filter(
+      (dir) => !gatedBySlot(dir) && !requiredBy(dir),
+    );
+    expect(
+      undecided,
+      "Add a PUBLIC_PAGE_SLOTS entry (and gate it) or a REQUIRED_PUBLIC_PAGES entry for each",
+    ).toEqual([]);
+  });
+
+  test("every required route exists, and none is also behind a slot", () => {
+    const dirs = publicPageDirs();
+    for (const page of REQUIRED_PUBLIC_PAGES) {
+      for (const route of page.routes) {
+        const covered = dirs.filter((dir) =>
+          route === "" ? dir === "" : under(dir, route),
+        );
+        expect(covered.length, `${page.key}: ${route || "/"}`).toBeGreaterThan(
+          0,
+        );
+        for (const dir of covered) {
+          expect(gatedBySlot(dir), `${dir} is both required and gated`).toBe(
+            false,
+          );
+        }
+      }
+    }
+  });
+
+  test("has no duplicate keys", () => {
+    const keys = REQUIRED_PUBLIC_PAGES.map((page) => page.key);
+    expect(new Set(keys).size).toBe(keys.length);
   });
 });
 

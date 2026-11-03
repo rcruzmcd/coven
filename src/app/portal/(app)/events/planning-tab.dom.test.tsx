@@ -81,7 +81,7 @@ function makeEvent(overrides: Partial<EventRow> = {}): EventRow {
 
 // The Save button lives on the event detail view's toolbar, wired to the tab's
 // form by id -- stand in for it here.
-function renderTab(event: EventRow) {
+function renderTab(event: EventRow, mode: "view" | "edit" = "edit") {
   return render(
     <>
       <PlanningTab
@@ -89,7 +89,7 @@ function renderTab(event: EventRow) {
         formId="planning-form"
         people={[]}
         onPersonCreated={() => {}}
-        mode="edit"
+        mode={mode}
         onSaved={() => {}}
       />
       <button type="submit" form="planning-form">
@@ -200,6 +200,34 @@ describe("PlanningTab registration deadline", () => {
     expect(submitted.get("registrationEnabled")).toBe("off");
     expect(submitted.get("registrationDeadline")).toBe("");
   });
+});
+
+describe("PlanningTab per-person options", () => {
+  test("uses the distinct label in the read-only view", () => {
+    renderTab(makeEvent(), "view");
+
+    expect(screen.getByText("Per-person options")).toBeTruthy();
+  });
+
+  // #1732: capacity/pricing config, so it sits with the discount codes, not
+  // beside the free-form Additional questions at the bottom.
+  const follows = (a: Node, b: Node) =>
+    Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+
+  for (const mode of ["view", "edit"] as const) {
+    test(`sits after the discount codes and before the questions (${mode})`, () => {
+      renderTab(makeEvent(), mode);
+
+      const discounts = screen.getByText(/^Auto-assign discount codes/);
+      const options = screen.getByText("Per-person options");
+      const adults = screen.getAllByText("Adults only (18+)")[0];
+      const questions = screen.getByText("Additional questions");
+
+      expect(follows(discounts, options)).toBe(true);
+      expect(follows(options, adults)).toBe(true);
+      expect(follows(options, questions)).toBe(true);
+    });
+  }
 });
 
 describe("PlanningTab adults only (#1417)", () => {

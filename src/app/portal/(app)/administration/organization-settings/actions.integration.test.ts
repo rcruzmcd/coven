@@ -12,6 +12,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   SEEDED_USERS,
   anonClient,
+  seededTenantId,
   signInAs,
 } from "../../../../../../test/integration-setup";
 
@@ -52,10 +53,18 @@ afterEach(() => {
 
 const DENIED = { error: "You don't have permission to perform this action." };
 
+// Every read and write below is scoped to the seeded tenant, the one the
+// signed-in accounts write to. The service-role client sees every tenant, and
+// a file earlier in the run that provisions a second one (which seeds its own
+// `finance.*` and sales-tax rows) left these reads matching two rows whenever
+// its teardown had not finished first.
+const tenantId = await seededTenantId();
+
 async function settingValue(key: string) {
   const { data, error } = await serviceRoleClient
     .from("app_settings")
     .select("value")
+    .eq("tenant_id", tenantId)
     .eq("key", key)
     .maybeSingle();
   if (error) throw error;
@@ -63,7 +72,11 @@ async function settingValue(key: string) {
 }
 
 async function deleteSetting(key: string) {
-  await serviceRoleClient.from("app_settings").delete().eq("key", key);
+  await serviceRoleClient
+    .from("app_settings")
+    .delete()
+    .eq("tenant_id", tenantId)
+    .eq("key", key);
 }
 
 function thresholdForm(value: string) {
@@ -93,6 +106,7 @@ async function withRestoredSetting(key: string, run: () => Promise<void>) {
       await serviceRoleClient
         .from("app_settings")
         .update({ value: original })
+        .eq("tenant_id", tenantId)
         .eq("key", key);
     }
   }
@@ -416,6 +430,7 @@ describe("updateBrandingAction typography", () => {
     const { data } = await serviceRoleClient
       .from("app_settings")
       .select("key, value")
+      .eq("tenant_id", tenantId)
       .like("key", "brand.%");
     const original = data ?? [];
     try {
@@ -428,12 +443,14 @@ describe("updateBrandingAction typography", () => {
       const { data: after } = await serviceRoleClient
         .from("app_settings")
         .select("key")
+        .eq("tenant_id", tenantId)
         .like("key", "brand.%");
       for (const row of after ?? []) {
         if (!keys.has(row.key as string)) {
           await serviceRoleClient
             .from("app_settings")
             .delete()
+            .eq("tenant_id", tenantId)
             .eq("key", row.key);
         }
       }
@@ -441,6 +458,7 @@ describe("updateBrandingAction typography", () => {
         await serviceRoleClient
           .from("app_settings")
           .update({ value: row.value })
+          .eq("tenant_id", tenantId)
           .eq("key", row.key);
       }
     }

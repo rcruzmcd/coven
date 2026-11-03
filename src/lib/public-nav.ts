@@ -190,6 +190,93 @@ export const LEGAL_LINKS: readonly NavLink[] = LEGAL_DOCUMENTS.map(
 );
 
 /**
+ * A tenant's top-level menu: the order of `NAV_GROUPS` and a label per group,
+ * both keyed by the group's `href` (#1726). Stored as one `layout.nav` row.
+ *
+ * Only the top level is the tenant's. Which links sit under which group, the
+ * slot gating and the header's width budget stay in code, so every entry still
+ * leads to a known, gated, tested route.
+ */
+export type NavSettings = {
+  order: string[];
+  labels: Record<string, string>;
+};
+
+/** The `layout.*` slot the menu is stored under. */
+export const NAV_SETTING_SLOT = "nav";
+
+/**
+ * Long enough for any real section name, short enough that one label cannot
+ * blow the header's width budget on its own.
+ */
+export const NAV_LABEL_MAX_LENGTH = 32;
+
+const NAV_HREFS: readonly string[] = NAV_GROUPS.map((group) => group.href);
+
+export const DEFAULT_NAV_SETTINGS: NavSettings = {
+  order: [...NAV_HREFS],
+  labels: {},
+};
+
+/**
+ * Folds a stored value over the default menu. Pure, and total: anything that
+ * is not the shape above resolves to today's menu.
+ *
+ * - Unknown or repeated keys in `order` are dropped.
+ * - Groups missing from `order` go at the end, in their default order -- so a
+ *   group added to NAV_GROUPS after a tenant saved still appears.
+ * - Labels for unknown groups are dropped, and an empty one means the default.
+ */
+export function resolveNavSettings(value: unknown): NavSettings {
+  const stored =
+    value && typeof value === "object" && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : {};
+
+  const order: string[] = [];
+  if (Array.isArray(stored.order)) {
+    for (const href of stored.order) {
+      if (
+        typeof href === "string" &&
+        NAV_HREFS.includes(href) &&
+        !order.includes(href)
+      ) {
+        order.push(href);
+      }
+    }
+  }
+  for (const href of NAV_HREFS) if (!order.includes(href)) order.push(href);
+
+  const labels: Record<string, string> = {};
+  if (stored.labels && typeof stored.labels === "object") {
+    for (const [href, label] of Object.entries(stored.labels)) {
+      if (!NAV_HREFS.includes(href) || typeof label !== "string") continue;
+      const trimmed = label.trim().slice(0, NAV_LABEL_MAX_LENGTH);
+      if (trimmed) labels[href] = trimmed;
+    }
+  }
+
+  return { order, labels };
+}
+
+/** NAV_GROUPS in the tenant's order, with its labels in place of the defaults. */
+export function orderedGroups(
+  nav: NavSettings = DEFAULT_NAV_SETTINGS,
+): NavGroup[] {
+  const rank = (href: string) => {
+    const index = nav.order.indexOf(href);
+    return index === -1 ? NAV_HREFS.length + NAV_HREFS.indexOf(href) : index;
+  };
+  return [...NAV_GROUPS]
+    .sort((a, b) => rank(a.href) - rank(b.href))
+    .map((group) =>
+      nav.labels[group.href]
+        ? { ...group, label: nav.labels[group.href] }
+        : group,
+    );
+}
+
+/**
  * Drops every group and sub-link belonging to a hidden section, and resolves
  * the lexicon placeholders in what is left. A group is removed when its own
  * slot is hidden, and also when filtering its sub-links leaves it empty --
@@ -201,10 +288,14 @@ export const LEGAL_LINKS: readonly NavLink[] = LEGAL_DOCUMENTS.map(
  * function all three already go through, and a label that reached a caller
  * unresolved would render braces at them. It defaults to the platform's own
  * words so a caller that has no tenant still gets readable navigation.
+ *
+ * `nav` is the tenant's menu order and labels (#1726); omitted, the menu is
+ * NAV_GROUPS as written.
  */
 export function visibleGroups(
   hidden: readonly string[],
   lexicon: Lexicon = DEFAULT_LEXICON,
+  nav: NavSettings = DEFAULT_NAV_SETTINGS,
 ): NavGroup[] {
   const isHidden = (slot?: string) => Boolean(slot && hidden.includes(slot));
   const named = <T extends { label: string }>(entry: T): T => ({
@@ -212,7 +303,10 @@ export function visibleGroups(
     label: applyLexicon(entry.label, lexicon),
   });
 
-  return NAV_GROUPS.filter((group) => !isHidden(group.slot))
+  // A tenant's own label goes through the lexicon too, so `{item_plural}`
+  // typed into it still resolves.
+  return orderedGroups(nav)
+    .filter((group) => !isHidden(group.slot))
     .map((group) => {
       if (!group.links) return named(group);
       const links = group.links.filter((l) => !isHidden(l.slot)).map(named);

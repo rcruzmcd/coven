@@ -22,6 +22,10 @@ import { eventCardTaskLabels, isPhaseKey } from "../phase-status";
 import { listProgramsAction } from "../../programs/actions";
 import { deviceClass } from "@/lib/portal/device";
 import { EventDetailView } from "./event-detail-view";
+import { publicSiteHref } from "@/lib/portal/paths";
+import { currentTenant, getTenantContext } from "@/lib/portal/tenants";
+import { getRequestHost } from "@/lib/request-origin";
+import { publicEventPreviewPath } from "@/app/(public)/events/event-path";
 import { fillEventPeople } from "@/lib/events/event-people";
 
 /**
@@ -179,6 +183,17 @@ export default async function EventDetailPage({
     visible[0]?.value ??
     "overview";
 
+  // #1764. The event's own public page as a staff preview, for the same
+  // `events: manage` the preview itself checks. On a portal host it is the
+  // tenant's public domain, and nothing where the tenant has none.
+  const previewUrl = canDelete
+    ? publicSiteHref(
+        await getRequestHost(),
+        currentTenant(await getTenantContext(supabase))?.custom_domain ?? null,
+        publicEventPreviewPath(eventId),
+      )
+    : null;
+
   const [
     programsResult,
     { data: deleteBlockers },
@@ -231,6 +246,7 @@ export default async function EventDetailPage({
         programs={programs}
         canDelete={canDelete}
         deleteBlockers={deleteBlockers ?? []}
+        previewUrl={previewUrl}
         groups={groups}
         initialCard={initialCard}
         cardTasks={cardTasks}

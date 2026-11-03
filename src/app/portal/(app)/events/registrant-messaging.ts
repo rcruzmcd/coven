@@ -29,6 +29,8 @@ export const REGISTRANT_MESSAGE_ERRORS = {
    */
   NO_EMAIL: "This registration has no email address to write to.",
   CANCELLED: "This registration was cancelled.",
+  /** #1764. Its address is whatever the tester typed, so nothing is sent. */
+  TEST: "This is a test registration, so nothing is sent to it.",
   NO_PERSON:
     "This registration isn't linked to a person, so the confirmation can't be resent.",
   RESENT_RECENTLY:

@@ -8,8 +8,11 @@ import {
 import { QUESTION_OPTION_KEY_PATTERN } from "@/lib/registration-questions";
 import type { PersonQuestion } from "@/lib/person-questions";
 
-/** People › Profile questions, the settings view beside the People list. */
-export const PROFILE_QUESTIONS_PATH = "/portal/people/profile-questions";
+/**
+ * People › People settings, the settings view beside the People list (#1760;
+ * it was `/portal/people/profile-questions`, which still redirects here).
+ */
+export const PEOPLE_SETTINGS_PATH = "/portal/people/settings";
 
 /**
  * The Profile questions editor's draft (#1743): #1501's shared draft plus what
@@ -95,4 +98,27 @@ export function personQuestionsDraftError(
     return "Two questions have the same code.";
   }
   return null;
+}
+
+/**
+ * How many changes the save bar counts (#1761): each question added, removed
+ * or edited, plus one for a new order of the questions kept.
+ */
+export function personQuestionChanges(
+  drafts: readonly PersonQuestionDraft[],
+  saved: readonly PersonQuestionDraft[],
+): number {
+  const before = new Map(
+    personQuestionsPayload(saved).map((row) => [row.id, JSON.stringify(row)]),
+  );
+  const after = personQuestionsPayload(drafts);
+  const edited = after.filter(
+    (row) => before.get(row.id) !== JSON.stringify(row),
+  ).length;
+  const now = new Set(after.map((row) => row.id));
+  const removed = [...before.keys()].filter((id) => !now.has(id)).length;
+  const keptBefore = [...before.keys()].filter((id) => now.has(id));
+  const keptAfter = after.map((row) => row.id).filter((id) => before.has(id));
+  const reordered = keptBefore.some((id, index) => keptAfter[index] !== id);
+  return edited + removed + (reordered ? 1 : 0);
 }

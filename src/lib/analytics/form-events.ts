@@ -1,5 +1,6 @@
 import { useRef, type SyntheticEvent } from "react";
 import type { RegistrationStep } from "@/app/(public)/events/registration-step";
+import { NO_FORM_ANALYTICS_ATTRIBUTE } from "./no-form-analytics";
 
 /**
  * Every event the public site sends to PostHog about a form (#1710), and the
@@ -89,7 +90,7 @@ export type FormSubmitted = {
   volunteer_status_lookup: Record<never, never>;
   artwork_submission: Record<never, never>;
   registration_answers: Record<never, never>;
-  my_sign_in: { method: "password" | "sign_up" | "google" };
+  my_sign_in: { method: "password" | "sign_up" | "google" | "code" };
   my_claim: Record<never, never>;
 };
 
@@ -189,6 +190,12 @@ function deliver(
   sent: Record<string, string>,
   options?: { leaving?: boolean },
 ): void {
+  if (
+    typeof document !== "undefined" &&
+    document.querySelector(`[${NO_FORM_ANALYTICS_ATTRIBUTE}]`)
+  ) {
+    return;
+  }
   if (capture) capture(event, sent, options);
   else if (pending && pending.length < PENDING_LIMIT)
     pending.push([event, sent, options]);
@@ -266,12 +273,18 @@ export function trackGear<E extends GearEventName>(
  * is its host alone, a missing page is its first path segment at most
  * (`notFoundPath()`), and a catalog filter is its name, never the value
  * picked.
+ *
+ * Email-first registration's code (#1765) names the event, as the
+ * registration funnel does (#1707), and nothing about the address.
  */
 export type SiteEvents = {
   donate_clicked: { placement: DonatePlacement };
   outbound_clicked: { host: string };
   not_found: { path: string };
   gear_filter_applied: { filter: "type" | "condition" | "gender" };
+  registration_code_sent: { event_id: string };
+  registration_code_verified: { event_id: string };
+  registration_code_skipped: { event_id: string };
 };
 
 export type SiteEventName = keyof SiteEvents;
@@ -281,6 +294,9 @@ const SITE_EVENT_PROPERTIES: Record<SiteEventName, readonly string[]> = {
   outbound_clicked: ["host"],
   not_found: ["path"],
   gear_filter_applied: ["filter"],
+  registration_code_sent: ["event_id"],
+  registration_code_verified: ["event_id"],
+  registration_code_skipped: ["event_id"],
 };
 
 /** Clicks that leave the page, so they go by beacon. */

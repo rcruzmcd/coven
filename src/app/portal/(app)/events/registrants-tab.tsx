@@ -15,6 +15,7 @@ import { RegistrantBadges } from "./registrant-badges";
 import {
   CancelledRegistrations,
   RegistrantAnnouncementsSection,
+  TestRegistrations,
   RegistrantOverlays,
 } from "./registrants-shared";
 import { useRegistrantRowActions } from "./use-registrant-row-actions";
@@ -851,6 +852,13 @@ export function RegistrantsTab({
         isRowPending={isRowPending}
         groupChat={groupChat}
         onGroupChatChanged={refreshRegistrants}
+      />
+
+      <TestRegistrations
+        eventId={eventId}
+        tests={data?.tests ?? []}
+        canClear={mode === "edit" && canManage}
+        onCleared={refreshRegistrants}
       />
 
       <RegistrantAnnouncementsSection data={data} />

@@ -339,6 +339,25 @@ export function PlanningTab({
         >
           {form.autoAssignDiscountCodes ? "On" : "Off"}
         </ReadOnlyField>
+        <ReadOnlyField
+          label="Per-person options"
+          htmlFor="planning-options-prompt"
+        >
+          {form.registrationOptions.options.length === 0 ? (
+            "—"
+          ) : (
+            <>
+              <span className="block">{form.registrationOptions.prompt}</span>
+              {form.registrationOptions.options.map((option) => (
+                <span key={option.key} className="app-muted block text-xs">
+                  {option.label}
+                  {option.cap ? ` (cap ${option.cap})` : ""}
+                  {option.price ? ` · ${formatCurrency(option.price)}` : ""}
+                </span>
+              ))}
+            </>
+          )}
+        </ReadOnlyField>
         <ReadOnlyField label="Adults only (18+)" htmlFor="planning-adultsOnly">
           {form.adultsOnly ? "On" : "Off"}
         </ReadOnlyField>
@@ -387,26 +406,7 @@ export function PlanningTab({
           )}
         </ReadOnlyField>
         <ReadOnlyField
-          label="Registration question"
-          htmlFor="planning-options-prompt"
-        >
-          {form.registrationOptions.options.length === 0 ? (
-            "—"
-          ) : (
-            <>
-              <span className="block">{form.registrationOptions.prompt}</span>
-              {form.registrationOptions.options.map((option) => (
-                <span key={option.key} className="app-muted block text-xs">
-                  {option.label}
-                  {option.cap ? ` (cap ${option.cap})` : ""}
-                  {option.price ? ` · ${formatCurrency(option.price)}` : ""}
-                </span>
-              ))}
-            </>
-          )}
-        </ReadOnlyField>
-        <ReadOnlyField
-          label="Registration questions"
+          label="Additional questions"
           htmlFor="planning-registration-questions"
         >
           <QuestionsSummary questions={form.registrationQuestions} />
@@ -496,6 +496,12 @@ export function PlanningTab({
             Auto-assign discount codes to new registrants
           </FieldLabel>
         </Field>
+
+        <RegistrationOptionsEditor
+          value={form.registrationOptions}
+          onChange={(next) => update("registrationOptions", next)}
+          disabled={isPending}
+        />
 
         <Field orientation="horizontal">
           <FieldContent>
@@ -700,12 +706,6 @@ export function PlanningTab({
             shown on the public event page.
           </FieldDescription>
         </Field>
-
-        <RegistrationOptionsEditor
-          value={form.registrationOptions}
-          onChange={(next) => update("registrationOptions", next)}
-          disabled={isPending}
-        />
 
         <RegistrationQuestionsEditor
           eventId={event.id}

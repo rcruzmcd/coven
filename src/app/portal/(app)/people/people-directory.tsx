@@ -1,11 +1,10 @@
 import Link from "next/link";
-import { Eye, ListChecks } from "lucide-react";
+import { Eye } from "lucide-react";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   getCurrentUserPermissions,
   hasPermission,
 } from "@/lib/auth/permissions";
-import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/portal/empty-state";
 import { IconLink } from "@/components/portal/icon-link";
 import { Card, CardContent } from "@/components/ui/card";
@@ -31,14 +30,16 @@ import {
   totalPagesFor,
 } from "@/lib/pagination";
 import { SearchField } from "@/components/search-field";
-import { LinkPendingPulse } from "@/components/link-pending";
 import {
   ListNavigationProvider,
   ListPendingRegion,
 } from "@/components/portal/list-navigation";
 import { StatTile } from "../home/stat-tile";
 import { NewPersonDialog } from "./new-person-dialog";
-import { PROFILE_QUESTIONS_PATH } from "./profile-questions/profile-questions-draft";
+import {
+  loadPeopleQueueCounts,
+  PeopleHeaderActions,
+} from "./people-header-actions";
 import {
   accountEmailToShow,
   PEOPLE_WITH_ROLES,
@@ -117,7 +118,7 @@ export async function PeopleDirectory({
     "constituent_claims",
     "manage",
   );
-  // The settings view beside this list (#1743): what the organization asks
+  // People settings, beside this list (#1743, #1760): what the organization asks
   // about a person. Its module gates the permission, as with claims.
   const canEditProfileQuestions = hasPermission(
     permissions,
@@ -169,7 +170,9 @@ export async function PeopleDirectory({
   }
 
   const { offset, to } = pageRange(page, perPage);
-  const [{ data: people, count }, { data: peopleOptions }, stats] =
+  // The header's queue links live only on the full list, so only it counts.
+  const showsDirectoryActions = !!segment.isAllPeople;
+  const [{ data: people, count }, { data: peopleOptions }, stats, queueCounts] =
     await Promise.all([
       query.range(offset, to),
       supabase
@@ -184,6 +187,10 @@ export async function PeopleDirectory({
         // constraint is the guarantee; this states it where the rows are read.
         .overrideTypes<{ person_type: PersonType }[]>(),
       segment.stats ? segment.stats(supabase) : Promise.resolve(null),
+      loadPeopleQueueCounts(supabase, {
+        canManage: showsDirectoryActions && canManage,
+        canReviewClaims: showsDirectoryActions && canReviewClaims,
+      }),
     ]);
   const segmentStats = stats && resolveStats(stats, vocabulary);
   const peopleRows = (people ?? []) as unknown as PersonRow[];
@@ -244,11 +251,19 @@ export async function PeopleDirectory({
 
   return (
     <>
-      <div className="w-fit">
-        <h1 className="brand-display text-4xl font-semibold tracking-brand sm:text-5xl">
-          {segment.title}
-        </h1>
-        <div className="rainbow-accent mt-3 w-full" />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="w-fit">
+          <h1 className="brand-display text-4xl font-semibold tracking-brand sm:text-5xl">
+            {segment.title}
+          </h1>
+          <div className="rainbow-accent mt-3 w-full" />
+        </div>
+        <PeopleHeaderActions
+          showDuplicates={showsDirectoryActions && canManage}
+          showClaims={showsDirectoryActions && canReviewClaims}
+          showSettings={showsDirectoryActions && canEditProfileQuestions}
+          counts={queueCounts}
+        />
       </div>
 
       {segment.counterpart && (
@@ -289,45 +304,6 @@ export async function PeopleDirectory({
               placeholder="Search name, email, phone..."
               preserve={preserve}
             />
-
-            {/* Only on the full list: a duplicate pair can straddle two
-              segments, so the queue belongs on the one page holding both
-              halves of it. */}
-            {canManage && segment.isAllPeople && (
-              <Button
-                variant="outline"
-                nativeButton={false}
-                render={<Link href="/portal/people/duplicates" />}
-              >
-                <LinkPendingPulse>Find duplicates</LinkPendingPulse>
-              </Button>
-            )}
-
-            {/* Beside Find duplicates and for the same reason: a claim is
-              matched against the whole directory, so the queue belongs on the
-              page that lists all of it. */}
-            {canReviewClaims && segment.isAllPeople && (
-              <Button
-                variant="outline"
-                nativeButton={false}
-                render={<Link href="/portal/people/claims" />}
-              >
-                <LinkPendingPulse>Account claims</LinkPendingPulse>
-              </Button>
-            )}
-
-            {/* Beside the other whole-directory entries: the questions are
-              asked of everybody, whatever segment they sit in. */}
-            {canEditProfileQuestions && segment.isAllPeople && (
-              <Button
-                variant="outline"
-                nativeButton={false}
-                render={<Link href={PROFILE_QUESTIONS_PATH} />}
-              >
-                <ListChecks className="size-4" />
-                <LinkPendingPulse>Profile questions</LinkPendingPulse>
-              </Button>
-            )}
 
             {canManage && segment.newPerson && (
               <NewPersonDialog

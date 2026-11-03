@@ -13,8 +13,10 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { safeMyDestination } from "@/lib/constituent/paths";
 import { navigateAfterSessionChange } from "@/lib/constituent/session-navigation";
 import { trackForm, useFormStarted } from "@/lib/analytics/form-events";
+import { EmailCodeForm } from "./email-code-form";
 
-type Mode = "sign-in" | "sign-up";
+/** `code` is the emailed one-time code (#1765). */
+type Mode = "sign-in" | "sign-up" | "code";
 
 function urlErrorMessage(reason: string | null) {
   if (reason === "oauth_failed")
@@ -211,43 +213,63 @@ export function SignInForm() {
 
       <Separator className="my-6" />
 
-      <form onSubmit={handleSubmit} noValidate {...startTracking}>
-        <FieldGroup>
-          <RequiredFieldsNote />
-          <Field>
-            <FieldLabel htmlFor="my-email" required>
-              Email
-            </FieldLabel>
-            <Input
-              id="my-email"
-              type="email"
-              autoComplete="email"
-              required
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-            />
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="my-password" required>
-              Password
-            </FieldLabel>
-            <Input
-              id="my-password"
-              type="password"
-              autoComplete={
-                mode === "sign-up" ? "new-password" : "current-password"
-              }
-              required
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-            />
-          </Field>
-          <Button type="submit" className="w-full" disabled={busy}>
-            {isSubmitting ? <Spinner /> : null}
-            {mode === "sign-up" ? "Create account" : "Sign in"}
-          </Button>
-        </FieldGroup>
-      </form>
+      {mode === "code" ? (
+        <EmailCodeForm
+          idPrefix="my-code"
+          sendLabel="Email me a code"
+          verifyLabel="Sign in"
+          onSent={() =>
+            trackForm("my_sign_in", "form_submitted", { method: "code" })
+          }
+          onRejected={() =>
+            trackForm("my_sign_in", "form_failed", {
+              error_code: "CODE_REJECTED",
+            })
+          }
+          onVerified={() => {
+            trackForm("my_sign_in", "form_completed", {});
+            navigateAfterSessionChange(router, destination);
+          }}
+        />
+      ) : (
+        <form onSubmit={handleSubmit} noValidate {...startTracking}>
+          <FieldGroup>
+            <RequiredFieldsNote />
+            <Field>
+              <FieldLabel htmlFor="my-email" required>
+                Email
+              </FieldLabel>
+              <Input
+                id="my-email"
+                type="email"
+                autoComplete="email"
+                required
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+              />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="my-password" required>
+                Password
+              </FieldLabel>
+              <Input
+                id="my-password"
+                type="password"
+                autoComplete={
+                  mode === "sign-up" ? "new-password" : "current-password"
+                }
+                required
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+              />
+            </Field>
+            <Button type="submit" className="w-full" disabled={busy}>
+              {isSubmitting ? <Spinner /> : null}
+              {mode === "sign-up" ? "Create account" : "Sign in"}
+            </Button>
+          </FieldGroup>
+        </form>
+      )}
 
       <div className="mt-6 flex flex-wrap items-center justify-between gap-3 text-sm">
         {mode === "sign-in" ? (
@@ -258,6 +280,14 @@ export function SignInForm() {
           >
             Create an account
           </button>
+        ) : mode === "code" ? (
+          <button
+            type="button"
+            className="underline hover:text-foreground"
+            onClick={() => switchMode("sign-in")}
+          >
+            Use a password instead
+          </button>
         ) : (
           <button
             type="button"
@@ -265,6 +295,16 @@ export function SignInForm() {
             onClick={() => switchMode("sign-in")}
           >
             I already have an account
+          </button>
+        )}
+
+        {mode === "sign-in" && (
+          <button
+            type="button"
+            className="underline hover:text-foreground"
+            onClick={() => switchMode("code")}
+          >
+            Email me a code instead
           </button>
         )}
 

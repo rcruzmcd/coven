@@ -5,6 +5,8 @@ import {
   getTenantPageVisibility,
   moduleBlockedSlots,
   namedSlots,
+  REQUIRED_PAGE_REASONS,
+  REQUIRED_PUBLIC_PAGES,
   slotsForTenant,
 } from "@/lib/page-visibility";
 import { currentTenant, getTenantContext } from "@/lib/portal/tenants";
@@ -62,6 +64,11 @@ export default async function WebsitePageVisibilityPage() {
           slots={slotsForTenant(namedSlots(lexicon), currentTenant(tenants))}
           visibility={pageVisibility}
           blockedSlots={blockedSlots}
+          requiredPages={REQUIRED_PUBLIC_PAGES.map((page) => ({
+            key: page.key,
+            label: page.label,
+            reason: REQUIRED_PAGE_REASONS[page.reason],
+          }))}
         />
       </div>
     </>

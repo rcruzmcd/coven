@@ -39,6 +39,11 @@ import {
   type LayoutValue,
 } from "@/lib/site-layout";
 import {
+  NAV_SETTING_SLOT,
+  resolveNavSettings,
+  type NavSettings,
+} from "@/lib/public-nav";
+import {
   writeAppSetting,
   type SettingActionResult,
 } from "@/lib/settings/write-app-setting";
@@ -298,6 +303,25 @@ export async function updateLayoutSettingAction(
   }
 
   return writeAppSetting(layoutSettingKey(slot), value, LAYOUT_PATHS);
+}
+
+/**
+ * The public site's top-level menu order and labels (#1726).
+ *
+ * Normalised through the same resolver the public site reads with, rather
+ * than trusted from the client: unknown groups are dropped, missing ones are
+ * appended, and an empty label is left out so the default stands. What is
+ * stored is therefore always something the header can render.
+ */
+export async function updateNavSettingsAction(
+  value: NavSettings,
+): Promise<SettingActionResult> {
+  const resolved = resolveNavSettings(value);
+  return writeAppSetting(
+    layoutSettingKey(NAV_SETTING_SLOT),
+    resolved,
+    LAYOUT_PATHS,
+  );
 }
 
 /**

@@ -19,6 +19,7 @@ const registrants: EventRegistrant[] = [
   {
     id: "reg-1",
     event_id: "event-1",
+    is_test: false,
     name: "Jamie Rivera",
     email: "jamie@example.test",
     phone: null,
@@ -65,6 +66,7 @@ const registrants: EventRegistrant[] = [
   {
     id: "reg-2",
     event_id: "event-1",
+    is_test: false,
     name: "Alex Chen",
     email: "alex@example.test",
     phone: null,
