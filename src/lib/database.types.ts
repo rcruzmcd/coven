@@ -11785,6 +11785,10 @@ export type Database = {
         };
         Returns: boolean;
       };
+      check_sign_in_code_rate_limit: {
+        Args: { p_email: string; p_ip_address: unknown };
+        Returns: boolean;
+      };
       claim_artwork_upload_slots: {
         Args: { p_code: string; p_count: number; p_ip_address?: unknown };
         Returns: {

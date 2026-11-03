@@ -6,7 +6,7 @@
 //
 // Three of those senders import "server-only", which throws outside Next's
 // bundler, so it is mocked here. That is the whole reason
-// delivery-log-labels.ts writes its eight unregistered keys as literals
+// delivery-log-labels.ts writes its nine unregistered keys as literals
 // instead of importing them: the cost is paid once, in this file, rather than
 // on the path of every module that parses a URL.
 import { describe, expect, mock, test } from "bun:test";
@@ -36,6 +36,7 @@ const {
 } = await import("@/lib/notifications/notification-email-confirmation");
 const { EVENT_ACCESS_GRANTED_KIND } =
   await import("@/lib/notifications/event-access-notification");
+const { SIGN_IN_CODE_KIND } = await import("@/lib/notifications/sign-in-code");
 
 /** Every kind any sender passes to deliverEmail(), from its own module. */
 const KINDS_SENDERS_WRITE = [
@@ -48,6 +49,7 @@ const KINDS_SENDERS_WRITE = [
   NOTIFICATION_EMAIL_CONFIRMATION_KIND,
   NOTIFICATION_EMAIL_CHANGED_KIND,
   EVENT_ACCESS_GRANTED_KIND,
+  SIGN_IN_CODE_KIND,
 ];
 
 describe("deliveryKindLabel", () => {

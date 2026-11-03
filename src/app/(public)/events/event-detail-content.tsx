@@ -43,6 +43,9 @@ import { checkRegistrationWindow } from "./event-registration-form";
 import { EventRegistrationForm } from "./event-registration-form-fields";
 import { EventSponsors } from "./event-sponsors";
 import { MyEventRegistrationForm } from "./my-registration-form";
+import { RegistrationEmailStep } from "./registration-email-step";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { signInCodeOffered } from "@/lib/notifications/sign-in-code";
 import {
   loadEventViewer,
   loadRegistrationAccountOffer,
@@ -107,6 +110,7 @@ function EventDetailBody({
   registrationQuestions,
   profileQuestions,
   myProfileAnswers,
+  offersSignInCode,
   preview,
 }: {
   event: PublicEvent;
@@ -153,6 +157,12 @@ function EventDetailBody({
    */
   myProfileAnswers: RegistrationAnswers;
   /** A staff preview (#1764): the form makes a test registration. */
+  /**
+   * Whether a visitor with no session starts with the email-first step
+   * (#1765). False for a signed-in reader, a staff preview, and a tenant with
+   * email off, which have the form as it was.
+   */
+  offersSignInCode: boolean;
   preview: boolean;
 }) {
   const registrationWindow = checkRegistrationWindow(event);
@@ -161,6 +171,30 @@ function EventDetailBody({
   // is never "already registered" as far as this page can tell.
   const existingRegistration =
     viewer?.kind === "linked" ? viewer.registration : null;
+
+  const anonymousForm = (
+    /* Signed in without an approved claim (#1162) still registers
+           down the anonymous path, and still mints or matches a
+           `people` row -- it just does not have to be told its own
+           name and address to do it (#1257). */
+    <EventRegistrationForm
+      eventId={event.id}
+      account={viewer?.kind === "account" ? viewer.account : null}
+      accountOffer={accountOffer}
+      waiver={waiver}
+      waiverBlock={waiverBlock}
+      asksAboutMinors={asksAboutMinors}
+      requiresInstagram={requiresInstagram}
+      adultsOnly={event.adults_only ?? false}
+      minorAccompaniment={minorAccompaniment}
+      photoConsent={photoConsent}
+      carpoolCostNotice={carpoolCostNotice}
+      registrationOptions={registrationOptions}
+      registrationQuestions={registrationQuestions}
+      profileQuestions={profileQuestions}
+      preview={preview}
+    />
+  );
 
   return (
     <>
@@ -255,28 +289,12 @@ function EventDetailBody({
                   profileQuestions={profileQuestions}
                   profileAnswers={myProfileAnswers}
                 />
+              ) : offersSignInCode ? (
+                <RegistrationEmailStep eventId={event.id}>
+                  {anonymousForm}
+                </RegistrationEmailStep>
               ) : (
-                /* Signed in without an approved claim (#1162) still registers
-                   down the anonymous path, and still mints or matches a
-                   `people` row -- it just does not have to be told its own
-                   name and address to do it (#1257). */
-                <EventRegistrationForm
-                  eventId={event.id}
-                  account={viewer?.kind === "account" ? viewer.account : null}
-                  accountOffer={accountOffer}
-                  waiver={waiver}
-                  waiverBlock={waiverBlock}
-                  asksAboutMinors={asksAboutMinors}
-                  requiresInstagram={requiresInstagram}
-                  adultsOnly={event.adults_only ?? false}
-                  minorAccompaniment={minorAccompaniment}
-                  photoConsent={photoConsent}
-                  carpoolCostNotice={carpoolCostNotice}
-                  registrationOptions={registrationOptions}
-                  registrationQuestions={registrationQuestions}
-                  profileQuestions={profileQuestions}
-                  preview={preview}
-                />
+                anonymousForm
               )}
             </EventRegistrationDisclosure>
           )}
@@ -374,6 +392,14 @@ export async function EventDetailContent({
   const requiresInstagram = event.registration_enabled
     ? await getPublicRequiresInstagram(supabase)
     : false;
+  // Email-first registration (#1765): only for a visitor with no session, on
+  // a real page rather than a staff preview, where there is a form to open,
+  // and on a tenant whose email is on -- a code that can never arrive is not
+  // an offer.
+  const offersSignInCode =
+    !preview && viewer === null && event.registration_enabled
+      ? await signInCodeOffered(supabase, createSupabaseAdminClient())
+      : false;
   const waiverBlock = waiver ? (
     <EventWaiver
       doc={waiver.content}
@@ -481,6 +507,7 @@ export async function EventDetailContent({
             registrationQuestions={registrationQuestions}
             profileQuestions={profileQuestions}
             myProfileAnswers={myProfileAnswers}
+            offersSignInCode={offersSignInCode}
             preview={preview}
           />
           {hasPublicEventMedia(media) && (
