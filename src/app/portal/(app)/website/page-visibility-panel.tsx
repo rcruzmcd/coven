@@ -13,6 +13,10 @@ import { Spinner } from "@/components/ui/spinner";
 // list arrives as a prop from the server page, same as BrandingPanel.
 import type { PublicPageSlot } from "@/lib/page-visibility";
 import { runAction } from "@/components/portal/action-toast";
+import { Lock } from "lucide-react";
+
+/** A required page with its reason already resolved to prose by the server. */
+export type RequiredPageRow = { key: string; label: string; reason: string };
 
 /**
  * A section this organization is not entitled to (#902). Read-only and off,
@@ -44,6 +48,29 @@ function BlockedRow({ slot }: { slot: PublicPageSlot }) {
       <div className="flex shrink-0 items-center gap-2 pt-0.5">
         <span className="app-muted w-14 text-right text-xs">Unavailable</span>
         <Switch checked={false} disabled aria-labelledby={labelId} />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * A page with no switch (#1726): on whatever is stored, and saying why rather
+ * than leaving an administrator to wonder where it went in the list.
+ */
+function RequiredRow({ page }: { page: RequiredPageRow }) {
+  const labelId = `page-visibility-required-${page.key}-label`;
+  return (
+    <div className="flex items-start justify-between gap-4 py-4">
+      <div className="min-w-0">
+        <p id={labelId} className="text-sm font-medium">
+          {page.label}
+        </p>
+        <p className="app-muted mt-1 text-sm leading-relaxed">{page.reason}</p>
+      </div>
+      <div className="flex shrink-0 items-center gap-2 pt-0.5">
+        <Lock aria-hidden className="app-muted size-3.5" />
+        <span className="app-muted w-14 text-right text-xs">Always on</span>
+        <Switch checked disabled aria-labelledby={labelId} />
       </div>
     </div>
   );
@@ -121,11 +148,14 @@ export function PageVisibilityPanel({
   slots,
   visibility,
   blockedSlots = {},
+  requiredPages = [],
 }: {
   slots: PublicPageSlot[];
   visibility: Record<string, boolean>;
   /** Slot key -> the module withholding it (#902). Empty for most tenants. */
   blockedSlots?: Record<string, string>;
+  /** Pages with no switch (#1726), listed after the ones that have one. */
+  requiredPages?: RequiredPageRow[];
 }) {
   const [error, setError] = useState<string | null>(null);
 
@@ -153,6 +183,28 @@ export function PageVisibilityPanel({
           )}
         </CardContent>
       </Card>
+
+      {requiredPages.length > 0 ? (
+        <section
+          aria-labelledby="page-visibility-required"
+          className="space-y-2"
+        >
+          <h2 id="page-visibility-required" className="text-base font-semibold">
+            Always on
+          </h2>
+          <p className="app-muted text-sm leading-relaxed">
+            These pages have no switch. The site needs them to work, or another
+            setting decides whether they are served.
+          </p>
+          <Card>
+            <CardContent className="divide-y divide-[var(--line)]">
+              {requiredPages.map((page) => (
+                <RequiredRow key={page.key} page={page} />
+              ))}
+            </CardContent>
+          </Card>
+        </section>
+      ) : null}
     </div>
   );
 }

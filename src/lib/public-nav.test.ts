@@ -1,13 +1,17 @@
 import { describe, expect, test } from "bun:test";
 import {
+  DEFAULT_NAV_SETTINGS,
   LEGAL_LINKS,
   NAV_GROUPS,
+  NAV_LABEL_MAX_LENGTH,
+  resolveNavSettings,
   isHrefVisible,
   isSlotVisible,
   slotsForHref,
   visibleGroups,
 } from "./public-nav";
 import { PUBLIC_PAGE_SLOTS } from "./page-visibility";
+import { DEFAULT_LEXICON } from "./lexicon";
 
 /**
  * The four sections the board had hidden when this nav was reworked, plus the
@@ -306,5 +310,82 @@ describe("isSlotVisible", () => {
   test("gates the header CTA on the section it points at", () => {
     expect(isSlotVisible(HIDDEN, "events")).toBe(true);
     expect(isSlotVisible([...HIDDEN, "events"], "events")).toBe(false);
+  });
+});
+
+describe("resolveNavSettings (#1726)", () => {
+  const defaultOrder = NAV_GROUPS.map((group) => group.href);
+
+  test("no row, or anything not the stored shape, is today's menu", () => {
+    for (const value of [undefined, null, 3, "x", [], { order: "nope" }]) {
+      expect(resolveNavSettings(value)).toEqual(DEFAULT_NAV_SETTINGS);
+    }
+    expect(DEFAULT_NAV_SETTINGS.order).toEqual(defaultOrder);
+  });
+
+  test("drops unknown and repeated keys, appends missing groups in default order", () => {
+    const { order } = resolveNavSettings({
+      order: ["/contact", "/nowhere", "/contact", 7, "/events"],
+    });
+    expect(order).toEqual([
+      "/contact",
+      "/events",
+      ...defaultOrder.filter(
+        (href) => href !== "/contact" && href !== "/events",
+      ),
+    ]);
+  });
+
+  test("keeps only known, non-empty labels, trimmed and capped", () => {
+    const { labels } = resolveNavSettings({
+      labels: {
+        "/events": "  What's on  ",
+        "/learn": "   ",
+        "/nowhere": "Ghost",
+        "/contact": 5,
+        "/about": "x".repeat(NAV_LABEL_MAX_LENGTH + 10),
+      },
+    });
+    expect(labels).toEqual({
+      "/events": "What's on",
+      "/about": "x".repeat(NAV_LABEL_MAX_LENGTH),
+    });
+  });
+});
+
+describe("visibleGroups with a tenant menu (#1726)", () => {
+  test("no settings renders NAV_GROUPS unchanged", () => {
+    expect(visibleGroups([])).toEqual(
+      visibleGroups([], DEFAULT_LEXICON, DEFAULT_NAV_SETTINGS),
+    );
+  });
+
+  test("follows the stored order and labels, still filtering hidden slots", () => {
+    const nav = resolveNavSettings({
+      order: ["/contact", "/events", "/about"],
+      labels: { "/events": "Calendar", "/contact": "Say hi" },
+    });
+    const groups = visibleGroups(["about"], DEFAULT_LEXICON, nav);
+    expect(groups.slice(0, 2).map((group) => group.label)).toEqual([
+      "Say hi",
+      "Calendar",
+    ]);
+    expect(groups.some((group) => group.href === "/about")).toBe(false);
+    // Children are untouched.
+    expect(groups[1].links?.map((link) => link.href)).toEqual([
+      "/events",
+      "/events/community",
+    ]);
+  });
+
+  test("a tenant label still goes through the lexicon", () => {
+    const nav = resolveNavSettings({
+      labels: { "/inventory": "Borrow {item_plural}" },
+    });
+    const lexicon = { ...DEFAULT_LEXICON, item_plural: "Tools" };
+    const group = visibleGroups([], lexicon, nav).find(
+      (entry) => entry.href === "/inventory",
+    );
+    expect(group?.label).toBe("Borrow Tools");
   });
 });
