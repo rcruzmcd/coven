@@ -39,8 +39,9 @@ comment on column public.event_registrations.tested_by is
   'The signed-in user who made the test registration (#1764); their account address is the only one its confirmation is sent to.';
 
 -- The table's SELECT is a column allow-list (20260922070000), so the portal
--- sees the flag only once it is on it.
-grant select (is_test) on public.event_registrations to authenticated;
+-- sees a column only once it is on it -- and only the four minor contacts are
+-- meant to be missing from it (minor-contacts.integration.test.ts).
+grant select (is_test, tested_by) on public.event_registrations to authenticated;
 
 -- A tester may type any address, a real registrant's included, and may run
 -- the form more than once: neither should collide with anything real.
