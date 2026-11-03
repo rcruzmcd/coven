@@ -6,6 +6,7 @@ import {
   parseEventAttendanceForm,
   parseEventForm,
   parseEventPlanningForm,
+  parseEventRegistrationForm,
   parseEventRegistrationOptionsField,
   parseEventReportForm,
   parseReopenReason,
@@ -250,6 +251,42 @@ export async function updateEventPlanningAction(
   });
   if (permissionError) return permissionError;
 
+  // #1778. Lead and budget only; the Registration card saves the rest.
+  const parsed = parseEventPlanningForm(formData);
+  if ("error" in parsed) return parsed;
+  const { eventLeadId, budgetAmount } = parsed.data;
+
+  const { error } = await supabase
+    .from("events")
+    .update({ event_lead_id: eventLeadId, budget_amount: budgetAmount })
+    .eq("id", id);
+
+  if (error) {
+    return { error: "Could not update planning details. Please try again." };
+  }
+
+  revalidatePath("/portal/home");
+  revalidatePath("/portal/events");
+  return { success: true };
+}
+
+export async function updateEventRegistrationAction(
+  id: string,
+  formData: FormData,
+): Promise<CreateEventResult> {
+  const supabase = await createSupabaseServerClient();
+  const userResult = await checkUser(
+    supabase,
+    "You must be signed in to update registration settings.",
+  );
+  if ("error" in userResult) return userResult;
+  const permissionError = await checkEventAccess(supabase, {
+    table: "events",
+    level: "manage",
+    eventId: id,
+  });
+  if (permissionError) return permissionError;
+
   // The deadline is validated against the event's stored dates rather than
   // anything the client submitted alongside it.
   const { data: eventRow } = await supabase
@@ -261,7 +298,7 @@ export async function updateEventPlanningAction(
     return { error: "Could not find that event." };
   }
 
-  const parsed = parseEventPlanningForm(formData, {
+  const parsed = parseEventRegistrationForm(formData, {
     startsAt: eventRow.starts_at,
     endsAt: eventRow.ends_at,
   });
@@ -282,13 +319,11 @@ export async function updateEventPlanningAction(
     return registrationQuestions;
   }
   const {
-    eventLeadId,
     capacity,
     registrationEnabled,
     registrationDeadline,
     autoAssignDiscountCodes,
     minimumAge,
-    budgetAmount,
     confirmationNote,
     groupChatEnabled,
     groupChatLabel,
@@ -303,13 +338,11 @@ export async function updateEventPlanningAction(
   const { error } = await supabase
     .from("events")
     .update({
-      event_lead_id: eventLeadId,
       capacity,
       registration_enabled: registrationEnabled,
       registration_deadline: registrationDeadline,
       auto_assign_discount_codes: autoAssignDiscountCodes,
       ...(minimumAge === undefined ? {} : { minimum_age: minimumAge }),
-      budget_amount: budgetAmount,
       ...(confirmationNote === undefined
         ? {}
         : { confirmation_note: confirmationNote }),
@@ -345,7 +378,9 @@ export async function updateEventPlanningAction(
         error: "Seats can only come from a number question on this event.",
       };
     }
-    return { error: "Could not update planning details. Please try again." };
+    return {
+      error: "Could not update registration settings. Please try again.",
+    };
   }
 
   if (registrationOptions) {
@@ -361,7 +396,7 @@ export async function updateEventPlanningAction(
       return {
         error:
           REGISTRATION_OPTIONS_SAVE_ERRORS[optionsError.message] ??
-          "Planning details were saved, but the registration question was not. Please try again.",
+          "Registration settings were saved, but the registration question was not. Please try again.",
       };
     }
   }
@@ -375,7 +410,7 @@ export async function updateEventPlanningAction(
       return {
         error:
           REGISTRATION_QUESTION_ERROR_MESSAGES[questionsError.message] ??
-          "Planning details were saved, but the registration questions were not. Please try again.",
+          "Registration settings were saved, but the registration questions were not. Please try again.",
       };
     }
   }

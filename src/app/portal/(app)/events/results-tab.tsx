@@ -310,7 +310,7 @@ export function ResultsTab({
             if (!next) setReopenReason("");
           }}
           title="Reopen report"
-          description="Explain why this submitted report is being reopened. Event details, Registration & planning, and Results will become editable again."
+          description="Explain why this submitted report is being reopened. Event details, Planning, Registration, and Results will become editable again."
           size="md"
           onSubmit={handleReopen}
           footer={

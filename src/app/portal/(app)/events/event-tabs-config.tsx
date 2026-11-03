@@ -15,6 +15,7 @@ import type { FormTabCallbacks } from "./use-form-tab-state";
 import type { EventSharedData, SharedEventResource } from "./event-shared-data";
 import { OverviewTab } from "./overview-tab";
 import { PlanningTab } from "./planning-tab";
+import { RegistrationTab } from "./registration-tab";
 import { LogisticsTab } from "./logistics-tab";
 import { VolunteersTab } from "./volunteers-tab";
 import { SponsorsTab } from "./sponsors-tab";
@@ -59,6 +60,7 @@ export type TabValue =
   | "overview"
   | "checklist"
   | "planning"
+  | "registration"
   | "logistics"
   | "volunteers"
   | "staff"
@@ -134,7 +136,7 @@ export type TabConfigEntry = {
   sharedData?: readonly SharedEventResource[];
   /**
    * Extra words the rail's search matches, for cards whose title is not what a
-   * coordinator would type (#1008). "Budget" is on Registration & planning,
+   * coordinator would type (#1008). "Budget" is on Planning,
    * "raffle" is Giveaway, "venue" is Logistics -- and before the rail, finding
    * any of them meant already knowing which of four phases held the card.
    *
@@ -180,7 +182,7 @@ export const TAB_CONFIG: readonly TabConfigEntry[] = [
     value: "planning",
     area: "details",
     label: "Planning",
-    keywords: ["budget", "capacity", "lead", "registration", "deadline"],
+    keywords: ["budget", "lead"],
     group: "overview",
     kind: "form",
     sharedData: ["people"],
@@ -195,6 +197,38 @@ export const TAB_CONFIG: readonly TabConfigEntry[] = [
         onSaved={ctx.onSaved}
         onPendingChange={ctx.formCallbacks.planning.onPendingChange}
         onDirtyChange={ctx.formCallbacks.planning.onDirtyChange}
+      />
+    ),
+  },
+  {
+    value: "registration",
+    area: "details",
+    label: "Registration",
+    // #1778. The last six are settings other cards will take (#1777).
+    keywords: [
+      "deadline",
+      "capacity",
+      "questions",
+      "age",
+      "options",
+      "carpools",
+      "discount",
+      "group chat",
+      "reminder",
+      "confirmation",
+      "email",
+    ],
+    group: "overview",
+    kind: "form",
+    render: (ctx) => (
+      <RegistrationTab
+        ref={ctx.formCallbacks.registration.registerHandle}
+        event={ctx.event}
+        formId={ctx.formId("registration")}
+        mode={ctx.mode}
+        onSaved={ctx.onSaved}
+        onPendingChange={ctx.formCallbacks.registration.onPendingChange}
+        onDirtyChange={ctx.formCallbacks.registration.onDirtyChange}
       />
     ),
   },
@@ -664,6 +698,7 @@ export const LEGACY_TAB_VALUES: Readonly<Record<string, TabValue>> = {
 export const LOCKED_ON_REPORT_SUBMIT_TABS: ReadonlySet<TabValue> = new Set([
   "overview",
   "planning",
+  "registration",
   "results",
 ]);
 
@@ -696,7 +731,8 @@ export type EventGroupKey = (typeof EVENT_GROUPS)[number]["key"];
 
 /**
  * Where a `?phase=` link from before the rail lands (#958's phase tabs, read
- * since #1008): the card each phase used to open on.
+ * since #1008): the card each phase used to open on. `planning` stays on
+ * Planning after #1778 split Registration out of it.
  */
 export const LEGACY_PHASE_CARDS: Record<PhaseKey, TabValue> = {
   basic: "overview",
@@ -708,12 +744,10 @@ export const LEGACY_PHASE_CARDS: Record<PhaseKey, TabValue> = {
 /**
  * Card titles that differ from the catalog label, so the rail row and the card
  * heading it opens always read the same. "Overview" is also the group heading
- * above it, and "Planning" alone would not say the card carries registration
- * settings.
+ * above it.
  */
 export const CARD_TITLES: Partial<Record<TabValue, string>> = {
   overview: "Event details",
-  planning: "Registration & planning",
 };
 
 export function cardTitle(value: TabValue, label: string): string {
