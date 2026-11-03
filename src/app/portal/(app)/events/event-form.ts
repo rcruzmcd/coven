@@ -113,8 +113,8 @@ export function parseEventPlanningForm(
 }
 
 /**
- * #1778. The Registration card, and for now the settings #1777's other cards
- * will take from it (emails, group chat, carpool details, auto-assign).
+ * #1778. The Registration card, and until the rest of #1777 lands the
+ * settings it still carries for other cards.
  */
 export type EventRegistrationFormData = {
   capacity: number | null;
@@ -128,19 +128,13 @@ export type EventRegistrationFormData = {
    */
   minimumAge: MinimumAge | null | undefined;
   /**
-   * A paragraph added to this event's registration confirmation email. Same
-   * absent-leaves-it rule as `minimumAge`; sent blank, it clears the note
-   * (stored as null).
-   */
-  confirmationNote: string | null | undefined;
-  /**
    * #1648. The switch and its label, under `minimumAge`'s absent-leaves-it
    * rule; a blank label is stored as null, which reads "Group chat".
    */
   groupChatEnabled: boolean | null;
   groupChatLabel: string | null | undefined;
   /**
-   * #1649. The carpools switch under the same null-when-absent rule, and the
+   * #1649. The carpools switch, null when the form did not send it, and the
    * number question seats come from: undefined when not sent, null for none.
    */
   carpoolsEnabled: boolean | null;
@@ -150,41 +144,31 @@ export type EventRegistrationFormData = {
    * organization's notice, [] for none, otherwise the event's paragraphs.
    */
   carpoolCostNotice: string[] | null | undefined;
-  /**
-   * #1652. The reminder switch and its days under the same null-when-absent
-   * rule, and its intro: undefined when not sent, null for blank or the
-   * platform default.
-   */
-  reminderEnabled: boolean | null;
-  reminderDaysBefore: number | null;
-  reminderIntro: string | null | undefined;
 };
 
-/** AUTO_REPLY_PARAGRAPH_MAX_LENGTH, the paragraphs either side of it. */
-export const CONFIRMATION_NOTE_MAX_LENGTH = 1000;
+/** A switch as a form posts it: "on" or "true" is on. */
+function isChecked(value: FormDataEntryValue | null): boolean {
+  return value === "on" || value === "true";
+}
 
 export function parseEventRegistrationForm(
   formData: FormData,
   event: { startsAt: string; endsAt: string | null },
 ): ParseResult<EventRegistrationFormData> {
   const capacityRaw = String(formData.get("capacity") ?? "").trim();
-  const registrationEnabled =
-    formData.get("registrationEnabled") === "on" ||
-    formData.get("registrationEnabled") === "true";
+  const registrationEnabled = isChecked(formData.get("registrationEnabled"));
   const registrationDeadline = String(
     formData.get("registrationDeadline") ?? "",
   );
-  const autoAssignDiscountCodes =
-    formData.get("autoAssignDiscountCodes") === "on" ||
-    formData.get("autoAssignDiscountCodes") === "true";
+  const autoAssignDiscountCodes = isChecked(
+    formData.get("autoAssignDiscountCodes"),
+  );
   const minimumAgeRaw = formData.get("minimumAge");
   const minimumAge =
     minimumAgeRaw === null ? undefined : parseMinimumAge(minimumAgeRaw);
   const groupChatEnabledRaw = formData.get("groupChatEnabled");
   const groupChatEnabled =
-    groupChatEnabledRaw === null
-      ? null
-      : groupChatEnabledRaw === "on" || groupChatEnabledRaw === "true";
+    groupChatEnabledRaw === null ? null : isChecked(groupChatEnabledRaw);
   const groupChatLabelRaw = formData.get("groupChatLabel");
   const groupChatLabel =
     groupChatLabelRaw === null
@@ -197,9 +181,7 @@ export function parseEventRegistrationForm(
   }
   const carpoolsEnabledRaw = formData.get("carpoolsEnabled");
   const carpoolsEnabled =
-    carpoolsEnabledRaw === null
-      ? null
-      : carpoolsEnabledRaw === "on" || carpoolsEnabledRaw === "true";
+    carpoolsEnabledRaw === null ? null : isChecked(carpoolsEnabledRaw);
   const carpoolSeatsRaw = formData.get("carpoolSeatsQuestionId");
   const carpoolSeatsQuestionId =
     carpoolSeatsRaw === null
@@ -218,49 +200,6 @@ export function parseEventRegistrationForm(
     );
     if ("error" in notice) return { error: notice.error };
     carpoolCostNotice = notice.data;
-  }
-  const reminderEnabledRaw = formData.get("reminderEnabled");
-  const reminderEnabled =
-    reminderEnabledRaw === null
-      ? null
-      : reminderEnabledRaw === "on" || reminderEnabledRaw === "true";
-  const reminderDaysRaw = formData.get("reminderDaysBefore");
-  let reminderDaysBefore: number | null = null;
-  if (reminderDaysRaw !== null) {
-    const parsed = Number(String(reminderDaysRaw).trim());
-    if (
-      !Number.isInteger(parsed) ||
-      parsed < REMINDER_DAYS_MIN ||
-      parsed > REMINDER_DAYS_MAX
-    ) {
-      return {
-        error: `Reminder days must be a whole number from ${REMINDER_DAYS_MIN} to ${REMINDER_DAYS_MAX}.`,
-      };
-    }
-    reminderDaysBefore = parsed;
-  }
-  const reminderIntroRaw = formData.get("reminderIntro");
-  const reminderIntro =
-    reminderIntroRaw === null
-      ? undefined
-      : storedReminderIntro(String(reminderIntroRaw));
-  if (reminderIntro && reminderIntro.length > REMINDER_INTRO_MAX_LENGTH) {
-    return {
-      error: `Reminder intro must be ${REMINDER_INTRO_MAX_LENGTH} characters or fewer.`,
-    };
-  }
-  const confirmationNoteRaw = formData.get("confirmationNote");
-  const confirmationNote =
-    confirmationNoteRaw === null
-      ? undefined
-      : String(confirmationNoteRaw).trim() || null;
-  if (
-    confirmationNote &&
-    confirmationNote.length > CONFIRMATION_NOTE_MAX_LENGTH
-  ) {
-    return {
-      error: `Confirmation email note must be ${CONFIRMATION_NOTE_MAX_LENGTH} characters or fewer.`,
-    };
   }
 
   let capacity: number | null = null;
@@ -304,12 +243,69 @@ export function parseEventRegistrationForm(
       registrationDeadline: registrationDeadlineIso,
       autoAssignDiscountCodes,
       minimumAge,
-      confirmationNote,
       groupChatEnabled,
       groupChatLabel,
       carpoolsEnabled,
       carpoolSeatsQuestionId,
       carpoolCostNotice,
+    },
+  };
+}
+
+/** #1779. The Registrant emails card: what is emailed to registrants. */
+export type EventRegistrantEmailsFormData = {
+  /**
+   * A paragraph added to this event's registration confirmation email; sent
+   * blank, it clears the note (stored as null).
+   */
+  confirmationNote: string | null;
+  /** #1652. The reminder; its intro is null for blank or the platform default. */
+  reminderEnabled: boolean;
+  reminderDaysBefore: number;
+  reminderIntro: string | null;
+};
+
+/** AUTO_REPLY_PARAGRAPH_MAX_LENGTH, the paragraphs either side of it. */
+export const CONFIRMATION_NOTE_MAX_LENGTH = 1000;
+
+export function parseEventRegistrantEmailsForm(
+  formData: FormData,
+): ParseResult<EventRegistrantEmailsFormData> {
+  const reminderEnabled = isChecked(formData.get("reminderEnabled"));
+  const reminderDaysBefore = Number(
+    String(formData.get("reminderDaysBefore") ?? "").trim(),
+  );
+  if (
+    !Number.isInteger(reminderDaysBefore) ||
+    reminderDaysBefore < REMINDER_DAYS_MIN ||
+    reminderDaysBefore > REMINDER_DAYS_MAX
+  ) {
+    return {
+      error: `Reminder days must be a whole number from ${REMINDER_DAYS_MIN} to ${REMINDER_DAYS_MAX}.`,
+    };
+  }
+  const reminderIntro = storedReminderIntro(
+    String(formData.get("reminderIntro") ?? ""),
+  );
+  if (reminderIntro && reminderIntro.length > REMINDER_INTRO_MAX_LENGTH) {
+    return {
+      error: `Reminder intro must be ${REMINDER_INTRO_MAX_LENGTH} characters or fewer.`,
+    };
+  }
+  const confirmationNote =
+    String(formData.get("confirmationNote") ?? "").trim() || null;
+  if (
+    confirmationNote &&
+    confirmationNote.length > CONFIRMATION_NOTE_MAX_LENGTH
+  ) {
+    return {
+      error: `Confirmation email note must be ${CONFIRMATION_NOTE_MAX_LENGTH} characters or fewer.`,
+    };
+  }
+
+  return {
+    data: {
+      confirmationNote,
       reminderEnabled,
       reminderDaysBefore,
       reminderIntro,

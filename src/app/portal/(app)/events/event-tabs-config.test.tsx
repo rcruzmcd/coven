@@ -208,6 +208,20 @@ describe("eventGroups", () => {
     expect(LEGACY_PHASE_CARDS.planning).toBe("planning");
   });
 
+  test("moves the settings off Registration onto their cards (#1777)", () => {
+    const entry = (value: TabValue) =>
+      TAB_CONFIG.find((candidate) => candidate.value === value)!;
+    const emails = entry("registrant-emails");
+    expect(emails.group).toBe("guests");
+    expect(emails.kind).toBe("form");
+    expect(emails.area).toBe("details");
+    expect(LOCKED_ON_REPORT_SUBMIT_TABS.has("registrant-emails")).toBe(true);
+    expect(emails.keywords).toEqual(["reminder", "confirmation"]);
+    for (const keyword of ["reminder", "confirmation"]) {
+      expect(entry("registration").keywords).not.toContain(keyword);
+    }
+  });
+
   test("every declared keyword is lowercase and non-empty", () => {
     // The rail lowercases the query once and compares; a capitalised keyword
     // would simply never match.

@@ -6,6 +6,7 @@ import {
   parseEventAttendanceForm,
   parseEventForm,
   parseEventPlanningForm,
+  parseEventRegistrantEmailsForm,
   parseEventRegistrationForm,
   parseEventRegistrationOptionsField,
   parseEventReportForm,
@@ -27,6 +28,7 @@ import {
   type EventRegistrationQuestion,
 } from "./registration-questions-draft";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { TablesUpdate } from "@/lib/database.types";
 
 export type CreateEventResult = { error: string } | { success: true };
 
@@ -324,15 +326,11 @@ export async function updateEventRegistrationAction(
     registrationDeadline,
     autoAssignDiscountCodes,
     minimumAge,
-    confirmationNote,
     groupChatEnabled,
     groupChatLabel,
     carpoolsEnabled,
     carpoolSeatsQuestionId,
     carpoolCostNotice,
-    reminderEnabled,
-    reminderDaysBefore,
-    reminderIntro,
   } = parsed.data;
 
   const { error } = await supabase
@@ -343,9 +341,6 @@ export async function updateEventRegistrationAction(
       registration_deadline: registrationDeadline,
       auto_assign_discount_codes: autoAssignDiscountCodes,
       ...(minimumAge === undefined ? {} : { minimum_age: minimumAge }),
-      ...(confirmationNote === undefined
-        ? {}
-        : { confirmation_note: confirmationNote }),
       ...(groupChatEnabled === null
         ? {}
         : { group_chat_enabled: groupChatEnabled }),
@@ -361,13 +356,6 @@ export async function updateEventRegistrationAction(
       ...(carpoolCostNotice === undefined
         ? {}
         : { carpool_cost_notice: carpoolCostNotice }),
-      ...(reminderEnabled === null
-        ? {}
-        : { reminder_enabled: reminderEnabled }),
-      ...(reminderDaysBefore === null
-        ? {}
-        : { reminder_days_before: reminderDaysBefore }),
-      ...(reminderIntro === undefined ? {} : { reminder_intro: reminderIntro }),
     })
     .eq("id", id);
 
@@ -418,6 +406,68 @@ export async function updateEventRegistrationAction(
   revalidatePath("/portal/home");
   revalidatePath("/portal/events");
   return { success: true };
+}
+
+/**
+ * #1777. Saves one card's own `events` columns, for the cards that take
+ * settings off Registration. They write `events`, so they take the same
+ * `events` grant (the `details` area) whichever card shows them.
+ */
+async function updateEventColumns(
+  id: string,
+  columns: TablesUpdate<"events">,
+  what: string,
+  errors: Readonly<Record<string, string>> = {},
+): Promise<CreateEventResult> {
+  const supabase = await createSupabaseServerClient();
+  const userResult = await checkUser(
+    supabase,
+    `You must be signed in to update ${what}.`,
+  );
+  if ("error" in userResult) return userResult;
+  const permissionError = await checkEventAccess(supabase, {
+    table: "events",
+    level: "manage",
+    eventId: id,
+  });
+  if (permissionError) return permissionError;
+
+  const { error } = await supabase.from("events").update(columns).eq("id", id);
+  if (error) {
+    return {
+      error:
+        errors[error.message] ?? `Could not update ${what}. Please try again.`,
+    };
+  }
+
+  revalidatePath("/portal/home");
+  revalidatePath("/portal/events");
+  return { success: true };
+}
+
+/** #1779. The confirmation note and the reminder. */
+export async function updateEventRegistrantEmailsAction(
+  id: string,
+  formData: FormData,
+): Promise<CreateEventResult> {
+  const parsed = parseEventRegistrantEmailsForm(formData);
+  if ("error" in parsed) return parsed;
+  const {
+    confirmationNote,
+    reminderEnabled,
+    reminderDaysBefore,
+    reminderIntro,
+  } = parsed.data;
+  return updateEventColumns(
+    id,
+    {
+      confirmation_note: confirmationNote,
+      reminder_enabled: reminderEnabled,
+      reminder_days_before: reminderDaysBefore,
+      reminder_intro: reminderIntro,
+    },
+    "registrant emails",
+  );
 }
 
 export async function updateEventReportAction(

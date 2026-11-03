@@ -9,6 +9,7 @@ import {
   parseEventForm,
   CONFIRMATION_NOTE_MAX_LENGTH,
   parseEventPlanningForm,
+  parseEventRegistrantEmailsForm,
   parseEventRegistrationForm,
   parseEventRegistrationOptionsField,
   parseEventReportForm,
@@ -189,16 +190,11 @@ describe("parseEventRegistrationForm", () => {
         autoAssignDiscountCodes: false,
         // Not sent, so left as it was (#1417, #1782).
         minimumAge: undefined,
-        // Not sent either, so left as it was.
-        confirmationNote: undefined,
         groupChatEnabled: null,
         groupChatLabel: undefined,
         carpoolsEnabled: null,
         carpoolSeatsQuestionId: undefined,
         carpoolCostNotice: undefined,
-        reminderEnabled: null,
-        reminderDaysBefore: null,
-        reminderIntro: undefined,
       },
     });
   });
@@ -210,25 +206,6 @@ describe("parseEventRegistrationForm", () => {
     expect(parse("21")).toMatchObject({ data: { minimumAge: 21 } });
     expect(parse("")).toMatchObject({ data: { minimumAge: null } });
     expect(parse("16")).toMatchObject({ data: { minimumAge: null } });
-  });
-
-  test("reads the confirmation email note", () => {
-    const parse = (fields: Record<string, string>) =>
-      parseEventRegistrationForm(formData(fields), eventDates);
-    expect(parse({})).toMatchObject({ data: { confirmationNote: undefined } });
-    expect(
-      parse({ confirmationNote: "  Use code SNOW10 at checkout.  " }),
-    ).toMatchObject({
-      data: { confirmationNote: "Use code SNOW10 at checkout." },
-    });
-    expect(parse({ confirmationNote: "   " })).toMatchObject({
-      data: { confirmationNote: null },
-    });
-    expect(
-      parse({ confirmationNote: "x".repeat(CONFIRMATION_NOTE_MAX_LENGTH + 1) }),
-    ).toEqual({
-      error: `Confirmation email note must be ${CONFIRMATION_NOTE_MAX_LENGTH} characters or fewer.`,
-    });
   });
 
   test("reads the carpools switch and the seats question (#1649)", () => {
@@ -267,39 +244,17 @@ describe("parseEventRegistrationForm", () => {
     });
   });
 
-  test("reads the reminder switch, days and intro (#1652)", () => {
-    const parse = (fields: Record<string, string>) =>
-      parseEventRegistrationForm(formData(fields), eventDates);
-    expect(
-      parse({
+  test("leaves the settings other cards save alone (#1777)", () => {
+    const result = parseEventRegistrationForm(
+      formData({
+        confirmationNote: "Bring gloves.",
         reminderEnabled: "on",
-        reminderDaysBefore: "3",
-        reminderIntro: "  See you on the hill. ",
       }),
-    ).toMatchObject({
-      data: {
-        reminderEnabled: true,
-        reminderDaysBefore: 3,
-        reminderIntro: "See you on the hill.",
-      },
-    });
-    // The prefilled default, saved unchanged, and a blank both store null.
-    expect(
-      parse({ reminderEnabled: "off", reminderIntro: DEFAULT_REMINDER_INTRO }),
-    ).toMatchObject({ data: { reminderEnabled: false, reminderIntro: null } });
-    expect(parse({ reminderIntro: "  " })).toMatchObject({
-      data: { reminderIntro: null },
-    });
-    for (const days of ["0", "15", "2.5", "two"]) {
-      expect(parse({ reminderDaysBefore: days })).toEqual({
-        error: "Reminder days must be a whole number from 1 to 14.",
-      });
+      eventDates,
+    );
+    for (const key of ["confirmationNote", "reminderEnabled"]) {
+      expect("data" in result && result.data).not.toHaveProperty(key);
     }
-    expect(
-      parse({ reminderIntro: "x".repeat(REMINDER_INTRO_MAX_LENGTH + 1) }),
-    ).toEqual({
-      error: `Reminder intro must be ${REMINDER_INTRO_MAX_LENGTH} characters or fewer.`,
-    });
   });
 
   test("rejects a negative capacity", () => {
@@ -541,6 +496,62 @@ describe("parseEventRegistrationOptionsField (#1407)", () => {
     });
     expect(parseEventRegistrationOptionsField("not json")).toEqual({
       error: REGISTRATION_OPTIONS_SAVE_ERRORS.EVENT_OPTIONS_INVALID,
+    });
+  });
+});
+
+describe("parseEventRegistrantEmailsForm (#1779)", () => {
+  const parse = (fields: Record<string, string>) =>
+    parseEventRegistrantEmailsForm(
+      formData({ reminderDaysBefore: "3", ...fields }),
+    );
+
+  test("reads the confirmation email note", () => {
+    expect(
+      parse({ confirmationNote: "  Use code SNOW10 at checkout.  " }),
+    ).toMatchObject({
+      data: { confirmationNote: "Use code SNOW10 at checkout." },
+    });
+    expect(parse({ confirmationNote: "   " })).toMatchObject({
+      data: { confirmationNote: null },
+    });
+    expect(
+      parse({ confirmationNote: "x".repeat(CONFIRMATION_NOTE_MAX_LENGTH + 1) }),
+    ).toEqual({
+      error: `Confirmation email note must be ${CONFIRMATION_NOTE_MAX_LENGTH} characters or fewer.`,
+    });
+  });
+
+  test("reads the reminder switch, days and intro (#1652)", () => {
+    expect(
+      parse({
+        reminderEnabled: "on",
+        reminderDaysBefore: "3",
+        reminderIntro: "  See you on the hill. ",
+      }),
+    ).toMatchObject({
+      data: {
+        reminderEnabled: true,
+        reminderDaysBefore: 3,
+        reminderIntro: "See you on the hill.",
+      },
+    });
+    // The prefilled default, saved unchanged, and a blank both store null.
+    expect(
+      parse({ reminderEnabled: "off", reminderIntro: DEFAULT_REMINDER_INTRO }),
+    ).toMatchObject({ data: { reminderEnabled: false, reminderIntro: null } });
+    expect(parse({ reminderIntro: "  " })).toMatchObject({
+      data: { reminderIntro: null },
+    });
+    for (const days of ["0", "15", "2.5", "two", ""]) {
+      expect(parse({ reminderDaysBefore: days })).toEqual({
+        error: "Reminder days must be a whole number from 1 to 14.",
+      });
+    }
+    expect(
+      parse({ reminderIntro: "x".repeat(REMINDER_INTRO_MAX_LENGTH + 1) }),
+    ).toEqual({
+      error: `Reminder intro must be ${REMINDER_INTRO_MAX_LENGTH} characters or fewer.`,
     });
   });
 });

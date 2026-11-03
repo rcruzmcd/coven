@@ -16,6 +16,7 @@ import type { EventSharedData, SharedEventResource } from "./event-shared-data";
 import { OverviewTab } from "./overview-tab";
 import { PlanningTab } from "./planning-tab";
 import { RegistrationTab } from "./registration-tab";
+import { RegistrantEmailsTab } from "./registrant-emails-tab";
 import { LogisticsTab } from "./logistics-tab";
 import { VolunteersTab } from "./volunteers-tab";
 import { SponsorsTab } from "./sponsors-tab";
@@ -67,6 +68,7 @@ export type TabValue =
   | "sponsors"
   | "attendance"
   | "registrants"
+  | "registrant-emails"
   | "carpools"
   | "places"
   | "answers"
@@ -204,7 +206,6 @@ export const TAB_CONFIG: readonly TabConfigEntry[] = [
     value: "registration",
     area: "details",
     label: "Registration",
-    // #1778. The last six are settings other cards will take (#1777).
     keywords: [
       "deadline",
       "capacity",
@@ -214,9 +215,6 @@ export const TAB_CONFIG: readonly TabConfigEntry[] = [
       "carpools",
       "discount",
       "group chat",
-      "reminder",
-      "confirmation",
-      "email",
     ],
     group: "overview",
     kind: "form",
@@ -265,6 +263,27 @@ export const TAB_CONFIG: readonly TabConfigEntry[] = [
     ),
     toolbarActions: (ctx) => (
       <RegistrantsToolbar eventId={ctx.eventId} onSaved={ctx.onSaved} />
+    ),
+  },
+  {
+    // #1779. Shown whether or not registration is on, with a note when it is
+    // off, so the emails can be written before registration opens.
+    value: "registrant-emails",
+    area: "details",
+    label: "Registrant emails",
+    keywords: ["reminder", "confirmation"],
+    group: "guests",
+    kind: "form",
+    render: (ctx) => (
+      <RegistrantEmailsTab
+        ref={ctx.formCallbacks["registrant-emails"].registerHandle}
+        event={ctx.event}
+        formId={ctx.formId("registrant-emails")}
+        mode={ctx.mode}
+        onSaved={ctx.onSaved}
+        onPendingChange={ctx.formCallbacks["registrant-emails"].onPendingChange}
+        onDirtyChange={ctx.formCallbacks["registrant-emails"].onDirtyChange}
+      />
     ),
   },
   {
@@ -699,6 +718,7 @@ export const LOCKED_ON_REPORT_SUBMIT_TABS: ReadonlySet<TabValue> = new Set([
   "overview",
   "planning",
   "registration",
+  "registrant-emails",
   "results",
 ]);
 

@@ -37,7 +37,6 @@ import {
 } from "@/lib/time";
 import { formatCurrency, formatDateTime } from "@/lib/format";
 import { runAction } from "@/components/portal/action-toast";
-import { CONFIRMATION_NOTE_MAX_LENGTH } from "./event-form";
 import {
   MINIMUM_AGES,
   minimumAgeLabel,
@@ -63,18 +62,6 @@ import {
   GROUP_CHAT_LABEL_MAX_LENGTH,
   groupChatLabel,
 } from "@/lib/registration-group-chat";
-import {
-  DEFAULT_REMINDER_INTRO,
-  REMINDER_DAYS_DEFAULT,
-  REMINDER_DAYS_MAX,
-  REMINDER_DAYS_MIN,
-  REMINDER_INTRO_MAX_LENGTH,
-  reminderIntro,
-} from "@/lib/event-reminders";
-import {
-  ReminderPreviewButton,
-  ReminderStatusLine,
-} from "./event-reminder-settings";
 import {
   Select,
   SelectContent,
@@ -155,7 +142,6 @@ function formStateFor(event: EventRow) {
     registrationDeadline: toDatetimeLocalValue(event.registration_deadline),
     autoAssignDiscountCodes: event.auto_assign_discount_codes,
     minimumAge: minimumAgeChoice(event.minimum_age),
-    confirmationNote: event.confirmation_note ?? "",
     groupChatEnabled: event.group_chat_enabled ?? false,
     groupChatLabel: event.group_chat_label ?? "",
     carpoolsEnabled: event.carpools_enabled ?? false,
@@ -164,13 +150,6 @@ function formStateFor(event: EventRow) {
     carpoolNoticeText: carpoolNoticeText(
       toEventCarpoolNotice(event.carpool_cost_notice) ?? [],
     ),
-    reminderEnabled: event.reminder_enabled ?? false,
-    reminderDaysBefore: String(
-      event.reminder_days_before ?? REMINDER_DAYS_DEFAULT,
-    ),
-    // Prefilled with the platform default, so staff edit words rather than
-    // write them from nothing; saved unchanged, it is stored as null.
-    reminderIntro: reminderIntro(event.reminder_intro),
     registrationOptions: registrationOptionsDraft(
       event.registration_options_prompt,
       event.registration_options,
@@ -281,16 +260,12 @@ export function RegistrationTab({
       "minimumAge",
       form.minimumAge === NO_MINIMUM_AGE ? "" : form.minimumAge,
     );
-    formData.set("confirmationNote", form.confirmationNote);
     formData.set("groupChatEnabled", form.groupChatEnabled ? "on" : "off");
     formData.set("groupChatLabel", form.groupChatLabel);
     formData.set("carpoolsEnabled", form.carpoolsEnabled ? "on" : "off");
     formData.set("carpoolSeatsQuestionId", form.carpoolSeatsQuestionId);
     formData.set("carpoolNoticeMode", form.carpoolNoticeMode);
     formData.set("carpoolNoticeText", form.carpoolNoticeText);
-    formData.set("reminderEnabled", form.reminderEnabled ? "on" : "off");
-    formData.set("reminderDaysBefore", form.reminderDaysBefore);
-    formData.set("reminderIntro", form.reminderIntro);
     // Only when changed, so saving a deadline does not rewrite every option
     // (and the audit log with it).
     const baselineOptions = formStateFor(event).registrationOptions;
@@ -420,35 +395,6 @@ export function RegistrationTab({
           {form.groupChatEnabled
             ? `On · ${groupChatLabel(form.groupChatLabel)}`
             : "Off"}
-        </ReadOnlyField>
-        <ReadOnlyField
-          label="Reminder email"
-          htmlFor="registration-reminderEnabled"
-        >
-          {form.reminderEnabled ? (
-            <>
-              <span className="block">
-                On · {reminderDaysText(form.reminderDaysBefore)} before
-              </span>
-              <ReminderStatusLine
-                eventId={event.id}
-                timeZone={event.timezone}
-                version={reminderVersion(event)}
-              />
-            </>
-          ) : (
-            "Off"
-          )}
-        </ReadOnlyField>
-        <ReadOnlyField
-          label="Confirmation email note"
-          htmlFor="registration-confirmationNote"
-        >
-          {form.confirmationNote ? (
-            <span className="whitespace-pre-line">{form.confirmationNote}</span>
-          ) : (
-            "—"
-          )}
         </ReadOnlyField>
         <ReadOnlyField
           label="Additional questions"
@@ -710,98 +656,6 @@ export function RegistrationTab({
           </Field>
         )}
 
-        <Field orientation="horizontal">
-          <FieldContent>
-            <FieldLabel htmlFor="registration-reminderEnabled">
-              Reminder email
-            </FieldLabel>
-            <FieldDescription>
-              Emails everyone registered the event details, their carpool and a
-              fresh link to change their answers, once, at 9:00 in the
-              event&apos;s time zone. People who register after it goes are not
-              sent one.
-            </FieldDescription>
-          </FieldContent>
-          <Switch
-            id="registration-reminderEnabled"
-            checked={form.reminderEnabled}
-            onCheckedChange={(checked) => update("reminderEnabled", checked)}
-          />
-        </Field>
-
-        {form.reminderEnabled && (
-          <>
-            <Field>
-              <FieldLabel htmlFor="registration-reminderDaysBefore">
-                Days before the event
-              </FieldLabel>
-              <Input
-                id="registration-reminderDaysBefore"
-                type="number"
-                min={REMINDER_DAYS_MIN}
-                max={REMINDER_DAYS_MAX}
-                step={1}
-                value={form.reminderDaysBefore}
-                onChange={(changeEvent) =>
-                  update("reminderDaysBefore", changeEvent.target.value)
-                }
-              />
-              <ReminderStatusLine
-                eventId={event.id}
-                timeZone={event.timezone}
-                version={reminderVersion(event)}
-              />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="registration-reminderIntro">
-                Reminder intro
-              </FieldLabel>
-              <Textarea
-                id="registration-reminderIntro"
-                rows={3}
-                maxLength={REMINDER_INTRO_MAX_LENGTH}
-                placeholder={DEFAULT_REMINDER_INTRO}
-                value={form.reminderIntro}
-                onChange={(changeEvent) =>
-                  update("reminderIntro", changeEvent.target.value)
-                }
-              />
-              <FieldDescription>
-                The opening paragraph, above the event details. Left blank, it
-                reads the default.
-              </FieldDescription>
-              <div>
-                <ReminderPreviewButton
-                  eventId={event.id}
-                  intro={form.reminderIntro}
-                />
-              </div>
-            </Field>
-          </>
-        )}
-
-        <Field>
-          <FieldLabel htmlFor="registration-confirmationNote">
-            Confirmation email note
-          </FieldLabel>
-          <Textarea
-            id="registration-confirmationNote"
-            rows={3}
-            maxLength={CONFIRMATION_NOTE_MAX_LENGTH}
-            value={form.confirmationNote}
-            onChange={(changeEvent) =>
-              update("confirmationNote", changeEvent.target.value)
-            }
-          />
-          <FieldDescription>
-            Added to the confirmation email everyone who registers for this
-            event receives, under the event details. Use it for anything
-            everyone needs, like what to bring. A shared discount code goes on
-            the Discount codes card instead, which adds it to the email. Not
-            shown on the public event page.
-          </FieldDescription>
-        </Field>
-
         <RegistrationQuestionsEditor
           eventId={event.id}
           value={form.registrationQuestions}
@@ -817,20 +671,6 @@ export function RegistrationTab({
       </FieldGroup>
     </form>
   );
-}
-
-function reminderDaysText(days: string): string {
-  return days === "1" ? "1 day" : `${days} days`;
-}
-
-/** What moves the reminder's send time or recipients, to read its status again. */
-function reminderVersion(event: EventRow): string {
-  return [
-    event.starts_at,
-    event.timezone,
-    event.reminder_enabled,
-    event.reminder_days_before,
-  ].join("|");
 }
 
 /** The read-only view of an event's questions (#1501), one per line. */

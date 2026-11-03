@@ -221,6 +221,15 @@ describe("RegistrationTab fields (#1778)", () => {
     expect(submitted.get("capacity")).toBe("40");
     expect(submitted.has("eventLeadId")).toBe(false);
     expect(submitted.has("budgetAmount")).toBe(false);
+    // #1777. Saved by the cards they moved to.
+    for (const key of [
+      "confirmationNote",
+      "reminderEnabled",
+      "reminderDaysBefore",
+      "reminderIntro",
+    ]) {
+      expect(submitted.has(key)).toBe(false);
+    }
   });
 
   test("keeps the carpools switch, which the Carpools card can't hold", () => {
@@ -307,44 +316,5 @@ describe("RegistrationTab age requirement (#1417, #1782)", () => {
     renderTab(makeEvent({ minimum_age: 21 }), "view");
 
     expect(screen.getByText("21+")).toBeTruthy();
-  });
-});
-
-describe("RegistrationTab reminder email (#1652)", () => {
-  beforeEach(() => {
-    updateEventRegistrationActionMock.mockClear();
-  });
-
-  test("shows the schedule and saves the days and intro", async () => {
-    const user = userEvent.setup();
-    renderTab(makeEvent({ reminder_enabled: true, reminder_days_before: 2 }));
-
-    const status = await screen.findByTestId("reminder-status");
-    expect(status.textContent).toMatch(
-      /^Scheduled for .*E[DS]T · 12 recipients$/,
-    );
-    const days = screen.getByLabelText("Days before the event");
-    await user.clear(days);
-    await user.type(days, "3");
-    const intro = screen.getByLabelText("Reminder intro");
-    await user.clear(intro);
-    await user.type(intro, "Bring layers");
-    await user.click(screen.getByRole("button", { name: "Save" }));
-
-    await waitFor(() =>
-      expect(updateEventRegistrationActionMock).toHaveBeenCalledTimes(1),
-    );
-    const formData = updateEventRegistrationActionMock.mock.calls[0][1];
-    expect(formData.get("reminderEnabled")).toBe("on");
-    expect(formData.get("reminderDaysBefore")).toBe("3");
-    expect(formData.get("reminderIntro")).toBe("Bring layers");
-  });
-
-  test("hides the days and intro while it is off", () => {
-    renderTab(makeEvent({ reminder_enabled: false }));
-    expect(
-      screen.getByRole("switch", { name: "Reminder email" }),
-    ).not.toBeChecked();
-    expect(screen.queryByLabelText("Days before the event")).toBeNull();
   });
 });
