@@ -6,6 +6,7 @@ import {
   sayNoMinors,
   answerRiding,
   continueToThisEvent,
+  openAnonymousRegistration,
 } from "./helpers/registration";
 import { SEEDED_EVENT_IDS } from "../test/seed-fixtures";
 
@@ -189,7 +190,7 @@ test.describe("notice at the point of collection", () => {
 
     // The form is behind a disclosure (#1256), and the notice belongs with the
     // fields rather than with the trigger.
-    await page.getByRole("button", { name: "Register", exact: true }).click();
+    await openAnonymousRegistration(page);
 
     // The notices are on the review step (#1413), reached by answering the
     // two before it.

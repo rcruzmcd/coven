@@ -27,6 +27,7 @@ import {
   sayNoMinors,
   answerRiding,
   continueToThisEvent,
+  openAnonymousRegistration,
 } from "./helpers/registration";
 
 const SLOT_KEY = "events.photo_consent";
@@ -73,7 +74,7 @@ async function openRegistrationForm(page: import("@playwright/test").Page) {
   const card = page.locator('a[href^="/events/e/"]').first();
   await card.click();
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-  await page.getByRole("button", { name: "Register", exact: true }).click();
+  await openAnonymousRegistration(page);
   const registration = registrationForm(page);
   await expect(registration).toBeVisible();
   return registration;

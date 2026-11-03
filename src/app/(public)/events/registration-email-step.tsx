@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { trackSite } from "@/lib/analytics/form-events";
@@ -29,8 +29,18 @@ export function RegistrationEmailStep({
 }) {
   const router = useRouter();
   const [skipped, setSkipped] = useState(false);
+  const formRef = useRef<HTMLDivElement>(null);
 
-  if (skipped) return <>{children}</>;
+  // The button that was pressed is gone, so focus would fall to the page:
+  // hand it to the form's first field, as opening the disclosure does.
+  useEffect(() => {
+    if (!skipped) return;
+    formRef.current
+      ?.querySelector<HTMLElement>("input:not([type=hidden]), select, textarea")
+      ?.focus();
+  }, [skipped]);
+
+  if (skipped) return <div ref={formRef}>{children}</div>;
 
   return (
     <div className="space-y-4">

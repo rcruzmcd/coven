@@ -9,6 +9,8 @@ import {
   registrationForm,
   sayNoMinors,
   answerRiding,
+  openAnonymousRegistration,
+  continueWithoutCode,
 } from "./helpers/registration";
 import { SEEDED_EVENT_IDS } from "../test/seed-fixtures";
 
@@ -39,9 +41,12 @@ async function registerFromListing(page: Page, name: string, email: string) {
 
   await trigger.click();
   await expect(trigger).toHaveCount(0);
-  const form = registrationForm(page);
-  // The revealed form takes focus, so a keyboard user carries on where the
-  // fields are rather than at the bottom of a page that silently grew.
+  // The revealed card takes focus, so a keyboard user carries on where the
+  // fields are rather than at the bottom of a page that silently grew. It
+  // opens on the email-first step (#1765); skipping it hands focus on to the
+  // form's first field.
+  await expect(registrationForm(page).getByLabel("Email")).toBeFocused();
+  const form = await continueWithoutCode(page);
   await expect(form.getByLabel("Name")).toBeFocused();
 
   await form.getByLabel("Name").fill(name);
@@ -88,7 +93,7 @@ test.describe("public events", () => {
 
   test("Cancel puts the registration form away", async ({ page }) => {
     await eventLink(page).click();
-    await page.getByRole("button", { name: "Register", exact: true }).click();
+    await openAnonymousRegistration(page);
     const form = registrationForm(page);
     await form.getByLabel("Name").fill("Changed My Mind");
 
@@ -174,7 +179,7 @@ test.describe("public events", () => {
 
     // The same email again, so the RPC refuses it as already registered.
     await page.reload();
-    await page.getByRole("button", { name: "Register", exact: true }).click();
+    await openAnonymousRegistration(page);
     const again = registrationForm(page);
     await expect(again.getByLabel(/Phone/)).toHaveCount(0);
     await again.getByLabel("Name").fill("E2E Steps Registrant");
