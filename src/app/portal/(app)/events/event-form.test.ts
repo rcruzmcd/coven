@@ -196,6 +196,7 @@ describe("parseEventPlanningForm", () => {
         groupChatLabel: undefined,
         carpoolsEnabled: null,
         carpoolSeatsQuestionId: undefined,
+        carpoolCostNotice: undefined,
         reminderEnabled: null,
         reminderDaysBefore: null,
         reminderIntro: undefined,
@@ -518,5 +519,31 @@ describe("parseEventRegistrationOptionsField (#1407)", () => {
     expect(parseEventRegistrationOptionsField("not json")).toEqual({
       error: REGISTRATION_OPTIONS_SAVE_ERRORS.EVENT_OPTIONS_INVALID,
     });
+  });
+});
+
+describe("parseEventPlanningForm: carpool cost notice", () => {
+  const eventDates = {
+    startsAt: "2026-12-01T17:00:00+00:00",
+    endsAt: "2026-12-01T21:00:00+00:00",
+  };
+  function notice(fields: Record<string, string>) {
+    const result = parseEventPlanningForm(formData(fields), eventDates);
+    return "data" in result ? result.data.carpoolCostNotice : result;
+  }
+
+  test("each choice becomes what the column stores", () => {
+    expect(notice({ carpoolNoticeMode: "organization" })).toBeNull();
+    expect(notice({ carpoolNoticeMode: "hidden" })).toEqual([]);
+    expect(
+      notice({ carpoolNoticeMode: "custom", carpoolNoticeText: "A.\n\nB." }),
+    ).toEqual(["A.", "B."]);
+  });
+
+  test("a blank custom notice or an unknown choice is refused", () => {
+    expect(
+      notice({ carpoolNoticeMode: "custom", carpoolNoticeText: " " }),
+    ).toHaveProperty("error");
+    expect(notice({ carpoolNoticeMode: "other" })).toHaveProperty("error");
   });
 });

@@ -18,12 +18,19 @@ import { EmailCodeForm } from "@/app/(public)/my/sign-in/email-code-form";
  *
  * "Continue without it" shows `children`, today's anonymous form, exactly as
  * it was.
+ *
+ * In a staff preview (#1764) the step is shown but sends no code and signs
+ * nobody in -- the manager is not the registrant -- so "verifying" opens the
+ * anonymous form, as skipping does, and nothing is tracked.
  */
 export function RegistrationEmailStep({
   eventId,
+  preview = false,
   children,
 }: {
   eventId: string;
+  /** A staff preview: the screens only. */
+  preview?: boolean;
   /** The anonymous registration form. */
   children: ReactNode;
 }) {
@@ -60,17 +67,26 @@ export function RegistrationEmailStep({
             type="button"
             variant="outline"
             onClick={() => {
-              trackSite("registration_code_skipped", { event_id: eventId });
+              if (!preview) {
+                trackSite("registration_code_skipped", { event_id: eventId });
+              }
               setSkipped(true);
             }}
           >
             Continue without it
           </Button>
         }
-        onSent={() =>
-          trackSite("registration_code_sent", { event_id: eventId })
-        }
+        preview={preview}
+        onSent={() => {
+          if (!preview) {
+            trackSite("registration_code_sent", { event_id: eventId });
+          }
+        }}
         onVerified={() => {
+          if (preview) {
+            setSkipped(true);
+            return;
+          }
           trackSite("registration_code_verified", { event_id: eventId });
           // The server reads the new session and renders the signed-in form.
           router.refresh();

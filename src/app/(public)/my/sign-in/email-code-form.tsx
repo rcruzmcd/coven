@@ -32,6 +32,10 @@ import { sendSignInCodeAction } from "./sign-in-code-actions";
  * "sent" notice is the action's one answer, and a refused code is one
  * sentence whatever the reason. What the caller does once verified --
  * refresh the page so the server reads the new session -- is its own.
+ *
+ * `preview` (a staff preview of an event, #1764) walks the same two screens
+ * without sending a code or signing anyone in: any code of the right length
+ * is accepted, and `onVerified` is the caller's to interpret.
  */
 export function EmailCodeForm({
   idPrefix,
@@ -41,6 +45,7 @@ export function EmailCodeForm({
   onSent,
   onVerified,
   onRejected,
+  preview = false,
 }: {
   /** Prefixes the inputs' ids, so two instances never share one. */
   idPrefix: string;
@@ -53,6 +58,8 @@ export function EmailCodeForm({
   onSent?: () => void;
   onVerified: () => void;
   onRejected?: () => void;
+  /** Send nothing and verify nothing: the screens only. */
+  preview?: boolean;
 }) {
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
@@ -63,6 +70,14 @@ export function EmailCodeForm({
 
   async function send() {
     setError(null);
+    if (preview) {
+      setNotice(
+        `Preview: no code was sent. Enter any ${SIGN_IN_CODE_LENGTH} digits to continue.`,
+      );
+      setCode("");
+      setPhase("code");
+      return;
+    }
     setIsPending(true);
     const result = await sendSignInCodeAction(email);
     setIsPending(false);
@@ -89,6 +104,10 @@ export function EmailCodeForm({
       return;
     }
     setError(null);
+    if (preview) {
+      onVerified();
+      return;
+    }
     setIsPending(true);
     const { error: verifyError } =
       await createSupabaseBrowserClient().auth.verifyOtp({

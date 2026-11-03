@@ -75,6 +75,8 @@ export type EventRow = {
    */
   carpools_enabled?: boolean;
   carpool_seats_question_id?: string | null;
+  /** This event's carpool cost notice: null for the organization's. */
+  carpool_cost_notice?: unknown;
   registration_options?: {
     id: string;
     label: string;

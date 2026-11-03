@@ -19,6 +19,7 @@ import {
   type EventReminderStatus,
 } from "@/lib/event-reminders";
 import { publicEventAnswersPath } from "@/app/(public)/events/event-path";
+import { eventCarpoolNotice } from "@/lib/event-carpools";
 import {
   actionError,
   fromGuard,
@@ -71,7 +72,7 @@ export async function previewEventReminderAction(input: {
   const { data: event, error } = await supabase
     .from("events")
     .select(
-      "id, tenant_id, name, starts_at, ends_at, timezone, location, carpools_enabled",
+      "id, tenant_id, name, starts_at, ends_at, timezone, location, carpools_enabled, carpool_cost_notice",
     )
     .eq("id", input.eventId)
     .maybeSingle<{
@@ -83,6 +84,7 @@ export async function previewEventReminderAction(input: {
       timezone: string;
       location: string | null;
       carpools_enabled: boolean;
+      carpool_cost_notice: unknown;
     }>();
   if (error || !event) {
     return actionError("server_error", "Could not load the event.");
@@ -104,7 +106,10 @@ export async function previewEventReminderAction(input: {
     location: event.location,
     intro: storedReminderIntro(input.intro),
     carpool: event.carpools_enabled
-      ? { car: null, notice: context.notice }
+      ? {
+          car: null,
+          notice: eventCarpoolNotice(event.carpool_cost_notice, context.notice),
+        }
       : null,
     answersLink: {
       url: `${origin}${publicEventAnswersPath(event.id, "preview")}`,

@@ -8,6 +8,7 @@ import { lookUpAnswerLink } from "./answer-link";
 import { AnswersForm } from "./answers-form";
 import { RegistrationContactCard } from "@/app/(public)/events/registration-contact-card";
 import { CarpoolAssignmentCard } from "@/components/carpool-assignment-card";
+import { eventCarpoolNotice } from "@/lib/event-carpools";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getPublicSite } from "@/lib/public-site";
 
@@ -81,7 +82,10 @@ export default async function RegistrationAnswersPage({
           <CarpoolAssignmentCard
             carpool={link.carpool}
             orgName={site.name ?? "the organizers"}
-            notice={site.content.paragraphs("events.carpool_cost_notice")}
+            notice={eventCarpoolNotice(
+              link.carpool.notice,
+              site.content.paragraphs("events.carpool_cost_notice"),
+            )}
           />
         ) : null}
         {/* #1647. Only the cards that apply: an event with no questions on a

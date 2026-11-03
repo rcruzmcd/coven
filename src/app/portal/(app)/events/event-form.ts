@@ -1,5 +1,6 @@
 import type { ParseResult } from "@/lib/forms";
 import { GROUP_CHAT_LABEL_MAX_LENGTH } from "@/lib/registration-group-chat";
+import { eventCarpoolNoticeFromForm } from "@/lib/event-carpools";
 import {
   REMINDER_DAYS_MAX,
   REMINDER_DAYS_MIN,
@@ -117,6 +118,11 @@ export type EventPlanningFormData = {
   carpoolsEnabled: boolean | null;
   carpoolSeatsQuestionId: string | null | undefined;
   /**
+   * `events.carpool_cost_notice`: undefined when not sent, null for the
+   * organization's notice, [] for none, otherwise the event's paragraphs.
+   */
+  carpoolCostNotice: string[] | null | undefined;
+  /**
    * #1652. The reminder switch and its days under the same null-when-absent
    * rule, and its intro: undefined when not sent, null for blank or the
    * platform default.
@@ -174,6 +180,20 @@ export function parseEventPlanningForm(
     carpoolSeatsRaw === null
       ? undefined
       : String(carpoolSeatsRaw).trim() || null;
+  const carpoolNoticeModeRaw = formData.get("carpoolNoticeMode");
+  let carpoolCostNotice: string[] | null | undefined;
+  if (carpoolNoticeModeRaw !== null) {
+    const mode = String(carpoolNoticeModeRaw);
+    if (mode !== "organization" && mode !== "custom" && mode !== "hidden") {
+      return { error: "Choose which carpool cost notice to show." };
+    }
+    const notice = eventCarpoolNoticeFromForm(
+      mode,
+      String(formData.get("carpoolNoticeText") ?? ""),
+    );
+    if ("error" in notice) return { error: notice.error };
+    carpoolCostNotice = notice.data;
+  }
   const reminderEnabledRaw = formData.get("reminderEnabled");
   const reminderEnabled =
     reminderEnabledRaw === null
@@ -276,6 +296,7 @@ export function parseEventPlanningForm(
       groupChatLabel,
       carpoolsEnabled,
       carpoolSeatsQuestionId,
+      carpoolCostNotice,
       reminderEnabled,
       reminderDaysBefore,
       reminderIntro,

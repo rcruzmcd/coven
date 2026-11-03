@@ -1,3 +1,5 @@
+import { toEventCarpoolNotice } from "@/lib/event-carpools";
+
 /**
  * A registrant's own carpool assignment (#1651): the car, its driver and the
  * other riders, as `carpool_assignment_card()` builds it. Shared by the card
@@ -36,7 +38,11 @@ export type CarpoolAssignment = {
  * null while it is in none. A registration on any other event has no view at
  * all, which renders no card.
  */
-export type RegistrantCarpool = { car: CarpoolAssignment | null };
+export type RegistrantCarpool = {
+  car: CarpoolAssignment | null;
+  /** `events.carpool_cost_notice`: null for the organization's notice. */
+  notice: string[] | null;
+};
 
 export const CARPOOL_CARD_HEADING = "Your carpool";
 export const NOT_IN_A_CAR_YET = "You haven't been placed in a car yet.";
@@ -93,7 +99,11 @@ export function toCarpoolAssignment(raw: unknown): CarpoolAssignment | null {
 /** `my_registration_carpool()` or `registration_carpool_by_token()`. */
 export function toRegistrantCarpool(raw: unknown): RegistrantCarpool | null {
   if (!raw || typeof raw !== "object" || !("car" in raw)) return null;
-  return { car: toCarpoolAssignment((raw as { car: unknown }).car) };
+  const row = raw as { car: unknown; notice?: unknown };
+  return {
+    car: toCarpoolAssignment(row.car),
+    notice: toEventCarpoolNotice(row.notice),
+  };
 }
 
 /** "Sam", "Sam (party of 3)", or "Someone" for a registration with no name. */
