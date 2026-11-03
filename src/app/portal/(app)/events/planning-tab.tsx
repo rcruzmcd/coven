@@ -406,7 +406,7 @@ export function PlanningTab({
           )}
         </ReadOnlyField>
         <ReadOnlyField
-          label="Registration questions"
+          label="Additional questions"
           htmlFor="planning-registration-questions"
         >
           <QuestionsSummary questions={form.registrationQuestions} />

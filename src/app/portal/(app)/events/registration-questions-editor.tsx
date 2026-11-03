@@ -74,11 +74,10 @@ export function RegistrationQuestionsEditor({
 
   return (
     <FieldSet>
-      <FieldLegend variant="label">Registration questions</FieldLegend>
+      <FieldLegend variant="label">Additional questions</FieldLegend>
       <FieldDescription>
-        Optional. Asked once per registration, after the details above. Removing
-        a question someone has already answered archives it, so their answers
-        stay on the registration; a question nobody has answered is deleted.
+        Optional. Asked once per registration. Deleting a question that has
+        answers archives it, so the answers are kept.
       </FieldDescription>
 
       <QuestionList
