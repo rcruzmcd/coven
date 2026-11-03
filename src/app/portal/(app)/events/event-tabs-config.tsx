@@ -18,6 +18,8 @@ import { PlanningTab } from "./planning-tab";
 import { RegistrationTab } from "./registration-tab";
 import { RegistrantEmailsTab } from "./registrant-emails-tab";
 import { CarpoolSettingsDialog } from "./carpool-settings-dialog";
+import { GroupChatSettingsDialog } from "./group-chat-settings-dialog";
+import { AutoAssignSettingsDialog } from "./auto-assign-settings-dialog";
 import { LogisticsTab } from "./logistics-tab";
 import { VolunteersTab } from "./volunteers-tab";
 import { SponsorsTab } from "./sponsors-tab";
@@ -228,8 +230,6 @@ export const TAB_CONFIG: readonly TabConfigEntry[] = [
       "age",
       "options",
       "carpools",
-      "discount",
-      "group chat",
     ],
     group: "overview",
     kind: "form",
@@ -262,7 +262,7 @@ export const TAB_CONFIG: readonly TabConfigEntry[] = [
     value: "registrants",
     area: "registrations",
     label: "Registrants",
-    keywords: ["tickets", "rsvp", "sign-ups", "check-in"],
+    keywords: ["tickets", "rsvp", "sign-ups", "check-in", "group chat"],
     group: "guests",
     kind: "plain",
     sharedData: ["registrants", "impactDerived"],
@@ -278,6 +278,9 @@ export const TAB_CONFIG: readonly TabConfigEntry[] = [
     ),
     toolbarActions: (ctx) => (
       <RegistrantsToolbar eventId={ctx.eventId} onSaved={ctx.onSaved} />
+    ),
+    settingsActions: (ctx) => (
+      <GroupChatSettingsDialog event={ctx.event} onSaved={ctx.onSaved} />
     ),
   },
   {
@@ -382,6 +385,7 @@ export const TAB_CONFIG: readonly TabConfigEntry[] = [
     value: "discount-codes",
     area: "sponsors",
     label: "Discount codes",
+    keywords: ["auto-assign"],
     group: "guests",
     kind: "plain",
     sharedData: ["registrants"],
@@ -395,6 +399,9 @@ export const TAB_CONFIG: readonly TabConfigEntry[] = [
     ),
     toolbarActions: (ctx) => (
       <AddDiscountCodesDialog eventId={ctx.eventId} onSaved={ctx.onSaved} />
+    ),
+    settingsActions: (ctx) => (
+      <AutoAssignSettingsDialog event={ctx.event} onSaved={ctx.onSaved} />
     ),
   },
   {

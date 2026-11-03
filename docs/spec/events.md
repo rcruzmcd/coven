@@ -323,7 +323,7 @@ Hard delete is unchanged: the `event_registrations delete` policy (`events: mana
 
 ### Group chat
 
-**A per-event switch** (issue #1648). An organizer that adds its registrants to a group chat for the event, as Chatter Snow does on Instagram, turns on **This event has a group chat** on the event's Planning section, with an optional name of up to 40 characters ("Instagram group chat"; blank reads "Group chat"). Off, nothing below shows anywhere, and turning it off keeps the flags.
+**A per-event switch** (issue #1648). An organizer that adds its registrants to a group chat for the event, as Chatter Snow does on Instagram, turns on **This event has a group chat** in the **Registrants** card's settings (the gear in its header, #1781), with an optional name of up to 40 characters ("Instagram group chat"; blank reads "Group chat"). Off, nothing below shows anywhere, and turning it off keeps the flags.
 
 **Every registrant, carpool or not.** On the registrants card and the registrants page a column named for the chat shows **✓ {date}** or **Not added**, beside the Instagram handle staff copy into it. The page adds an Added / Not added filter (`chat=added|not-added` in its URL), a tick box on each row with **Mark added to {chat}** / **Mark not added** for the ticked rows, and the same toggle in each row's menu; the card adds a "{chat}: not added" toggle that carries over to the page. The detail sheet shows "Added {date} by {staff name}" with the toggle. Marking a row already in that state keeps its date and name.
 

@@ -217,10 +217,16 @@ describe("eventGroups", () => {
     expect(emails.area).toBe("details");
     expect(LOCKED_ON_REPORT_SUBMIT_TABS.has("registrant-emails")).toBe(true);
     expect(emails.keywords).toEqual(["reminder", "confirmation"]);
-    for (const keyword of ["reminder", "confirmation"]) {
+    for (const keyword of ["reminder", "confirmation", "group chat"]) {
       expect(entry("registration").keywords).not.toContain(keyword);
     }
-    for (const value of ["carpools"] as const) {
+    expect(entry("registrants").keywords).toContain("group chat");
+    expect(entry("discount-codes").keywords).toContain("auto-assign");
+    for (const value of [
+      "registrants",
+      "carpools",
+      "discount-codes",
+    ] as const) {
       expect(entry(value).settingsActions).toBeDefined();
     }
   });
@@ -284,10 +290,13 @@ describe("eventGroups for a guest's grant", () => {
       );
     // Manages the registrants list, but RLS does not let it write the event.
     expect(settingsOf(["registrations"])).toMatchObject({
+      registrants: false,
       carpools: false,
     });
     expect(settingsOf(["registrations", "details", "sponsors"])).toMatchObject({
+      registrants: true,
       carpools: true,
+      "discount-codes": true,
       // No settings dialog to show.
       attendance: false,
     });

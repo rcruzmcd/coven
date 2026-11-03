@@ -9,7 +9,9 @@ import {
   parseEventForm,
   CONFIRMATION_NOTE_MAX_LENGTH,
   parseEventPlanningForm,
+  parseEventAutoAssignForm,
   parseEventCarpoolSettingsForm,
+  parseEventGroupChatForm,
   parseEventRegistrantEmailsForm,
   parseEventRegistrationForm,
   parseEventRegistrationOptionsField,
@@ -188,11 +190,8 @@ describe("parseEventRegistrationForm", () => {
         capacity: null,
         registrationEnabled: false,
         registrationDeadline: null,
-        autoAssignDiscountCodes: false,
         // Not sent, so left as it was (#1417, #1782).
         minimumAge: undefined,
-        groupChatEnabled: null,
-        groupChatLabel: undefined,
         carpoolsEnabled: null,
       },
     });
@@ -218,30 +217,12 @@ describe("parseEventRegistrationForm", () => {
     });
   });
 
-  test("reads the group chat switch and its label (#1648)", () => {
-    const parse = (fields: Record<string, string>) =>
-      parseEventRegistrationForm(formData(fields), eventDates);
-    expect(
-      parse({ groupChatEnabled: "on", groupChatLabel: "  Instagram chat " }),
-    ).toMatchObject({
-      data: { groupChatEnabled: true, groupChatLabel: "Instagram chat" },
-    });
-    expect(
-      parse({ groupChatEnabled: "off", groupChatLabel: "  " }),
-    ).toMatchObject({
-      data: { groupChatEnabled: false, groupChatLabel: null },
-    });
-    expect(
-      parse({ groupChatLabel: "x".repeat(GROUP_CHAT_LABEL_MAX_LENGTH + 1) }),
-    ).toEqual({
-      error: `Group chat name must be ${GROUP_CHAT_LABEL_MAX_LENGTH} characters or fewer.`,
-    });
-  });
-
   test("leaves the settings other cards save alone (#1777)", () => {
     const result = parseEventRegistrationForm(
       formData({
+        autoAssignDiscountCodes: "on",
         confirmationNote: "Bring gloves.",
+        groupChatEnabled: "on",
         carpoolSeatsQuestionId: "q-1",
         carpoolNoticeMode: "hidden",
         reminderEnabled: "on",
@@ -249,7 +230,9 @@ describe("parseEventRegistrationForm", () => {
       eventDates,
     );
     for (const key of [
+      "autoAssignDiscountCodes",
       "confirmationNote",
+      "groupChatEnabled",
       "carpoolSeatsQuestionId",
       "carpoolCostNotice",
       "reminderEnabled",
@@ -553,6 +536,37 @@ describe("parseEventRegistrantEmailsForm (#1779)", () => {
       parse({ reminderIntro: "x".repeat(REMINDER_INTRO_MAX_LENGTH + 1) }),
     ).toEqual({
       error: `Reminder intro must be ${REMINDER_INTRO_MAX_LENGTH} characters or fewer.`,
+    });
+  });
+});
+
+describe("parseEventGroupChatForm (#1781)", () => {
+  test("reads the group chat switch and its label (#1648)", () => {
+    const parse = (fields: Record<string, string>) =>
+      parseEventGroupChatForm(formData(fields));
+    expect(
+      parse({ groupChatEnabled: "on", groupChatLabel: "  Instagram chat " }),
+    ).toEqual({
+      data: { groupChatEnabled: true, groupChatLabel: "Instagram chat" },
+    });
+    expect(parse({ groupChatEnabled: "off", groupChatLabel: "  " })).toEqual({
+      data: { groupChatEnabled: false, groupChatLabel: null },
+    });
+    expect(
+      parse({ groupChatLabel: "x".repeat(GROUP_CHAT_LABEL_MAX_LENGTH + 1) }),
+    ).toEqual({
+      error: `Group chat name must be ${GROUP_CHAT_LABEL_MAX_LENGTH} characters or fewer.`,
+    });
+  });
+});
+
+describe("parseEventAutoAssignForm (#1781)", () => {
+  test("reads the switch", () => {
+    expect(
+      parseEventAutoAssignForm(formData({ autoAssignDiscountCodes: "on" })),
+    ).toEqual({ data: { autoAssignDiscountCodes: true } });
+    expect(parseEventAutoAssignForm(formData({}))).toEqual({
+      data: { autoAssignDiscountCodes: false },
     });
   });
 });

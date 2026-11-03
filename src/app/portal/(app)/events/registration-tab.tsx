@@ -23,7 +23,6 @@ import {
 } from "@/components/ui/field";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import {
   datetimeLocalToUtcIsoInBrowser,
   utcIsoToDatetimeLocalInBrowser,
@@ -50,11 +49,6 @@ import {
   type QuestionDraft,
 } from "./registration-questions-draft";
 import { QUESTION_KIND_LABELS } from "@/lib/registration-questions";
-import {
-  DEFAULT_GROUP_CHAT_LABEL,
-  GROUP_CHAT_LABEL_MAX_LENGTH,
-  groupChatLabel,
-} from "@/lib/registration-group-chat";
 import {
   Select,
   SelectContent,
@@ -95,10 +89,7 @@ function formStateFor(event: EventRow) {
     capacity: event.capacity === null ? "" : String(event.capacity),
     registrationEnabled: event.registration_enabled,
     registrationDeadline: toDatetimeLocalValue(event.registration_deadline),
-    autoAssignDiscountCodes: event.auto_assign_discount_codes,
     minimumAge: minimumAgeChoice(event.minimum_age),
-    groupChatEnabled: event.group_chat_enabled ?? false,
-    groupChatLabel: event.group_chat_label ?? "",
     carpoolsEnabled: event.carpools_enabled ?? false,
     registrationOptions: registrationOptionsDraft(
       event.registration_options_prompt,
@@ -134,10 +125,10 @@ export type RegistrationTabHandle = {
 };
 
 /**
- * #1778. Who can register and what they are asked. Until the rest of #1777
- * lands it also carries the settings bound for other cards: auto-assign
- * (Discount codes), group chat (Registrants), carpool details (Carpools), and
- * the confirmation note and reminder (Registrant emails).
+ * #1778. Who can register and what they are asked. Since #1777 the settings
+ * it used to carry live on the cards they affect: auto-assign on Discount
+ * codes, group chat on Registrants, carpool details on Carpools, and the
+ * confirmation note and reminder on Registrant emails.
  */
 export function RegistrationTab({
   event,
@@ -203,15 +194,9 @@ export function RegistrationTab({
       : "";
     formData.set("registrationDeadline", registrationDeadlineIso ?? "");
     formData.set(
-      "autoAssignDiscountCodes",
-      form.autoAssignDiscountCodes ? "on" : "off",
-    );
-    formData.set(
       "minimumAge",
       form.minimumAge === NO_MINIMUM_AGE ? "" : form.minimumAge,
     );
-    formData.set("groupChatEnabled", form.groupChatEnabled ? "on" : "off");
-    formData.set("groupChatLabel", form.groupChatLabel);
     formData.set("carpoolsEnabled", form.carpoolsEnabled ? "on" : "off");
     // Only when changed, so saving a deadline does not rewrite every option
     // (and the audit log with it).
@@ -294,12 +279,6 @@ export function RegistrationTab({
           {form.capacity || "—"}
         </ReadOnlyField>
         <ReadOnlyField
-          label="Auto-assign discount codes"
-          htmlFor="registration-autoAssignDiscountCodes"
-        >
-          {form.autoAssignDiscountCodes ? "On" : "Off"}
-        </ReadOnlyField>
-        <ReadOnlyField
           label="Per-person options"
           htmlFor="planning-options-prompt"
         >
@@ -329,14 +308,6 @@ export function RegistrationTab({
           htmlFor="registration-carpoolsEnabled"
         >
           {form.carpoolsEnabled ? "On" : "Off"}
-        </ReadOnlyField>
-        <ReadOnlyField
-          label="Group chat"
-          htmlFor="registration-groupChatEnabled"
-        >
-          {form.groupChatEnabled
-            ? `On · ${groupChatLabel(form.groupChatLabel)}`
-            : "Off"}
         </ReadOnlyField>
         <ReadOnlyField
           label="Additional questions"
@@ -392,19 +363,6 @@ export function RegistrationTab({
           />
         </Field>
 
-        <Field orientation="horizontal">
-          <Checkbox
-            id="registration-autoAssignDiscountCodes"
-            checked={form.autoAssignDiscountCodes}
-            onCheckedChange={(checked) =>
-              update("autoAssignDiscountCodes", Boolean(checked))
-            }
-          />
-          <FieldLabel htmlFor="registration-autoAssignDiscountCodes">
-            Auto-assign discount codes to new registrants
-          </FieldLabel>
-        </Field>
-
         <RegistrationOptionsEditor
           value={form.registrationOptions}
           onChange={(next) => update("registrationOptions", next)}
@@ -438,44 +396,6 @@ export function RegistrationTab({
             confirm everyone in their party is that age or over.
           </FieldDescription>
         </Field>
-
-        <Field orientation="horizontal">
-          <FieldContent>
-            <FieldLabel htmlFor="registration-groupChatEnabled">
-              This event has a group chat
-            </FieldLabel>
-            <FieldDescription>
-              Adds a column to the registrants list for marking who has been
-              added to the chat. Only staff see it.
-            </FieldDescription>
-          </FieldContent>
-          <Switch
-            id="registration-groupChatEnabled"
-            checked={form.groupChatEnabled}
-            onCheckedChange={(checked) => update("groupChatEnabled", checked)}
-          />
-        </Field>
-
-        {form.groupChatEnabled && (
-          <Field>
-            <FieldLabel htmlFor="registration-groupChatLabel">
-              Group chat name
-            </FieldLabel>
-            <Input
-              id="registration-groupChatLabel"
-              maxLength={GROUP_CHAT_LABEL_MAX_LENGTH}
-              placeholder={DEFAULT_GROUP_CHAT_LABEL}
-              value={form.groupChatLabel}
-              onChange={(changeEvent) =>
-                update("groupChatLabel", changeEvent.target.value)
-              }
-            />
-            <FieldDescription>
-              What the registrants list calls it, such as “Instagram group
-              chat”. Optional.
-            </FieldDescription>
-          </Field>
-        )}
 
         <Field orientation="horizontal">
           <FieldContent>

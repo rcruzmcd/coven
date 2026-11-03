@@ -4,8 +4,10 @@ import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   parseEventAttendanceForm,
+  parseEventAutoAssignForm,
   parseEventCarpoolSettingsForm,
   parseEventForm,
+  parseEventGroupChatForm,
   parseEventPlanningForm,
   parseEventRegistrantEmailsForm,
   parseEventRegistrationForm,
@@ -325,10 +327,7 @@ export async function updateEventRegistrationAction(
     capacity,
     registrationEnabled,
     registrationDeadline,
-    autoAssignDiscountCodes,
     minimumAge,
-    groupChatEnabled,
-    groupChatLabel,
     carpoolsEnabled,
   } = parsed.data;
 
@@ -338,14 +337,7 @@ export async function updateEventRegistrationAction(
       capacity,
       registration_enabled: registrationEnabled,
       registration_deadline: registrationDeadline,
-      auto_assign_discount_codes: autoAssignDiscountCodes,
       ...(minimumAge === undefined ? {} : { minimum_age: minimumAge }),
-      ...(groupChatEnabled === null
-        ? {}
-        : { group_chat_enabled: groupChatEnabled }),
-      ...(groupChatLabel === undefined
-        ? {}
-        : { group_chat_label: groupChatLabel }),
       ...(carpoolsEnabled === null
         ? {}
         : { carpools_enabled: carpoolsEnabled }),
@@ -396,9 +388,10 @@ export async function updateEventRegistrationAction(
 }
 
 /**
- * #1777. Saves one card's own `events` columns, for the cards that take
- * settings off Registration. They write `events`, so they take the same
- * `events` grant (the `details` area) whichever card shows them.
+ * #1777. Saves one card's own `events` columns: the Registrant emails card
+ * and the settings dialogs on Carpools, Registrants and Discount codes. They
+ * write `events`, so they take the same `events` grant (the `details` area)
+ * whichever card shows them.
  */
 async function updateEventColumns(
   id: string,
@@ -476,6 +469,37 @@ export async function updateEventCarpoolSettingsAction(
       CARPOOL_SEATS_QUESTION_INVALID:
         "Seats can only come from a number question on this event.",
     },
+  );
+}
+
+/** #1781. The group chat switch and its name. */
+export async function updateEventGroupChatAction(
+  id: string,
+  formData: FormData,
+): Promise<CreateEventResult> {
+  const parsed = parseEventGroupChatForm(formData);
+  if ("error" in parsed) return parsed;
+  return updateEventColumns(
+    id,
+    {
+      group_chat_enabled: parsed.data.groupChatEnabled,
+      group_chat_label: parsed.data.groupChatLabel,
+    },
+    "the group chat setting",
+  );
+}
+
+/** #1781. Whether new registrants are handed a discount code. */
+export async function updateEventAutoAssignAction(
+  id: string,
+  formData: FormData,
+): Promise<CreateEventResult> {
+  const parsed = parseEventAutoAssignForm(formData);
+  if ("error" in parsed) return parsed;
+  return updateEventColumns(
+    id,
+    { auto_assign_discount_codes: parsed.data.autoAssignDiscountCodes },
+    "auto-assign",
   );
 }
 

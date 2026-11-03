@@ -223,7 +223,10 @@ describe("RegistrationTab fields (#1778)", () => {
     expect(submitted.has("budgetAmount")).toBe(false);
     // #1777. Saved by the cards they moved to.
     for (const key of [
+      "autoAssignDiscountCodes",
       "confirmationNote",
+      "groupChatEnabled",
+      "groupChatLabel",
       "carpoolSeatsQuestionId",
       "carpoolNoticeMode",
       "reminderEnabled",
@@ -257,21 +260,21 @@ describe("RegistrationTab per-person options", () => {
     expect(screen.getByText("Per-person options")).toBeTruthy();
   });
 
-  // #1732: capacity/pricing config, so it sits with the discount codes, not
-  // beside the free-form Additional questions at the bottom.
+  // #1732: capacity/pricing config, so it sits with capacity, not beside the
+  // free-form Additional questions at the bottom.
   const follows = (a: Node, b: Node) =>
     Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
 
   for (const mode of ["view", "edit"] as const) {
-    test(`sits after the discount codes and before the questions (${mode})`, () => {
+    test(`sits after capacity and before the questions (${mode})`, () => {
       renderTab(makeEvent(), mode);
 
-      const discounts = screen.getByText(/^Auto-assign discount codes/);
+      const capacity = screen.getAllByText("Capacity")[0];
       const options = screen.getByText("Per-person options");
       const adults = screen.getAllByText("Age requirement")[0];
       const questions = screen.getByText("Additional questions");
 
-      expect(follows(discounts, options)).toBe(true);
+      expect(follows(capacity, options)).toBe(true);
       expect(follows(options, adults)).toBe(true);
       expect(follows(options, questions)).toBe(true);
     });

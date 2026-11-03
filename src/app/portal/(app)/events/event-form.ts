@@ -113,26 +113,20 @@ export function parseEventPlanningForm(
 }
 
 /**
- * #1778. The Registration card, and until the rest of #1777 lands the
- * settings it still carries for other cards.
+ * #1778. The Registration card: who can register, and the Organize carpools
+ * switch. Since #1777 the settings it used to carry for other cards are
+ * parsed by those cards' own parsers below.
  */
 export type EventRegistrationFormData = {
   capacity: number | null;
   registrationEnabled: boolean;
   registrationDeadline: string | null;
-  autoAssignDiscountCodes: boolean;
   /**
    * #1417, #1782. The age requirement, null for none. Undefined when the form
    * did not send the field, so a save from a form that does not show the
    * choice leaves the column as it was.
    */
   minimumAge: MinimumAge | null | undefined;
-  /**
-   * #1648. The switch and its label, under `minimumAge`'s absent-leaves-it
-   * rule; a blank label is stored as null, which reads "Group chat".
-   */
-  groupChatEnabled: boolean | null;
-  groupChatLabel: string | null | undefined;
   /** #1649. The carpools switch, null when the form did not send it. */
   carpoolsEnabled: boolean | null;
 };
@@ -151,25 +145,9 @@ export function parseEventRegistrationForm(
   const registrationDeadline = String(
     formData.get("registrationDeadline") ?? "",
   );
-  const autoAssignDiscountCodes = isChecked(
-    formData.get("autoAssignDiscountCodes"),
-  );
   const minimumAgeRaw = formData.get("minimumAge");
   const minimumAge =
     minimumAgeRaw === null ? undefined : parseMinimumAge(minimumAgeRaw);
-  const groupChatEnabledRaw = formData.get("groupChatEnabled");
-  const groupChatEnabled =
-    groupChatEnabledRaw === null ? null : isChecked(groupChatEnabledRaw);
-  const groupChatLabelRaw = formData.get("groupChatLabel");
-  const groupChatLabel =
-    groupChatLabelRaw === null
-      ? undefined
-      : String(groupChatLabelRaw).trim() || null;
-  if (groupChatLabel && groupChatLabel.length > GROUP_CHAT_LABEL_MAX_LENGTH) {
-    return {
-      error: `Group chat name must be ${GROUP_CHAT_LABEL_MAX_LENGTH} characters or fewer.`,
-    };
-  }
   const carpoolsEnabledRaw = formData.get("carpoolsEnabled");
   const carpoolsEnabled =
     carpoolsEnabledRaw === null ? null : isChecked(carpoolsEnabledRaw);
@@ -213,10 +191,7 @@ export function parseEventRegistrationForm(
       capacity,
       registrationEnabled,
       registrationDeadline: registrationDeadlineIso,
-      autoAssignDiscountCodes,
       minimumAge,
-      groupChatEnabled,
-      groupChatLabel,
       carpoolsEnabled,
     },
   };
@@ -310,6 +285,42 @@ export function parseEventCarpoolSettingsForm(
   if ("error" in notice) return { error: notice.error };
   return {
     data: { carpoolSeatsQuestionId, carpoolCostNotice: notice.data },
+  };
+}
+
+/**
+ * #1781. The Registrants card's group chat setting (#1648); a blank label is
+ * stored as null, which reads "Group chat".
+ */
+export type EventGroupChatFormData = {
+  groupChatEnabled: boolean;
+  groupChatLabel: string | null;
+};
+
+export function parseEventGroupChatForm(
+  formData: FormData,
+): ParseResult<EventGroupChatFormData> {
+  const groupChatEnabled = isChecked(formData.get("groupChatEnabled"));
+  const groupChatLabel =
+    String(formData.get("groupChatLabel") ?? "").trim() || null;
+  if (groupChatLabel && groupChatLabel.length > GROUP_CHAT_LABEL_MAX_LENGTH) {
+    return {
+      error: `Group chat name must be ${GROUP_CHAT_LABEL_MAX_LENGTH} characters or fewer.`,
+    };
+  }
+  return { data: { groupChatEnabled, groupChatLabel } };
+}
+
+/** #1781. The Discount codes card's auto-assign switch. */
+export function parseEventAutoAssignForm(
+  formData: FormData,
+): ParseResult<{ autoAssignDiscountCodes: boolean }> {
+  return {
+    data: {
+      autoAssignDiscountCodes: isChecked(
+        formData.get("autoAssignDiscountCodes"),
+      ),
+    },
   };
 }
 

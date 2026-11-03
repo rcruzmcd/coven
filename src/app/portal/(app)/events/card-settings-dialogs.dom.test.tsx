@@ -10,14 +10,23 @@ const actionMock = () =>
     success: true,
   }));
 
+const groupChatMock = actionMock();
 const carpoolMock = actionMock();
+const autoAssignMock = actionMock();
 
 mock.module("./actions", () => ({
   ...EventsActions,
+  updateEventGroupChatAction: groupChatMock,
   updateEventCarpoolSettingsAction: carpoolMock,
+  updateEventAutoAssignAction: autoAssignMock,
 }));
 
+const { GroupChatSettingsDialog } =
+  await import("./group-chat-settings-dialog");
 const { CarpoolSettingsDialog } = await import("./carpool-settings-dialog");
+const { AutoAssignSettingsDialog } =
+  await import("./auto-assign-settings-dialog");
+
 function makeEvent(overrides: Partial<EventRow> = {}): EventRow {
   return {
     id: "event-1",
@@ -54,7 +63,40 @@ const submittedKeys = (fn: ReturnType<typeof actionMock>) =>
   [...fn.mock.calls[0][1].keys()].sort();
 
 beforeEach(() => {
+  groupChatMock.mockClear();
   carpoolMock.mockClear();
+  autoAssignMock.mockClear();
+});
+
+describe("GroupChatSettingsDialog (#1781)", () => {
+  test("saves the switch and name, and nothing else", async () => {
+    const user = userEvent.setup();
+    render(<GroupChatSettingsDialog event={makeEvent()} />);
+
+    await user.click(
+      screen.getByRole("button", { name: "Group chat settings" }),
+    );
+    const dialog = await screen.findByRole("dialog");
+    await user.click(
+      within(dialog).getByRole("switch", {
+        name: "This event has a group chat",
+      }),
+    );
+    await user.type(
+      within(dialog).getByLabelText("Group chat name"),
+      "Instagram chat",
+    );
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(groupChatMock).toHaveBeenCalledTimes(1));
+    expect(submittedKeys(groupChatMock)).toEqual([
+      "groupChatEnabled",
+      "groupChatLabel",
+    ]);
+    const formData = groupChatMock.mock.calls[0][1];
+    expect(formData.get("groupChatEnabled")).toBe("on");
+    expect(formData.get("groupChatLabel")).toBe("Instagram chat");
+  });
 });
 
 describe("CarpoolSettingsDialog (#1780)", () => {
@@ -106,6 +148,30 @@ describe("CarpoolSettingsDialog (#1780)", () => {
     ]);
     expect(carpoolMock.mock.calls[0][1].get("carpoolNoticeMode")).toBe(
       "organization",
+    );
+  });
+});
+
+describe("AutoAssignSettingsDialog (#1781)", () => {
+  test("saves only the auto-assign switch", async () => {
+    const user = userEvent.setup();
+    render(<AutoAssignSettingsDialog event={makeEvent()} />);
+
+    await user.click(
+      screen.getByRole("button", { name: "Discount code settings" }),
+    );
+    const dialog = await screen.findByRole("dialog");
+    await user.click(
+      within(dialog).getByRole("switch", {
+        name: "Auto-assign discount codes to new registrants",
+      }),
+    );
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(autoAssignMock).toHaveBeenCalledTimes(1));
+    expect(submittedKeys(autoAssignMock)).toEqual(["autoAssignDiscountCodes"]);
+    expect(autoAssignMock.mock.calls[0][1].get("autoAssignDiscountCodes")).toBe(
+      "on",
     );
   });
 });
