@@ -294,6 +294,7 @@ export async function updateEventPlanningAction(
     groupChatLabel,
     carpoolsEnabled,
     carpoolSeatsQuestionId,
+    carpoolCostNotice,
     reminderEnabled,
     reminderDaysBefore,
     reminderIntro,
@@ -324,6 +325,9 @@ export async function updateEventPlanningAction(
       ...(carpoolSeatsQuestionId === undefined
         ? {}
         : { carpool_seats_question_id: carpoolSeatsQuestionId }),
+      ...(carpoolCostNotice === undefined
+        ? {}
+        : { carpool_cost_notice: carpoolCostNotice }),
       ...(reminderEnabled === null
         ? {}
         : { reminder_enabled: reminderEnabled }),

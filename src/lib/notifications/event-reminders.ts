@@ -12,6 +12,7 @@ import { isOrgEmailEnabled } from "@/lib/notifications/settings";
 import { recordOutboundMessage } from "@/lib/notifications/outbound-messages";
 import { mintConfirmationToken } from "@/lib/notifications/notification-email-token";
 import { loadCarpoolCostNotice } from "@/lib/notifications/carpool-cost-notice";
+import { eventCarpoolNotice } from "@/lib/event-carpools";
 import {
   eventReminderSubject,
   eventReminderSummary,
@@ -68,6 +69,31 @@ export async function reminderTenantContext(
   };
 }
 
+/**
+ * The event's own carpool notice where it sets one (none, when it hides it),
+ * else the organization's, already in `context`. Only read for an event that
+ * organizes carpools; a failed read falls back to the organization's.
+ */
+async function reminderCarpoolNotice(
+  admin: SupabaseClient,
+  context: ReminderTenantContext,
+  row: { event_id: string; tenant_id: string },
+): Promise<string[]> {
+  const { data, error } = await admin
+    .from("events")
+    .select("carpool_cost_notice")
+    .eq("id", row.event_id)
+    .eq("tenant_id", row.tenant_id)
+    .maybeSingle<{ carpool_cost_notice: unknown }>();
+  if (error) {
+    console.error(
+      "[event-reminder] could not read the event's carpool notice; sending the organization's",
+      error,
+    );
+  }
+  return eventCarpoolNotice(data?.carpool_cost_notice, context.notice);
+}
+
 type ReminderRow = {
   registration_id: string;
   tenant_id: string;
@@ -116,7 +142,10 @@ export async function sendEventReminder(
     location: data.location,
     intro: data.reminder_intro,
     carpool: data.carpools_enabled
-      ? { car: toCarpoolAssignment(data.car), notice: context.notice }
+      ? {
+          car: toCarpoolAssignment(data.car),
+          notice: await reminderCarpoolNotice(admin, context, data),
+        }
       : null,
     answersLink: link
       ? {

@@ -13,6 +13,7 @@ describe("CarpoolAssignmentCard (#1651)", () => {
         orgName="Chatter Snow"
         notice={NOTICE}
         carpool={{
+          notice: null,
           car: {
             carLabel: "Car 2",
             leavingFrom: "Union Square",
@@ -58,7 +59,7 @@ describe("CarpoolAssignmentCard (#1651)", () => {
       <CarpoolAssignmentCard
         orgName="Chatter Snow"
         notice={NOTICE}
-        carpool={{ car: null }}
+        carpool={{ car: null, notice: null }}
       />,
     );
     expect(screen.getByText(NOT_IN_A_CAR_YET)).toBeVisible();

@@ -51,6 +51,8 @@ export type CarpoolAssignmentBatch = {
   eventId: string;
   eventName: string;
   timeZone: string;
+  /** `events.carpool_cost_notice`: null for the organization's notice. */
+  eventNotice: string[] | null;
   /** Half of each recipient's dedupe key. */
   batchId: string;
   recipients: readonly CarpoolAssignmentEmailRecipient[];
@@ -89,7 +91,7 @@ export async function sendCarpoolAssignments(
     tenantMailContext(admin, batch.tenantId, {
       fallbackOrigin: batch.fallbackOrigin,
     }),
-    loadCarpoolCostNotice(admin, batch.tenantId),
+    batch.eventNotice ?? loadCarpoolCostNotice(admin, batch.tenantId),
   ]);
   const origin = mail.origin.replace(/\/+$/, "");
   const subject = carpoolAssignmentSubject(batch.eventName);

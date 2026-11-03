@@ -186,3 +186,75 @@ export const CARPOOL_COST_NOTICE_HEADING = "Carpool costs";
 export function writtenParagraphs(paragraphs: readonly string[]): string[] {
   return paragraphs.filter((paragraph) => paragraph.trim());
 }
+
+/**
+ * `events.carpool_cost_notice` off the wire: null for "the organization's
+ * notice", otherwise the event's own paragraphs, where an empty list hides it.
+ * Anything that is not an array of strings reads as null, the safe default.
+ */
+export function toEventCarpoolNotice(raw: unknown): string[] | null {
+  if (!Array.isArray(raw)) return null;
+  if (!raw.every((paragraph) => typeof paragraph === "string")) return null;
+  return raw as string[];
+}
+
+/**
+ * The notice an event shows: its own paragraphs when it has them (none, when
+ * it hid it), else the organization's `events.carpool_cost_notice` slot.
+ */
+export function eventCarpoolNotice(
+  eventNotice: unknown,
+  organizationNotice: readonly string[],
+): string[] {
+  return toEventCarpoolNotice(eventNotice) ?? [...organizationNotice];
+}
+
+/** How an event's notice is set, as the planning card edits it. */
+export type CarpoolNoticeMode = "organization" | "custom" | "hidden";
+
+export function carpoolNoticeMode(eventNotice: unknown): CarpoolNoticeMode {
+  const notice = toEventCarpoolNotice(eventNotice);
+  if (notice === null) return "organization";
+  return writtenParagraphs(notice).length === 0 ? "hidden" : "custom";
+}
+
+/** The longest an event's own notice may be, all paragraphs together. */
+export const EVENT_CARPOOL_NOTICE_MAX_LENGTH = 2000;
+
+/** Paragraphs as the planning card's textarea shows them. */
+export function carpoolNoticeText(paragraphs: readonly string[]): string {
+  return writtenParagraphs(paragraphs).join("\n\n");
+}
+
+/** The textarea's words as paragraphs: blank lines separate them. */
+export function carpoolNoticeParagraphs(text: string): string[] {
+  return text
+    .split(/\n\s*\n/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean);
+}
+
+/**
+ * What the planning card saves to `events.carpool_cost_notice`: null for the
+ * organization's notice, [] for none, the paragraphs for the event's own.
+ */
+export function eventCarpoolNoticeFromForm(
+  mode: CarpoolNoticeMode,
+  text: string,
+): { data: string[] | null } | { error: string } {
+  if (mode === "organization") return { data: null };
+  if (mode === "hidden") return { data: [] };
+  const paragraphs = carpoolNoticeParagraphs(text);
+  if (paragraphs.length === 0) {
+    return {
+      error:
+        "Write this event's carpool cost notice, or choose not to show one.",
+    };
+  }
+  if (paragraphs.join("\n\n").length > EVENT_CARPOOL_NOTICE_MAX_LENGTH) {
+    return {
+      error: `Carpool cost notice must be ${EVENT_CARPOOL_NOTICE_MAX_LENGTH} characters or fewer.`,
+    };
+  }
+  return { data: paragraphs };
+}

@@ -214,6 +214,8 @@ describe("registration_carpool_by_token", () => {
           },
         ],
       },
+      // The organization's notice, as the event sets none.
+      notice: null,
     });
     expectNothingPrivate(data, [pat.email, riley.email, driver.email]);
   });
@@ -237,7 +239,24 @@ describe("registration_carpool_by_token", () => {
     // An event with carpools on issues the link with no questions asked.
     const { data, error } = await byToken(await link(reg.id));
     expect(error).toBeNull();
-    expect(data).toEqual({ car: null });
+    expect(data).toEqual({ car: null, notice: null });
+  });
+
+  test("carries the event's own carpool cost notice, or none (#1772)", async () => {
+    const eventId = await carpoolEvent();
+    const reg = await registration(eventId, "Notice Reader");
+    const token = await link(reg.id);
+
+    for (const notice of [["Rides are free on this trip."], []]) {
+      const { error: updateError } = await service
+        .from("events")
+        .update({ carpool_cost_notice: notice })
+        .eq("id", eventId);
+      expect(updateError).toBeNull();
+      const { data, error } = await byToken(token);
+      expect(error).toBeNull();
+      expect(data).toEqual({ car: null, notice });
+    }
   });
 
   test("an event with carpools off gets no view, and no link without questions", async () => {

@@ -1,5 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import {
+  EVENT_CARPOOL_NOTICE_MAX_LENGTH,
+  carpoolNoticeMode,
+  carpoolNoticeParagraphs,
+  carpoolNoticeText,
+  eventCarpoolNotice,
+  eventCarpoolNoticeFromForm,
   answersChangedSince,
   carpoolAssignments,
   carpoolLine,
@@ -145,5 +151,52 @@ describe("seatsFromAnswer", () => {
     expect(
       seatsFromAnswer([{ question_id: "seats", value: "4" }], "seats"),
     ).toBeNull();
+  });
+});
+
+describe("per-event carpool cost notice", () => {
+  const ORG = ["Split gas with your driver."];
+
+  test("null, or anything that is not paragraphs, is the organization's", () => {
+    expect(eventCarpoolNotice(null, ORG)).toEqual(ORG);
+    expect(eventCarpoolNotice(undefined, ORG)).toEqual(ORG);
+    expect(eventCarpoolNotice("text", ORG)).toEqual(ORG);
+    expect(eventCarpoolNotice([1, 2], ORG)).toEqual(ORG);
+    expect(carpoolNoticeMode(null)).toBe("organization");
+  });
+
+  test("an empty list hides it; paragraphs replace it", () => {
+    expect(eventCarpoolNotice([], ORG)).toEqual([]);
+    expect(carpoolNoticeMode([])).toBe("hidden");
+    expect(eventCarpoolNotice(["Free ride."], ORG)).toEqual(["Free ride."]);
+    expect(carpoolNoticeMode(["Free ride."])).toBe("custom");
+  });
+
+  test("the form's three choices", () => {
+    expect(eventCarpoolNoticeFromForm("organization", "ignored")).toEqual({
+      data: null,
+    });
+    expect(eventCarpoolNoticeFromForm("hidden", "ignored")).toEqual({
+      data: [],
+    });
+    expect(
+      eventCarpoolNoticeFromForm("custom", " One.\n\n\n  Two.\nstill two "),
+    ).toEqual({ data: ["One.", "Two.\nstill two"] });
+    expect(eventCarpoolNoticeFromForm("custom", "  \n\n ")).toHaveProperty(
+      "error",
+    );
+    expect(
+      eventCarpoolNoticeFromForm(
+        "custom",
+        "x".repeat(EVENT_CARPOOL_NOTICE_MAX_LENGTH + 1),
+      ),
+    ).toHaveProperty("error");
+  });
+
+  test("text and paragraphs round-trip", () => {
+    const paragraphs = ["One.", "Two."];
+    expect(carpoolNoticeParagraphs(carpoolNoticeText(paragraphs))).toEqual(
+      paragraphs,
+    );
   });
 });

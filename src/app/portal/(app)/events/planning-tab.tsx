@@ -11,6 +11,13 @@ import {
 import { useRouter } from "next/navigation";
 import { updateEventPlanningAction } from "./actions";
 import type { EventRow } from "./event-badges";
+import {
+  EVENT_CARPOOL_NOTICE_MAX_LENGTH,
+  carpoolNoticeMode,
+  carpoolNoticeText,
+  toEventCarpoolNotice,
+  type CarpoolNoticeMode,
+} from "@/lib/event-carpools";
 import { PersonPicker } from "../people/person-picker";
 import type { PersonListItem } from "../people/actions";
 import { ReadOnlyField } from "@/components/ui/read-only-field";
@@ -75,16 +82,27 @@ import {
 
 const NO_SEATS_QUESTION = "__typed__";
 
+const CARPOOL_NOTICE_MODE_LABELS: Record<CarpoolNoticeMode, string> = {
+  organization: "Your organization's notice",
+  custom: "A notice for this event",
+  hidden: "Don't show a notice",
+};
+
 function carpoolsSummary(
   event: EventRow,
   enabled: boolean,
   seatsQuestionId: string,
+  noticeMode: CarpoolNoticeMode,
 ): string {
   if (!enabled) return "Off";
   const question = seatsQuestionChoices(event).find(
     (row) => row.id === seatsQuestionId,
   );
-  return question ? `On · seats from “${question.prompt}”` : "On";
+  const parts = ["On"];
+  if (question) parts.push(`seats from “${question.prompt}”`);
+  if (noticeMode === "custom") parts.push("own cost notice");
+  if (noticeMode === "hidden") parts.push("no cost notice");
+  return parts.join(" · ");
 }
 
 /**
@@ -118,6 +136,10 @@ function formStateFor(event: EventRow) {
     groupChatLabel: event.group_chat_label ?? "",
     carpoolsEnabled: event.carpools_enabled ?? false,
     carpoolSeatsQuestionId: event.carpool_seats_question_id ?? "",
+    carpoolNoticeMode: carpoolNoticeMode(event.carpool_cost_notice),
+    carpoolNoticeText: carpoolNoticeText(
+      toEventCarpoolNotice(event.carpool_cost_notice) ?? [],
+    ),
     reminderEnabled: event.reminder_enabled ?? false,
     reminderDaysBefore: String(
       event.reminder_days_before ?? REMINDER_DAYS_DEFAULT,
@@ -242,6 +264,8 @@ export function PlanningTab({
     formData.set("groupChatLabel", form.groupChatLabel);
     formData.set("carpoolsEnabled", form.carpoolsEnabled ? "on" : "off");
     formData.set("carpoolSeatsQuestionId", form.carpoolSeatsQuestionId);
+    formData.set("carpoolNoticeMode", form.carpoolNoticeMode);
+    formData.set("carpoolNoticeText", form.carpoolNoticeText);
     formData.set("reminderEnabled", form.reminderEnabled ? "on" : "off");
     formData.set("reminderDaysBefore", form.reminderDaysBefore);
     formData.set("reminderIntro", form.reminderIntro);
@@ -369,6 +393,7 @@ export function PlanningTab({
             event,
             form.carpoolsEnabled,
             form.carpoolSeatsQuestionId,
+            form.carpoolNoticeMode,
           )}
         </ReadOnlyField>
         <ReadOnlyField label="Group chat" htmlFor="planning-groupChatEnabled">
@@ -611,6 +636,67 @@ export function PlanningTab({
             <FieldDescription>
               A number question whose answer fills in a new car&apos;s seats
               when its driver is chosen.
+            </FieldDescription>
+          </Field>
+        )}
+
+        {form.carpoolsEnabled && (
+          <Field>
+            <FieldLabel htmlFor="planning-carpoolNoticeMode">
+              Carpool cost notice
+            </FieldLabel>
+            <Select
+              value={form.carpoolNoticeMode}
+              onValueChange={(value) =>
+                update(
+                  "carpoolNoticeMode",
+                  (value ?? "organization") as CarpoolNoticeMode,
+                )
+              }
+            >
+              <SelectTrigger id="planning-carpoolNoticeMode" className="w-full">
+                <SelectValue>
+                  {(value: CarpoolNoticeMode) =>
+                    CARPOOL_NOTICE_MODE_LABELS[value]
+                  }
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {(
+                  Object.keys(CARPOOL_NOTICE_MODE_LABELS) as CarpoolNoticeMode[]
+                ).map((mode) => (
+                  <SelectItem key={mode} value={mode}>
+                    {CARPOOL_NOTICE_MODE_LABELS[mode]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <FieldDescription>
+              How carpool costs are shared, shown on the registration form, the
+              confirmation and reminder emails, and wherever registrants see
+              their car. Your organization&apos;s notice is edited in Site
+              content.
+            </FieldDescription>
+          </Field>
+        )}
+
+        {form.carpoolsEnabled && form.carpoolNoticeMode === "custom" && (
+          <Field>
+            <FieldLabel htmlFor="planning-carpoolNoticeText">
+              This event&apos;s notice
+            </FieldLabel>
+            <Textarea
+              id="planning-carpoolNoticeText"
+              rows={4}
+              maxLength={EVENT_CARPOOL_NOTICE_MAX_LENGTH}
+              value={form.carpoolNoticeText}
+              onChange={(changeEvent) =>
+                update("carpoolNoticeText", changeEvent.target.value)
+              }
+            />
+            <FieldDescription>
+              Separate paragraphs with a blank line. Keep saying that the people
+              in a car see each other&apos;s first name and Instagram handle.
             </FieldDescription>
           </Field>
         )}
