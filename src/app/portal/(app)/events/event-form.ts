@@ -1,4 +1,5 @@
 import type { ParseResult } from "@/lib/forms";
+import { type MinimumAge, parseMinimumAge } from "@/lib/adults-only";
 import { GROUP_CHAT_LABEL_MAX_LENGTH } from "@/lib/registration-group-chat";
 import { eventCarpoolNoticeFromForm } from "@/lib/event-carpools";
 import {
@@ -94,19 +95,20 @@ export type EventPlanningFormData = {
   registrationDeadline: string | null;
   autoAssignDiscountCodes: boolean;
   /**
-   * #1417. Null when the form did not send the field, so a save from a form
-   * that does not show the switch leaves the column as it was.
+   * #1417, #1782. The age requirement, null for none. Undefined when the form
+   * did not send the field, so a save from a form that does not show the
+   * choice leaves the column as it was.
    */
-  adultsOnly: boolean | null;
+  minimumAge: MinimumAge | null | undefined;
   budgetAmount: number | null;
   /**
    * A paragraph added to this event's registration confirmation email. Same
-   * null-when-absent rule as `adultsOnly`; sent blank, it clears the note
+   * absent-leaves-it rule as `minimumAge`; sent blank, it clears the note
    * (stored as null).
    */
   confirmationNote: string | null | undefined;
   /**
-   * #1648. The switch and its label, under `adultsOnly`'s null-when-absent
+   * #1648. The switch and its label, under `minimumAge`'s absent-leaves-it
    * rule; a blank label is stored as null, which reads "Group chat".
    */
   groupChatEnabled: boolean | null;
@@ -150,11 +152,9 @@ export function parseEventPlanningForm(
   const autoAssignDiscountCodes =
     formData.get("autoAssignDiscountCodes") === "on" ||
     formData.get("autoAssignDiscountCodes") === "true";
-  const adultsOnlyRaw = formData.get("adultsOnly");
-  const adultsOnly =
-    adultsOnlyRaw === null
-      ? null
-      : adultsOnlyRaw === "on" || adultsOnlyRaw === "true";
+  const minimumAgeRaw = formData.get("minimumAge");
+  const minimumAge =
+    minimumAgeRaw === null ? undefined : parseMinimumAge(minimumAgeRaw);
   const groupChatEnabledRaw = formData.get("groupChatEnabled");
   const groupChatEnabled =
     groupChatEnabledRaw === null
@@ -289,7 +289,7 @@ export function parseEventPlanningForm(
       registrationEnabled,
       registrationDeadline: registrationDeadlineIso,
       autoAssignDiscountCodes,
-      adultsOnly,
+      minimumAge,
       budgetAmount,
       confirmationNote,
       groupChatEnabled,

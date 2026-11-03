@@ -220,7 +220,7 @@ describe("PlanningTab per-person options", () => {
 
       const discounts = screen.getByText(/^Auto-assign discount codes/);
       const options = screen.getByText("Per-person options");
-      const adults = screen.getAllByText("Adults only (18+)")[0];
+      const adults = screen.getAllByText("Age requirement")[0];
       const questions = screen.getByText("Additional questions");
 
       expect(follows(discounts, options)).toBe(true);
@@ -230,42 +230,46 @@ describe("PlanningTab per-person options", () => {
   }
 });
 
-describe("PlanningTab adults only (#1417)", () => {
+describe("PlanningTab age requirement (#1417, #1782)", () => {
   beforeEach(() => updateEventPlanningActionMock.mockClear());
 
-  const adultsOnlySwitch = () =>
-    screen.getByRole("switch", { name: /Adults only \(18\+\)/ });
+  const savedAge = () =>
+    updateEventPlanningActionMock.mock.calls[0][1].get("minimumAge");
 
-  test("starts from the stored value and saves the change", async () => {
-    const user = userEvent.setup();
-    renderTab(makeEvent({ adults_only: false }));
-
-    expect(adultsOnlySwitch()).not.toBeChecked();
-    await user.click(adultsOnlySwitch());
+  async function chooseAndSave(
+    user: ReturnType<typeof userEvent.setup>,
+    option: string,
+  ) {
+    await user.click(screen.getByLabelText("Age requirement"));
+    await user.click(screen.getByRole("option", { name: option }));
     await user.click(screen.getByRole("button", { name: "Save" }));
-
     await waitFor(() =>
       expect(updateEventPlanningActionMock).toHaveBeenCalledTimes(1),
     );
-    expect(
-      updateEventPlanningActionMock.mock.calls[0][1].get("adultsOnly"),
-    ).toBe("on");
+  }
+
+  test("an event with none can be made 21+", async () => {
+    const user = userEvent.setup();
+    renderTab(makeEvent({ minimum_age: null }));
+
+    expect(screen.getByLabelText("Age requirement")).toHaveTextContent("None");
+    await chooseAndSave(user, "21+");
+    expect(savedAge()).toBe("21");
   });
 
-  test("an 18+ event shows it on and can turn it off", async () => {
+  test("an 18+ event shows it and can be cleared", async () => {
     const user = userEvent.setup();
-    renderTab(makeEvent({ adults_only: true }));
+    renderTab(makeEvent({ minimum_age: 18 }));
 
-    expect(adultsOnlySwitch()).toBeChecked();
-    await user.click(adultsOnlySwitch());
-    await user.click(screen.getByRole("button", { name: "Save" }));
+    expect(screen.getByLabelText("Age requirement")).toHaveTextContent("18+");
+    await chooseAndSave(user, "None");
+    expect(savedAge()).toBe("");
+  });
 
-    await waitFor(() =>
-      expect(updateEventPlanningActionMock).toHaveBeenCalledTimes(1),
-    );
-    expect(
-      updateEventPlanningActionMock.mock.calls[0][1].get("adultsOnly"),
-    ).toBe("off");
+  test("the read-only view names the age", () => {
+    renderTab(makeEvent({ minimum_age: 21 }), "view");
+
+    expect(screen.getByText("21+")).toBeTruthy();
   });
 });
 

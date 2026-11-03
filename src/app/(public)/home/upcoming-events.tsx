@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowRight, ExternalLink } from "lucide-react";
 import { AdultsOnlyBadge } from "@/components/adults-only-badge";
+import { parseMinimumAge } from "@/lib/adults-only";
 import { Badge } from "@/components/ui/badge";
 import { DATE_TIME_WITH_ZONE, formatDateTimeInZone } from "@/lib/time";
 import { cn } from "@/lib/utils";
@@ -43,14 +44,14 @@ export type HomeUpcomingEvent = {
   flier_url: string | null;
   registration_enabled: boolean;
   registration_deadline: string | null;
-  /** #1417. Null only because a view reports every column nullable. */
-  adults_only: boolean | null;
+  /** #1782. The age requirement (18, 21), or null for none. */
+  minimum_age: number | null;
   programs: PublicEventProgram[];
 };
 
 /** The columns above, as a PostgREST select list. */
 export const HOME_UPCOMING_EVENT_COLUMNS =
-  "id, name, location, starts_at, ends_at, timezone, flier_url, registration_enabled, registration_deadline, adults_only";
+  "id, name, location, starts_at, ends_at, timezone, flier_url, registration_enabled, registration_deadline, minimum_age";
 
 /**
  * A community calendar item filling a slot the organization's own events
@@ -178,7 +179,10 @@ function UpcomingEventCard({
         <p className="app-eyebrow">{eventProgramsLabel(event.programs)}</p>
         <p className="text-base font-semibold tracking-[-0.01em]">
           {event.name}
-          <AdultsOnlyBadge adultsOnly={event.adults_only} className="ml-2" />
+          <AdultsOnlyBadge
+            minimumAge={parseMinimumAge(event.minimum_age)}
+            className="ml-2"
+          />
         </p>
         <p className="app-muted text-xs">
           {formatRange(event.starts_at, event.ends_at, event.timezone)}

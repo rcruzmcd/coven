@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { DATE_TIME_WITH_ZONE, formatDateTimeInZone } from "@/lib/time";
 import { AdultsOnlyBadge } from "@/components/adults-only-badge";
+import { parseMinimumAge } from "@/lib/adults-only";
 import { EventFlierTile } from "./event-flier";
 import type { PublicEventSponsor } from "./event-sponsors";
 import { publicEventPath } from "./event-path";
@@ -66,7 +67,10 @@ export function EventCard({ event }: { event: PublicEvent }) {
           >
             {event.name}
           </Link>
-          <AdultsOnlyBadge adultsOnly={event.adults_only} className="ml-2" />
+          <AdultsOnlyBadge
+            minimumAge={parseMinimumAge(event.minimum_age)}
+            className="ml-2"
+          />
         </p>
         <p className="app-muted text-xs">
           {formatDateTimeInZone(

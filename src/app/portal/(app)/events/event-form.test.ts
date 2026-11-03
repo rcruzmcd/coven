@@ -187,8 +187,8 @@ describe("parseEventPlanningForm", () => {
         registrationEnabled: false,
         registrationDeadline: null,
         autoAssignDiscountCodes: false,
-        // Not sent, so left as it was (#1417).
-        adultsOnly: null,
+        // Not sent, so left as it was (#1417, #1782).
+        minimumAge: undefined,
         budgetAmount: null,
         // Not sent either, so left as it was.
         confirmationNote: undefined,
@@ -204,11 +204,13 @@ describe("parseEventPlanningForm", () => {
     });
   });
 
-  test("reads the adults-only switch (#1417)", () => {
+  test("reads the age requirement (#1782)", () => {
     const parse = (value: string) =>
-      parseEventPlanningForm(formData({ adultsOnly: value }), eventDates);
-    expect(parse("on")).toMatchObject({ data: { adultsOnly: true } });
-    expect(parse("off")).toMatchObject({ data: { adultsOnly: false } });
+      parseEventPlanningForm(formData({ minimumAge: value }), eventDates);
+    expect(parse("18")).toMatchObject({ data: { minimumAge: 18 } });
+    expect(parse("21")).toMatchObject({ data: { minimumAge: 21 } });
+    expect(parse("")).toMatchObject({ data: { minimumAge: null } });
+    expect(parse("16")).toMatchObject({ data: { minimumAge: null } });
   });
 
   test("reads the confirmation email note", () => {
