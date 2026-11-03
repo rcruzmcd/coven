@@ -80,6 +80,8 @@ function EditableTabCard({
   event: EventRow;
   programs: Program[];
   canManage: boolean;
+  /** Unused: a form card has no settings dialog (#1777). */
+  canManageSettings?: boolean;
 }) {
   const { notify } = useTabRefresh<TabValue>();
   const [mode, setMode] = useState<"view" | "edit">("view");
@@ -182,21 +184,28 @@ function TabCardActions({
   entry,
   event,
   canManage,
+  canManageSettings,
 }: {
   entry: TabConfigEntry;
   event: EventRow;
   canManage: boolean;
+  canManageSettings: boolean;
 }) {
   const { notify } = useTabRefresh<TabValue>();
-  if (!canManage || !entry.toolbarActions) return null;
+  const toolbar = canManage && entry.toolbarActions;
+  // #1777. The submitted-report lock the form cards have.
+  const settings =
+    canManageSettings &&
+    event.report_status !== "submitted" &&
+    entry.settingsActions;
+  if (!toolbar && !settings) return null;
+  const onSaved = () => notify(entry.value);
 
   return (
     <CardAction className="flex flex-wrap items-center justify-end gap-2">
-      {entry.toolbarActions({
-        eventId: event.id,
-        eventName: event.name,
-        onSaved: () => notify(entry.value),
-      })}
+      {toolbar &&
+        toolbar({ eventId: event.id, eventName: event.name, onSaved })}
+      {settings && settings({ event, onSaved })}
     </CardAction>
   );
 }
@@ -211,12 +220,14 @@ function PlainTabCard({
   event,
   programs,
   canManage,
+  canManageSettings = false,
 }: {
   entry: TabConfigEntry;
   title: string;
   event: EventRow;
   programs: Program[];
   canManage: boolean;
+  canManageSettings?: boolean;
 }) {
   const shared = useEventSharedData();
 
@@ -236,7 +247,12 @@ function PlainTabCard({
         <CardTitle className="app-muted text-sm font-semibold">
           {title}
         </CardTitle>
-        <TabCardActions entry={entry} event={event} canManage={canManage} />
+        <TabCardActions
+          entry={entry}
+          event={event}
+          canManage={canManage}
+          canManageSettings={canManageSettings}
+        />
       </CardHeader>
       <CardContent>{entry.render(ctx)}</CardContent>
     </Card>
@@ -333,8 +349,8 @@ function EventDetailContent({
   const title = cardTitle(card, entry.label);
   // Per card since #1688: a guest's grant may manage some areas of the event
   // and not others.
-  const canManageCard =
-    sections.find((section) => section.value === card)?.canManage ?? false;
+  const section = sections.find((row) => row.value === card);
+  const canManageCard = section?.canManage ?? false;
   const editToggle = entry.kind === "form" || SELF_MANAGED_EDIT_TABS.has(card);
   const TabCard = editToggle ? EditableTabCard : PlainTabCard;
 
@@ -418,6 +434,7 @@ function EventDetailContent({
             event={event}
             programs={programs}
             canManage={canManageCard}
+            canManageSettings={section?.canManageSettings ?? false}
           />
         </EventSharedDataProvider>
       </div>

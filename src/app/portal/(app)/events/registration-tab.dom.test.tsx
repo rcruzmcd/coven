@@ -224,6 +224,8 @@ describe("RegistrationTab fields (#1778)", () => {
     // #1777. Saved by the cards they moved to.
     for (const key of [
       "confirmationNote",
+      "carpoolSeatsQuestionId",
+      "carpoolNoticeMode",
       "reminderEnabled",
       "reminderDaysBefore",
       "reminderIntro",

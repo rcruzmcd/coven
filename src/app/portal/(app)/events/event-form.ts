@@ -133,17 +133,8 @@ export type EventRegistrationFormData = {
    */
   groupChatEnabled: boolean | null;
   groupChatLabel: string | null | undefined;
-  /**
-   * #1649. The carpools switch, null when the form did not send it, and the
-   * number question seats come from: undefined when not sent, null for none.
-   */
+  /** #1649. The carpools switch, null when the form did not send it. */
   carpoolsEnabled: boolean | null;
-  carpoolSeatsQuestionId: string | null | undefined;
-  /**
-   * `events.carpool_cost_notice`: undefined when not sent, null for the
-   * organization's notice, [] for none, otherwise the event's paragraphs.
-   */
-  carpoolCostNotice: string[] | null | undefined;
 };
 
 /** A switch as a form posts it: "on" or "true" is on. */
@@ -182,25 +173,6 @@ export function parseEventRegistrationForm(
   const carpoolsEnabledRaw = formData.get("carpoolsEnabled");
   const carpoolsEnabled =
     carpoolsEnabledRaw === null ? null : isChecked(carpoolsEnabledRaw);
-  const carpoolSeatsRaw = formData.get("carpoolSeatsQuestionId");
-  const carpoolSeatsQuestionId =
-    carpoolSeatsRaw === null
-      ? undefined
-      : String(carpoolSeatsRaw).trim() || null;
-  const carpoolNoticeModeRaw = formData.get("carpoolNoticeMode");
-  let carpoolCostNotice: string[] | null | undefined;
-  if (carpoolNoticeModeRaw !== null) {
-    const mode = String(carpoolNoticeModeRaw);
-    if (mode !== "organization" && mode !== "custom" && mode !== "hidden") {
-      return { error: "Choose which carpool cost notice to show." };
-    }
-    const notice = eventCarpoolNoticeFromForm(
-      mode,
-      String(formData.get("carpoolNoticeText") ?? ""),
-    );
-    if ("error" in notice) return { error: notice.error };
-    carpoolCostNotice = notice.data;
-  }
 
   let capacity: number | null = null;
   if (capacityRaw) {
@@ -246,8 +218,6 @@ export function parseEventRegistrationForm(
       groupChatEnabled,
       groupChatLabel,
       carpoolsEnabled,
-      carpoolSeatsQuestionId,
-      carpoolCostNotice,
     },
   };
 }
@@ -310,6 +280,36 @@ export function parseEventRegistrantEmailsForm(
       reminderDaysBefore,
       reminderIntro,
     },
+  };
+}
+
+/** #1780. The Carpools card's settings. */
+export type EventCarpoolSettingsFormData = {
+  /** #1649. The number question seats come from, null for none. */
+  carpoolSeatsQuestionId: string | null;
+  /**
+   * `events.carpool_cost_notice`: null for the organization's notice, [] for
+   * none, otherwise the event's paragraphs.
+   */
+  carpoolCostNotice: string[] | null;
+};
+
+export function parseEventCarpoolSettingsForm(
+  formData: FormData,
+): ParseResult<EventCarpoolSettingsFormData> {
+  const carpoolSeatsQuestionId =
+    String(formData.get("carpoolSeatsQuestionId") ?? "").trim() || null;
+  const mode = String(formData.get("carpoolNoticeMode") ?? "");
+  if (mode !== "organization" && mode !== "custom" && mode !== "hidden") {
+    return { error: "Choose which carpool cost notice to show." };
+  }
+  const notice = eventCarpoolNoticeFromForm(
+    mode,
+    String(formData.get("carpoolNoticeText") ?? ""),
+  );
+  if ("error" in notice) return { error: notice.error };
+  return {
+    data: { carpoolSeatsQuestionId, carpoolCostNotice: notice.data },
   };
 }
 

@@ -220,6 +220,9 @@ describe("eventGroups", () => {
     for (const keyword of ["reminder", "confirmation"]) {
       expect(entry("registration").keywords).not.toContain(keyword);
     }
+    for (const value of ["carpools"] as const) {
+      expect(entry(value).settingsActions).toBeDefined();
+    }
   });
 
   test("every declared keyword is lowercase and non-empty", () => {
@@ -269,6 +272,30 @@ describe("eventGroups for a guest's grant", () => {
         (section) => section.canManage,
       ),
     ).toBe(true);
+  });
+
+  test("card settings take a manage grant on details, the area of events (#1777)", () => {
+    const settingsOf = (areas: EventGrant["areas"]) =>
+      Object.fromEntries(
+        guestSections("manage", areas).map((section) => [
+          section.value,
+          section.canManageSettings,
+        ]),
+      );
+    // Manages the registrants list, but RLS does not let it write the event.
+    expect(settingsOf(["registrations"])).toMatchObject({
+      carpools: false,
+    });
+    expect(settingsOf(["registrations", "details", "sponsors"])).toMatchObject({
+      carpools: true,
+      // No settings dialog to show.
+      attendance: false,
+    });
+    expect(
+      guestSections("view", ["registrations", "details"]).some(
+        (section) => section.canManageSettings,
+      ),
+    ).toBe(false);
   });
 
   test("no grant and no role shows nothing", () => {

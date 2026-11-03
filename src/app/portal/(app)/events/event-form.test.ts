@@ -9,6 +9,7 @@ import {
   parseEventForm,
   CONFIRMATION_NOTE_MAX_LENGTH,
   parseEventPlanningForm,
+  parseEventCarpoolSettingsForm,
   parseEventRegistrantEmailsForm,
   parseEventRegistrationForm,
   parseEventRegistrationOptionsField,
@@ -193,8 +194,6 @@ describe("parseEventRegistrationForm", () => {
         groupChatEnabled: null,
         groupChatLabel: undefined,
         carpoolsEnabled: null,
-        carpoolSeatsQuestionId: undefined,
-        carpoolCostNotice: undefined,
       },
     });
   });
@@ -208,19 +207,14 @@ describe("parseEventRegistrationForm", () => {
     expect(parse("16")).toMatchObject({ data: { minimumAge: null } });
   });
 
-  test("reads the carpools switch and the seats question (#1649)", () => {
+  test("reads the carpools switch (#1649)", () => {
     const parse = (fields: Record<string, string>) =>
       parseEventRegistrationForm(formData(fields), eventDates);
-    expect(
-      parse({ carpoolsEnabled: "on", carpoolSeatsQuestionId: " q-1 " }),
-    ).toMatchObject({
-      data: { carpoolsEnabled: true, carpoolSeatsQuestionId: "q-1" },
+    expect(parse({ carpoolsEnabled: "on" })).toMatchObject({
+      data: { carpoolsEnabled: true },
     });
-    // Blank is "typed for each car".
-    expect(
-      parse({ carpoolsEnabled: "off", carpoolSeatsQuestionId: "" }),
-    ).toMatchObject({
-      data: { carpoolsEnabled: false, carpoolSeatsQuestionId: null },
+    expect(parse({ carpoolsEnabled: "off" })).toMatchObject({
+      data: { carpoolsEnabled: false },
     });
   });
 
@@ -248,11 +242,18 @@ describe("parseEventRegistrationForm", () => {
     const result = parseEventRegistrationForm(
       formData({
         confirmationNote: "Bring gloves.",
+        carpoolSeatsQuestionId: "q-1",
+        carpoolNoticeMode: "hidden",
         reminderEnabled: "on",
       }),
       eventDates,
     );
-    for (const key of ["confirmationNote", "reminderEnabled"]) {
+    for (const key of [
+      "confirmationNote",
+      "carpoolSeatsQuestionId",
+      "carpoolCostNotice",
+      "reminderEnabled",
+    ]) {
       expect("data" in result && result.data).not.toHaveProperty(key);
     }
   });
@@ -556,15 +557,32 @@ describe("parseEventRegistrantEmailsForm (#1779)", () => {
   });
 });
 
-describe("parseEventRegistrationForm: carpool cost notice", () => {
-  const eventDates = {
-    startsAt: "2026-12-01T17:00:00+00:00",
-    endsAt: "2026-12-01T21:00:00+00:00",
-  };
+describe("parseEventCarpoolSettingsForm (#1780)", () => {
   function notice(fields: Record<string, string>) {
-    const result = parseEventRegistrationForm(formData(fields), eventDates);
+    const result = parseEventCarpoolSettingsForm(formData(fields));
     return "data" in result ? result.data.carpoolCostNotice : result;
   }
+
+  test("reads the seats question (#1649)", () => {
+    expect(
+      parseEventCarpoolSettingsForm(
+        formData({
+          carpoolSeatsQuestionId: " q-1 ",
+          carpoolNoticeMode: "organization",
+        }),
+      ),
+    ).toEqual({
+      data: { carpoolSeatsQuestionId: "q-1", carpoolCostNotice: null },
+    });
+    // Blank is "typed for each car".
+    expect(
+      parseEventCarpoolSettingsForm(
+        formData({ carpoolSeatsQuestionId: "", carpoolNoticeMode: "hidden" }),
+      ),
+    ).toEqual({
+      data: { carpoolSeatsQuestionId: null, carpoolCostNotice: [] },
+    });
+  });
 
   test("each choice becomes what the column stores", () => {
     expect(notice({ carpoolNoticeMode: "organization" })).toBeNull();

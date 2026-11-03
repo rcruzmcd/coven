@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   parseEventAttendanceForm,
+  parseEventCarpoolSettingsForm,
   parseEventForm,
   parseEventPlanningForm,
   parseEventRegistrantEmailsForm,
@@ -329,8 +330,6 @@ export async function updateEventRegistrationAction(
     groupChatEnabled,
     groupChatLabel,
     carpoolsEnabled,
-    carpoolSeatsQuestionId,
-    carpoolCostNotice,
   } = parsed.data;
 
   const { error } = await supabase
@@ -350,22 +349,10 @@ export async function updateEventRegistrationAction(
       ...(carpoolsEnabled === null
         ? {}
         : { carpools_enabled: carpoolsEnabled }),
-      ...(carpoolSeatsQuestionId === undefined
-        ? {}
-        : { carpool_seats_question_id: carpoolSeatsQuestionId }),
-      ...(carpoolCostNotice === undefined
-        ? {}
-        : { carpool_cost_notice: carpoolCostNotice }),
     })
     .eq("id", id);
 
   if (error) {
-    // #1649. The trigger standing in for a foreign key.
-    if (error.message === "CARPOOL_SEATS_QUESTION_INVALID") {
-      return {
-        error: "Seats can only come from a number question on this event.",
-      };
-    }
     return {
       error: "Could not update registration settings. Please try again.",
     };
@@ -467,6 +454,28 @@ export async function updateEventRegistrantEmailsAction(
       reminder_intro: reminderIntro,
     },
     "registrant emails",
+  );
+}
+
+/** #1780. Where a car's seats come from, and the cost notice. */
+export async function updateEventCarpoolSettingsAction(
+  id: string,
+  formData: FormData,
+): Promise<CreateEventResult> {
+  const parsed = parseEventCarpoolSettingsForm(formData);
+  if ("error" in parsed) return parsed;
+  return updateEventColumns(
+    id,
+    {
+      carpool_seats_question_id: parsed.data.carpoolSeatsQuestionId,
+      carpool_cost_notice: parsed.data.carpoolCostNotice,
+    },
+    "carpool settings",
+    // #1649. The trigger standing in for a foreign key.
+    {
+      CARPOOL_SEATS_QUESTION_INVALID:
+        "Seats can only come from a number question on this event.",
+    },
   );
 }
 

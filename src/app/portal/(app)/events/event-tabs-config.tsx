@@ -17,6 +17,7 @@ import { OverviewTab } from "./overview-tab";
 import { PlanningTab } from "./planning-tab";
 import { RegistrationTab } from "./registration-tab";
 import { RegistrantEmailsTab } from "./registrant-emails-tab";
+import { CarpoolSettingsDialog } from "./carpool-settings-dialog";
 import { LogisticsTab } from "./logistics-tab";
 import { VolunteersTab } from "./volunteers-tab";
 import { SponsorsTab } from "./sponsors-tab";
@@ -102,6 +103,12 @@ export type ToolbarActionContext = {
   onSaved: () => void;
 };
 
+/** #1777. What a card's settings dialog is handed. */
+export type SettingsActionContext = {
+  event: EventRow;
+  onSaved: () => void;
+};
+
 export type TabConfigEntry = {
   value: TabValue;
   label: string;
@@ -158,6 +165,14 @@ export type TabConfigEntry = {
    * `CardAction` slot on the edit pencil.
    */
   toolbarActions?: (ctx: ToolbarActionContext) => ReactNode;
+  /**
+   * #1777. A `kind: "plain"` card's own settings, as a dialog in its header
+   * beside `toolbarActions`. They are `events` columns, so they take the
+   * `details` area whatever this card's own `area` is -- a grant can manage
+   * the registrants list and still not be one RLS lets write the event row.
+   * Read-only once the report is submitted, like the form cards.
+   */
+  settingsActions?: (ctx: SettingsActionContext) => ReactNode;
 };
 
 export const TAB_CONFIG: readonly TabConfigEntry[] = [
@@ -292,7 +307,15 @@ export const TAB_CONFIG: readonly TabConfigEntry[] = [
     value: "carpools",
     area: "registrations",
     label: "Carpools",
-    keywords: ["rides", "drivers", "cars", "passengers", "transport"],
+    keywords: [
+      "rides",
+      "drivers",
+      "cars",
+      "passengers",
+      "transport",
+      "seats",
+      "cost notice",
+    ],
     group: "guests",
     kind: "plain",
     shownWhen: "carpoolsEnabled",
@@ -302,6 +325,11 @@ export const TAB_CONFIG: readonly TabConfigEntry[] = [
         eventId={ctx.event.id}
         registrants={ctx.shared.registrants}
       />
+    ),
+    // #1780. Seats and the cost notice; the switch stays on Registration,
+    // since this card is listed only while it is on.
+    settingsActions: (ctx) => (
+      <CarpoolSettingsDialog event={ctx.event} onSaved={ctx.onSaved} />
     ),
   },
   {
@@ -781,6 +809,11 @@ export type EventSection = {
    * grant covering its area (#1688).
    */
   canManage: boolean;
+  /**
+   * #1777. Whether this reader may change the card's `settingsActions`, which
+   * write `events`: `events: manage`, or a `manage` grant covering `details`.
+   */
+  canManageSettings: boolean;
   /** The display title -- `CARD_TITLES` already applied. */
   label: string;
   /** Extra words the rail's search matches. */
@@ -835,6 +868,10 @@ export function eventGroups(
     grant !== null &&
     entry.area !== undefined &&
     grant.areas.includes(entry.area);
+  const grantManagesDetails =
+    grant !== null &&
+    grant.level === "manage" &&
+    grant.areas.includes("details");
 
   return EVENT_GROUPS.map(({ key, label }) => ({
     key,
@@ -847,6 +884,9 @@ export function eventGroups(
     ).map((entry) => ({
       value: entry.value,
       canManage: roleManages || (granted(entry) && grant?.level === "manage"),
+      canManageSettings:
+        entry.settingsActions !== undefined &&
+        (roleManages || grantManagesDetails),
       label: cardTitle(entry.value, entry.label),
       keywords: [...(entry.keywords ?? [])],
     })),

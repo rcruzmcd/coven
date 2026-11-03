@@ -11,13 +11,6 @@ import {
 import { useRouter } from "next/navigation";
 import { updateEventRegistrationAction } from "./actions";
 import type { EventRow } from "./event-badges";
-import {
-  EVENT_CARPOOL_NOTICE_MAX_LENGTH,
-  carpoolNoticeMode,
-  carpoolNoticeText,
-  toEventCarpoolNotice,
-  type CarpoolNoticeMode,
-} from "@/lib/event-carpools";
 import { ReadOnlyField } from "@/components/ui/read-only-field";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -70,44 +63,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-const NO_SEATS_QUESTION = "__typed__";
-
-const CARPOOL_NOTICE_MODE_LABELS: Record<CarpoolNoticeMode, string> = {
-  organization: "Your organization's notice",
-  custom: "A notice for this event",
-  hidden: "Don't show a notice",
-};
-
-function carpoolsSummary(
-  event: EventRow,
-  enabled: boolean,
-  seatsQuestionId: string,
-  noticeMode: CarpoolNoticeMode,
-): string {
-  if (!enabled) return "Off";
-  const question = seatsQuestionChoices(event).find(
-    (row) => row.id === seatsQuestionId,
-  );
-  const parts = ["On"];
-  if (question) parts.push(`seats from “${question.prompt}”`);
-  if (noticeMode === "custom") parts.push("own cost notice");
-  if (noticeMode === "hidden") parts.push("no cost notice");
-  return parts.join(" · ");
-}
-
-/**
- * #1649. The saved, live `number` questions a new car's seats can come from.
- * Saved only: the pointer names a stored row, so a question added in this same
- * edit can be picked after it is saved.
- */
-function seatsQuestionChoices(event: EventRow) {
-  return (event.registration_questions ?? []).filter(
-    (question) =>
-      question.kind === "number" &&
-      !(question as { archived_at?: string | null }).archived_at,
-  );
-}
-
 function toDatetimeLocalValue(iso: string | null) {
   // The browser's zone, so the prefill and the save agree (#1063).
   return utcIsoToDatetimeLocalInBrowser(iso);
@@ -145,11 +100,6 @@ function formStateFor(event: EventRow) {
     groupChatEnabled: event.group_chat_enabled ?? false,
     groupChatLabel: event.group_chat_label ?? "",
     carpoolsEnabled: event.carpools_enabled ?? false,
-    carpoolSeatsQuestionId: event.carpool_seats_question_id ?? "",
-    carpoolNoticeMode: carpoolNoticeMode(event.carpool_cost_notice),
-    carpoolNoticeText: carpoolNoticeText(
-      toEventCarpoolNotice(event.carpool_cost_notice) ?? [],
-    ),
     registrationOptions: registrationOptionsDraft(
       event.registration_options_prompt,
       event.registration_options,
@@ -263,9 +213,6 @@ export function RegistrationTab({
     formData.set("groupChatEnabled", form.groupChatEnabled ? "on" : "off");
     formData.set("groupChatLabel", form.groupChatLabel);
     formData.set("carpoolsEnabled", form.carpoolsEnabled ? "on" : "off");
-    formData.set("carpoolSeatsQuestionId", form.carpoolSeatsQuestionId);
-    formData.set("carpoolNoticeMode", form.carpoolNoticeMode);
-    formData.set("carpoolNoticeText", form.carpoolNoticeText);
     // Only when changed, so saving a deadline does not rewrite every option
     // (and the audit log with it).
     const baselineOptions = formStateFor(event).registrationOptions;
@@ -381,12 +328,7 @@ export function RegistrationTab({
           label="Organize carpools"
           htmlFor="registration-carpoolsEnabled"
         >
-          {carpoolsSummary(
-            event,
-            form.carpoolsEnabled,
-            form.carpoolSeatsQuestionId,
-            form.carpoolNoticeMode,
-          )}
+          {form.carpoolsEnabled ? "On" : "Off"}
         </ReadOnlyField>
         <ReadOnlyField
           label="Group chat"
@@ -542,7 +484,8 @@ export function RegistrationTab({
             </FieldLabel>
             <FieldDescription>
               Adds a Carpools section for planning cars, drivers and passengers,
-              and who has paid their driver. Only staff see it.
+              and who has paid their driver. Only staff see it. Seats and the
+              cost notice are set on that card.
             </FieldDescription>
           </FieldContent>
           <Switch
@@ -551,110 +494,6 @@ export function RegistrationTab({
             onCheckedChange={(checked) => update("carpoolsEnabled", checked)}
           />
         </Field>
-
-        {form.carpoolsEnabled && seatsQuestionChoices(event).length > 0 && (
-          <Field>
-            <FieldLabel htmlFor="registration-carpoolSeatsQuestionId">
-              Seats come from
-            </FieldLabel>
-            <Select
-              value={form.carpoolSeatsQuestionId || NO_SEATS_QUESTION}
-              onValueChange={(value) =>
-                update(
-                  "carpoolSeatsQuestionId",
-                  value === NO_SEATS_QUESTION || value === null
-                    ? ""
-                    : String(value),
-                )
-              }
-            >
-              <SelectTrigger
-                id="registration-carpoolSeatsQuestionId"
-                className="w-full"
-              >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NO_SEATS_QUESTION}>
-                  Typed for each car
-                </SelectItem>
-                {seatsQuestionChoices(event).map((question) => (
-                  <SelectItem key={question.id} value={question.id}>
-                    {question.prompt}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <FieldDescription>
-              A number question whose answer fills in a new car&apos;s seats
-              when its driver is chosen.
-            </FieldDescription>
-          </Field>
-        )}
-
-        {form.carpoolsEnabled && (
-          <Field>
-            <FieldLabel htmlFor="registration-carpoolNoticeMode">
-              Carpool cost notice
-            </FieldLabel>
-            <Select
-              value={form.carpoolNoticeMode}
-              onValueChange={(value) =>
-                update(
-                  "carpoolNoticeMode",
-                  (value ?? "organization") as CarpoolNoticeMode,
-                )
-              }
-            >
-              <SelectTrigger
-                id="registration-carpoolNoticeMode"
-                className="w-full"
-              >
-                <SelectValue>
-                  {(value: CarpoolNoticeMode) =>
-                    CARPOOL_NOTICE_MODE_LABELS[value]
-                  }
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {(
-                  Object.keys(CARPOOL_NOTICE_MODE_LABELS) as CarpoolNoticeMode[]
-                ).map((mode) => (
-                  <SelectItem key={mode} value={mode}>
-                    {CARPOOL_NOTICE_MODE_LABELS[mode]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <FieldDescription>
-              How carpool costs are shared, shown on the registration form, the
-              confirmation and reminder emails, and wherever registrants see
-              their car. Your organization&apos;s notice is edited in Site
-              content.
-            </FieldDescription>
-          </Field>
-        )}
-
-        {form.carpoolsEnabled && form.carpoolNoticeMode === "custom" && (
-          <Field>
-            <FieldLabel htmlFor="registration-carpoolNoticeText">
-              This event&apos;s notice
-            </FieldLabel>
-            <Textarea
-              id="registration-carpoolNoticeText"
-              rows={4}
-              maxLength={EVENT_CARPOOL_NOTICE_MAX_LENGTH}
-              value={form.carpoolNoticeText}
-              onChange={(changeEvent) =>
-                update("carpoolNoticeText", changeEvent.target.value)
-              }
-            />
-            <FieldDescription>
-              Separate paragraphs with a blank line. Keep saying that the people
-              in a car see each other&apos;s first name and Instagram handle.
-            </FieldDescription>
-          </Field>
-        )}
 
         <RegistrationQuestionsEditor
           eventId={event.id}
