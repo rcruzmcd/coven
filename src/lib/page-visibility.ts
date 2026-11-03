@@ -5,6 +5,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { applyLexicon, type Lexicon } from "@/lib/lexicon";
 import { getPublicTenant } from "@/lib/branding";
 import { isPlatformTenant } from "@/lib/portal/tenants";
+import { LEGAL_DOCUMENTS } from "@/lib/legal-documents";
 
 export type PublicPageSlot = {
   /**
@@ -284,6 +285,83 @@ export const PUBLIC_PAGE_SLOTS: PublicPageSlot[] = [
       "The page at /links, for the single link a social profile allows in its bio. Not shown anywhere in the site's navigation -- the link you publish is the only way to it. Turn it on once the links are yours.",
     defaultVisible: false,
     gate: "links/layout.tsx",
+  },
+];
+
+/**
+ * Why a required page has no switch. Each reads as one line in Website >
+ * Page visibility, beside a locked "Always on" switch.
+ */
+export const REQUIRED_PAGE_REASONS = {
+  entry: "The front door every link to the site lands on.",
+  legal:
+    "A legal notice. Whether it is served is decided in Legal documents, not here.",
+  account:
+    "Part of a visitor's own account, or a link emailed to them. Hiding it would strand people mid-task.",
+  link: "Reached only from a link the organization hands out or emails, never from the site's navigation.",
+} as const;
+
+export type RequiredPageReason = keyof typeof REQUIRED_PAGE_REASONS;
+
+export type RequiredPublicPage = {
+  /** Identifier for React keys and tests; never shown. */
+  key: string;
+  label: string;
+  reason: RequiredPageReason;
+  /**
+   * The directories under `src/app/(public)` this entry covers, each with every
+   * route beneath it. `""` is the group root itself, and covers only `/` --
+   * otherwise it would cover the whole site. Checked by page-visibility.test.ts
+   * against the filesystem.
+   */
+  routes: readonly string[];
+};
+
+/**
+ * Every public route that is on whatever the board has stored (#1726). Not a
+ * slot, because there is no decision to make: the site has to have a home
+ * page, a person's own account has to work, and a legal notice is adopted or
+ * not in Legal documents rather than shown or hidden here.
+ *
+ * Listed rather than implied by having no slot, so the panel can say so out
+ * loud and so a new page cannot ship without someone choosing: the test beside
+ * this file fails any route under `(public)` that is neither gated by a slot
+ * nor listed here.
+ */
+export const REQUIRED_PUBLIC_PAGES: readonly RequiredPublicPage[] = [
+  // `/` is a redirect to /home (#1467), so it goes wherever home goes.
+  { key: "home", label: "Home", reason: "entry", routes: ["", "home"] },
+  // Derived, so a new legal document cannot be added without being covered.
+  ...LEGAL_DOCUMENTS.map((document): RequiredPublicPage => ({
+    key: document.key,
+    label: document.label,
+    reason: "legal",
+    routes: [document.route.slice(1)],
+  })),
+  {
+    key: "giveaway-rules",
+    label: "Giveaway official rules",
+    reason: "link",
+    routes: ["giveaways"],
+  },
+  {
+    key: "acknowledge",
+    label: "Handout acknowledgement",
+    reason: "link",
+    routes: ["acknowledge"],
+  },
+  { key: "my", label: "My account", reason: "account", routes: ["my"] },
+  {
+    key: "confirm-email",
+    label: "Email confirmation",
+    reason: "account",
+    routes: ["confirm-email-change", "confirm-notification-email"],
+  },
+  {
+    key: "artwork",
+    label: "Call for artwork",
+    reason: "link",
+    routes: ["artwork"],
   },
 ];
 
