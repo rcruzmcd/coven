@@ -88,8 +88,35 @@ export function parseEventForm(formData: FormData): ParseResult<EventFormData> {
   };
 }
 
+/** #1778. The Planning card: who leads the event and what it may spend. */
 export type EventPlanningFormData = {
   eventLeadId: string | null;
+  budgetAmount: number | null;
+};
+
+export function parseEventPlanningForm(
+  formData: FormData,
+): ParseResult<EventPlanningFormData> {
+  const eventLeadId = String(formData.get("eventLeadId") ?? "").trim();
+  const budgetAmountRaw = String(formData.get("budgetAmount") ?? "").trim();
+
+  let budgetAmount: number | null = null;
+  if (budgetAmountRaw) {
+    const parsed = Number(budgetAmountRaw);
+    if (Number.isNaN(parsed) || parsed < 0) {
+      return { error: "Budget must be a positive number." };
+    }
+    budgetAmount = parsed;
+  }
+
+  return { data: { eventLeadId: eventLeadId || null, budgetAmount } };
+}
+
+/**
+ * #1778. The Registration card, and for now the settings #1777's other cards
+ * will take from it (emails, group chat, carpool details, auto-assign).
+ */
+export type EventRegistrationFormData = {
   capacity: number | null;
   registrationEnabled: boolean;
   registrationDeadline: string | null;
@@ -100,7 +127,6 @@ export type EventPlanningFormData = {
    * choice leaves the column as it was.
    */
   minimumAge: MinimumAge | null | undefined;
-  budgetAmount: number | null;
   /**
    * A paragraph added to this event's registration confirmation email. Same
    * absent-leaves-it rule as `minimumAge`; sent blank, it clears the note
@@ -137,11 +163,10 @@ export type EventPlanningFormData = {
 /** AUTO_REPLY_PARAGRAPH_MAX_LENGTH, the paragraphs either side of it. */
 export const CONFIRMATION_NOTE_MAX_LENGTH = 1000;
 
-export function parseEventPlanningForm(
+export function parseEventRegistrationForm(
   formData: FormData,
   event: { startsAt: string; endsAt: string | null },
-): ParseResult<EventPlanningFormData> {
-  const eventLeadId = String(formData.get("eventLeadId") ?? "").trim();
+): ParseResult<EventRegistrationFormData> {
   const capacityRaw = String(formData.get("capacity") ?? "").trim();
   const registrationEnabled =
     formData.get("registrationEnabled") === "on" ||
@@ -224,7 +249,6 @@ export function parseEventPlanningForm(
       error: `Reminder intro must be ${REMINDER_INTRO_MAX_LENGTH} characters or fewer.`,
     };
   }
-  const budgetAmountRaw = String(formData.get("budgetAmount") ?? "").trim();
   const confirmationNoteRaw = formData.get("confirmationNote");
   const confirmationNote =
     confirmationNoteRaw === null
@@ -246,15 +270,6 @@ export function parseEventPlanningForm(
       return { error: "Capacity must be a whole number of 0 or more." };
     }
     capacity = parsed;
-  }
-
-  let budgetAmount: number | null = null;
-  if (budgetAmountRaw) {
-    const parsed = Number(budgetAmountRaw);
-    if (Number.isNaN(parsed) || parsed < 0) {
-      return { error: "Budget must be a positive number." };
-    }
-    budgetAmount = parsed;
   }
 
   // A deadline only means something while registration is open, so drop any
@@ -284,13 +299,11 @@ export function parseEventPlanningForm(
 
   return {
     data: {
-      eventLeadId: eventLeadId || null,
       capacity,
       registrationEnabled,
       registrationDeadline: registrationDeadlineIso,
       autoAssignDiscountCodes,
       minimumAge,
-      budgetAmount,
       confirmationNote,
       groupChatEnabled,
       groupChatLabel,

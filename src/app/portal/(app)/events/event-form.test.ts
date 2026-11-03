@@ -9,6 +9,7 @@ import {
   parseEventForm,
   CONFIRMATION_NOTE_MAX_LENGTH,
   parseEventPlanningForm,
+  parseEventRegistrationForm,
   parseEventRegistrationOptionsField,
   parseEventReportForm,
   REGISTRATION_OPTIONS_SAVE_ERRORS,
@@ -172,24 +173,22 @@ describe("parseEventAttendanceForm", () => {
   });
 });
 
-describe("parseEventPlanningForm", () => {
+describe("parseEventRegistrationForm", () => {
   // Postgres-shaped timestamps, as the action reads them off the event row.
   const eventDates = {
     startsAt: "2026-12-01T17:00:00+00:00",
     endsAt: "2026-12-01T21:00:00+00:00",
   };
 
-  test("allows all-empty planning fields", () => {
-    expect(parseEventPlanningForm(formData({}), eventDates)).toEqual({
+  test("allows all-empty registration fields", () => {
+    expect(parseEventRegistrationForm(formData({}), eventDates)).toEqual({
       data: {
-        eventLeadId: null,
         capacity: null,
         registrationEnabled: false,
         registrationDeadline: null,
         autoAssignDiscountCodes: false,
         // Not sent, so left as it was (#1417, #1782).
         minimumAge: undefined,
-        budgetAmount: null,
         // Not sent either, so left as it was.
         confirmationNote: undefined,
         groupChatEnabled: null,
@@ -206,7 +205,7 @@ describe("parseEventPlanningForm", () => {
 
   test("reads the age requirement (#1782)", () => {
     const parse = (value: string) =>
-      parseEventPlanningForm(formData({ minimumAge: value }), eventDates);
+      parseEventRegistrationForm(formData({ minimumAge: value }), eventDates);
     expect(parse("18")).toMatchObject({ data: { minimumAge: 18 } });
     expect(parse("21")).toMatchObject({ data: { minimumAge: 21 } });
     expect(parse("")).toMatchObject({ data: { minimumAge: null } });
@@ -215,7 +214,7 @@ describe("parseEventPlanningForm", () => {
 
   test("reads the confirmation email note", () => {
     const parse = (fields: Record<string, string>) =>
-      parseEventPlanningForm(formData(fields), eventDates);
+      parseEventRegistrationForm(formData(fields), eventDates);
     expect(parse({})).toMatchObject({ data: { confirmationNote: undefined } });
     expect(
       parse({ confirmationNote: "  Use code SNOW10 at checkout.  " }),
@@ -234,7 +233,7 @@ describe("parseEventPlanningForm", () => {
 
   test("reads the carpools switch and the seats question (#1649)", () => {
     const parse = (fields: Record<string, string>) =>
-      parseEventPlanningForm(formData(fields), eventDates);
+      parseEventRegistrationForm(formData(fields), eventDates);
     expect(
       parse({ carpoolsEnabled: "on", carpoolSeatsQuestionId: " q-1 " }),
     ).toMatchObject({
@@ -250,7 +249,7 @@ describe("parseEventPlanningForm", () => {
 
   test("reads the group chat switch and its label (#1648)", () => {
     const parse = (fields: Record<string, string>) =>
-      parseEventPlanningForm(formData(fields), eventDates);
+      parseEventRegistrationForm(formData(fields), eventDates);
     expect(
       parse({ groupChatEnabled: "on", groupChatLabel: "  Instagram chat " }),
     ).toMatchObject({
@@ -270,7 +269,7 @@ describe("parseEventPlanningForm", () => {
 
   test("reads the reminder switch, days and intro (#1652)", () => {
     const parse = (fields: Record<string, string>) =>
-      parseEventPlanningForm(formData(fields), eventDates);
+      parseEventRegistrationForm(formData(fields), eventDates);
     expect(
       parse({
         reminderEnabled: "on",
@@ -305,37 +304,33 @@ describe("parseEventPlanningForm", () => {
 
   test("rejects a negative capacity", () => {
     expect(
-      parseEventPlanningForm(formData({ capacity: "-5" }), eventDates),
+      parseEventRegistrationForm(formData({ capacity: "-5" }), eventDates),
     ).toEqual({
       error: "Capacity must be a whole number of 0 or more.",
     });
   });
 
-  test("rejects a negative budget", () => {
-    expect(
-      parseEventPlanningForm(formData({ budgetAmount: "-100" }), eventDates),
-    ).toEqual({
-      error: "Budget must be a positive number.",
-    });
-  });
-
-  test("parses valid planning fields", () => {
-    const result = parseEventPlanningForm(
-      formData({
-        capacity: "50",
-        registrationEnabled: "on",
-        budgetAmount: "1200.50",
-      }),
+  test("parses valid registration fields", () => {
+    const result = parseEventRegistrationForm(
+      formData({ capacity: "50", registrationEnabled: "on" }),
       eventDates,
     );
     expect("data" in result && result.data.capacity).toBe(50);
     expect("data" in result && result.data.registrationEnabled).toBe(true);
-    expect("data" in result && result.data.budgetAmount).toBe(1200.5);
+  });
+
+  test("leaves the lead and budget to the Planning card (#1778)", () => {
+    const result = parseEventRegistrationForm(
+      formData({ eventLeadId: "person-1", budgetAmount: "100" }),
+      eventDates,
+    );
+    expect("data" in result && result.data).not.toHaveProperty("eventLeadId");
+    expect("data" in result && result.data).not.toHaveProperty("budgetAmount");
   });
 
   test("rejects a deadline after the event end", () => {
     expect(
-      parseEventPlanningForm(
+      parseEventRegistrationForm(
         formData({
           registrationEnabled: "on",
           registrationDeadline: "2026-12-01T21:00:00.001Z",
@@ -348,7 +343,7 @@ describe("parseEventPlanningForm", () => {
   });
 
   test("accepts a deadline exactly at the event end", () => {
-    const result = parseEventPlanningForm(
+    const result = parseEventRegistrationForm(
       formData({
         registrationEnabled: "on",
         registrationDeadline: "2026-12-01T21:00:00.000Z",
@@ -363,7 +358,7 @@ describe("parseEventPlanningForm", () => {
   test("falls back to the start date when the event has no end", () => {
     const noEnd = { startsAt: eventDates.startsAt, endsAt: null };
     expect(
-      parseEventPlanningForm(
+      parseEventRegistrationForm(
         formData({
           registrationEnabled: "on",
           registrationDeadline: "2026-12-01T18:00:00.000Z",
@@ -374,7 +369,7 @@ describe("parseEventPlanningForm", () => {
       error:
         "Registration deadline must be on or before the event's start date.",
     });
-    const result = parseEventPlanningForm(
+    const result = parseEventRegistrationForm(
       formData({
         registrationEnabled: "on",
         registrationDeadline: "2026-12-01T16:00:00.000Z",
@@ -387,7 +382,7 @@ describe("parseEventPlanningForm", () => {
   });
 
   test("clears the deadline when registration is disabled", () => {
-    const result = parseEventPlanningForm(
+    const result = parseEventRegistrationForm(
       formData({ registrationDeadline: "2026-11-20T17:00:00.000Z" }),
       eventDates,
     );
@@ -397,7 +392,7 @@ describe("parseEventPlanningForm", () => {
 
   test("rejects an unparseable deadline", () => {
     expect(
-      parseEventPlanningForm(
+      parseEventRegistrationForm(
         formData({
           registrationEnabled: "on",
           registrationDeadline: "not-a-date",
@@ -405,6 +400,32 @@ describe("parseEventPlanningForm", () => {
         eventDates,
       ),
     ).toEqual({ error: "Enter a valid registration deadline." });
+  });
+});
+
+describe("parseEventPlanningForm (#1778)", () => {
+  test("allows an empty lead and budget", () => {
+    expect(parseEventPlanningForm(formData({}))).toEqual({
+      data: { eventLeadId: null, budgetAmount: null },
+    });
+  });
+
+  test("parses a lead and budget, and nothing else", () => {
+    expect(
+      parseEventPlanningForm(
+        formData({
+          eventLeadId: " person-1 ",
+          budgetAmount: "1200.50",
+          capacity: "50",
+        }),
+      ),
+    ).toEqual({ data: { eventLeadId: "person-1", budgetAmount: 1200.5 } });
+  });
+
+  test("rejects a negative budget", () => {
+    expect(parseEventPlanningForm(formData({ budgetAmount: "-100" }))).toEqual({
+      error: "Budget must be a positive number.",
+    });
   });
 });
 
@@ -524,13 +545,13 @@ describe("parseEventRegistrationOptionsField (#1407)", () => {
   });
 });
 
-describe("parseEventPlanningForm: carpool cost notice", () => {
+describe("parseEventRegistrationForm: carpool cost notice", () => {
   const eventDates = {
     startsAt: "2026-12-01T17:00:00+00:00",
     endsAt: "2026-12-01T21:00:00+00:00",
   };
   function notice(fields: Record<string, string>) {
-    const result = parseEventPlanningForm(formData(fields), eventDates);
+    const result = parseEventRegistrationForm(formData(fields), eventDates);
     return "data" in result ? result.data.carpoolCostNotice : result;
   }
 
