@@ -8,6 +8,7 @@ import {
   PUBLIC_PAGE_SLOTS,
 } from "@/lib/page-visibility";
 import { LAYOUT_PREFIX, LAYOUT_SLOTS } from "@/lib/site-layout";
+import { NAV_SETTING_SLOT } from "@/lib/public-nav";
 import { LEXICON_PREFIX, LEXICON_SETTING_KEYS } from "@/lib/lexicon";
 import { IMAGE_SLOT_KEY_PREFIX, SITE_CONTENT_SLOTS } from "@/lib/site-content";
 
@@ -80,7 +81,11 @@ export const RESERVED_NAMESPACES: readonly ReservedNamespace[] = [
     table: "app_settings",
     view: "public_site_layout",
     registry: "src/lib/site-layout.ts",
-    keys: LAYOUT_SLOTS.map((slot) => `${LAYOUT_PREFIX}${slot.key}`),
+    keys: [
+      ...LAYOUT_SLOTS.map((slot) => `${LAYOUT_PREFIX}${slot.key}`),
+      // Structured settings with resolvers of their own (#1726).
+      `${LAYOUT_PREFIX}${NAV_SETTING_SLOT}`,
+    ],
   },
   {
     prefix: LEGAL_PUBLICATION_PREFIX,

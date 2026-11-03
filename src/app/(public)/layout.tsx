@@ -16,7 +16,14 @@ import {
 import { formAnalyticsConfig } from "@/lib/analytics/form-analytics";
 import { FormAnalytics } from "@/components/analytics/form-analytics";
 import { NOT_FOUND_TITLE, getPublicSite } from "@/lib/public-site";
-import { isSlotVisible, visibleGroups } from "@/lib/public-nav";
+import {
+  NAV_SETTING_SLOT,
+  isSlotVisible,
+  resolveNavSettings,
+  visibleGroups,
+  type NavSettings,
+} from "@/lib/public-nav";
+import { getPublicLayoutSetting } from "@/lib/site-layout";
 import type { Lexicon } from "@/lib/lexicon";
 import { documentsInForce, getLegalPublication } from "@/lib/legal-publication";
 import { constituentAreaEnabled } from "@/lib/constituent/guard";
@@ -100,11 +107,13 @@ function FooterLink({ href, label }: { href: string; label: string }) {
 function SectionLinks({
   hidden,
   lexicon,
+  nav,
 }: {
   hidden: string[];
   lexicon: Lexicon;
+  nav: NavSettings;
 }) {
-  return visibleGroups(hidden, lexicon).map((group) => (
+  return visibleGroups(hidden, lexicon, nav).map((group) => (
     <FooterLink key={group.href} href={group.href} label={group.label} />
   ));
 }
@@ -131,7 +140,7 @@ export default async function PublicLayout({
     createSupabaseServerClient(),
     headers(),
   ]);
-  const [visibility, site, publication, accountEnabled, modules] =
+  const [visibility, site, publication, accountEnabled, modules, storedNav] =
     await Promise.all([
       getPageVisibility(supabase),
       getPublicSite(supabase),
@@ -143,6 +152,8 @@ export default async function PublicLayout({
       constituentAreaEnabled(),
       // Cached: getPageVisibility above has already read the same map.
       getPublicTenantModules(supabase),
+      // The tenant's menu order and labels (#1726), shared by header and footer.
+      getPublicLayoutSetting(supabase, NAV_SETTING_SLOT),
     ]);
   // The public site is the one surface that belongs to a host rather than to a
   // session, so a host no tenant claims has nothing to serve (#795 Phase 4).
@@ -164,6 +175,7 @@ export default async function PublicLayout({
   }
 
   const hidden = hiddenSlots(visibility);
+  const nav = resolveNavSettings(storedNav);
   // The same condition the manifest link is emitted on: a worker scoped to an
   // app this host does not advertise would have no page to control (#1171).
   const host = requestHeaders.get("host") ?? "";
@@ -214,6 +226,7 @@ export default async function PublicLayout({
             hiddenSlots={hidden}
             supportLabel={supportLabel}
             lexicon={lexicon}
+            nav={nav}
           />
         </div>
       </header>
@@ -250,7 +263,7 @@ export default async function PublicLayout({
                 aria-label="Footer"
                 className="flex flex-wrap gap-x-6 gap-y-2"
               >
-                <SectionLinks hidden={hidden} lexicon={lexicon} />
+                <SectionLinks hidden={hidden} lexicon={lexicon} nav={nav} />
               </nav>
             </div>
 

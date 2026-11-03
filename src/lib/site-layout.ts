@@ -291,21 +291,16 @@ export function resolveLayout(rows: readonly LayoutRow[]): SiteLayout {
 export const DEFAULT_SITE_LAYOUT: SiteLayout = resolveLayout([]);
 
 /**
- * The layout for the tenant the request host resolved to, cached per request
- * the way `getPageVisibility` and `getPublicSite` are -- a page that reads two
- * of these settings should still cost one query.
+ * Every `layout.*` row for the tenant the request host resolved to, cached per
+ * request -- `getSiteLayout` and the structured settings below (the menu,
+ * #1726) share one query.
  */
-export const getSiteLayout = cache(
-  async (supabase: SupabaseClient): Promise<SiteLayout> => {
+const getPublicLayoutRows = cache(
+  async (supabase: SupabaseClient): Promise<LayoutRow[]> => {
     const { data, error } = await supabase
       .from("public_site_layout")
       .select("slot, value");
 
-    // Falling back to the defaults is right -- an unreadable setting must not
-    // blank a section -- but it must not be silent. `public_page_visibility`
-    // was missing from production for a while and the PGRST205 that came back
-    // on every request was swallowed, so the admin toggles looked like they
-    // simply refused to save.
     if (error) {
       console.error(
         "[site-layout] could not read public_site_layout; every setting is falling back to its registry default",
@@ -313,9 +308,32 @@ export const getSiteLayout = cache(
       );
     }
 
-    return resolveLayout(data ?? []);
+    return data ?? [];
   },
 );
+
+/**
+ * The layout for the tenant the request host resolved to, cached per request
+ * the way `getPageVisibility` and `getPublicSite` are -- a page that reads two
+ * of these settings should still cost one query.
+ */
+export const getSiteLayout = cache(
+  async (supabase: SupabaseClient): Promise<SiteLayout> =>
+    resolveLayout(await getPublicLayoutRows(supabase)),
+);
+
+/**
+ * The raw stored value of one structured `layout.*` setting -- one that is not
+ * a `LAYOUT_SLOTS` pick-from-options slot, like the menu (#1726). `undefined`
+ * when there is no row; the caller's resolver owns every fallback.
+ */
+export async function getPublicLayoutSetting(
+  supabase: SupabaseClient,
+  slot: string,
+): Promise<unknown> {
+  const rows = await getPublicLayoutRows(supabase);
+  return rows.find((row) => row.slot === slot)?.value;
+}
 
 /**
  * The same settings for the tenant the signed-in user has selected, for the
@@ -346,3 +364,26 @@ export const getTenantLayoutValues = cache(
     );
   },
 );
+
+/**
+ * The admin-side twin of `getPublicLayoutSetting`: the selected tenant's own
+ * row, read from `app_settings` for the reason `getTenantLayoutValues` gives.
+ */
+export async function getTenantLayoutSetting(
+  supabase: SupabaseClient,
+  slot: string,
+): Promise<unknown> {
+  const { data, error } = await supabase
+    .from("app_settings")
+    .select("value")
+    .eq("key", layoutSettingKey(slot))
+    .maybeSingle();
+
+  if (error) {
+    console.error(
+      `[site-layout] could not read ${layoutSettingKey(slot)} from app_settings; the panel is showing the default`,
+      error,
+    );
+  }
+  return data?.value;
+}

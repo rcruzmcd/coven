@@ -11,7 +11,12 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { type NavGroup, isSlotVisible, visibleGroups } from "@/lib/public-nav";
+import {
+  type NavGroup,
+  type NavSettings,
+  isSlotVisible,
+  visibleGroups,
+} from "@/lib/public-nav";
 import { DEFAULT_LEXICON, type Lexicon } from "@/lib/lexicon";
 import { AccountMenu, AccountSheetRows } from "./account-menu";
 import { useAccountNav } from "./account-nav-provider";
@@ -108,6 +113,7 @@ export function SiteNav({
   hiddenSlots = [],
   supportLabel,
   lexicon = DEFAULT_LEXICON,
+  nav,
 }: {
   hiddenSlots?: readonly string[];
   /**
@@ -121,6 +127,8 @@ export function SiteNav({
    * "Items" and "Library" on a site that calls them something else.
    */
   lexicon?: Lexicon;
+  /** The tenant's top-level order and labels (#1726); omitted is the default. */
+  nav?: NavSettings;
 }) {
   const pathname = usePathname();
   // Whether this tenant offers constituent accounts, and who is signed in
@@ -129,7 +137,7 @@ export function SiteNav({
   const account = useAccountNav();
   const [mobileOpen, setMobileOpen] = useState(false);
   const closeMobile = () => setMobileOpen(false);
-  const groups = visibleGroups(hiddenSlots, lexicon).map((group) =>
+  const groups = visibleGroups(hiddenSlots, lexicon, nav).map((group) =>
     group.links && supportLabel
       ? {
           ...group,
