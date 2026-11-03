@@ -387,7 +387,7 @@ export function PlanningTab({
           )}
         </ReadOnlyField>
         <ReadOnlyField
-          label="Registration question"
+          label="Per-person options"
           htmlFor="planning-options-prompt"
         >
           {form.registrationOptions.options.length === 0 ? (
