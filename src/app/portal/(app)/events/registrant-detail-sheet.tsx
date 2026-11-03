@@ -1,5 +1,6 @@
 "use client";
 
+import { minimumAgeLabel, parseMinimumAge } from "@/lib/adults-only";
 import { useRef } from "react";
 import { ArrowLeft, Ban, Check, Undo2 } from "lucide-react";
 import type { EventRegistrant } from "./registrants-actions";
@@ -370,13 +371,18 @@ export function RegistrantDetailSheet({
               </>
             )}
             {/* #1417. Only on a registration that carries one: every other
-                registrant was never asked. */}
+                registrant was never asked. The age is the one confirmed
+                (#1782), not the event's today. */}
             {registrant.adults_only_confirmed_at && (
               <ReadOnlyField
-                label="All 18 or over"
+                label="Age requirement"
                 htmlFor="registrant-adults-only"
               >
-                Confirmed {formatDateTime(registrant.adults_only_confirmed_at)}
+                Confirmed{" "}
+                {minimumAgeLabel(
+                  parseMinimumAge(registrant.confirmed_minimum_age) ?? 18,
+                )}{" "}
+                on {formatDateTime(registrant.adults_only_confirmed_at)}
               </ReadOnlyField>
             )}
             <ReadOnlyField label="Checked in" htmlFor="registrant-checked-in">

@@ -86,6 +86,7 @@ function registrant(
     waiver_version: null,
     party_includes_minor: null,
     adults_only_confirmed_at: null,
+    confirmed_minimum_age: null,
     cancelled_at: null,
     cancellation_reason: null,
     cancellation_note: null,

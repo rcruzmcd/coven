@@ -1,18 +1,8 @@
-import { pinTimezone } from "../../../../../test/timezone";
 import { beforeEach, describe, expect, mock, test } from "bun:test";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { EventRow } from "./event-badges";
 import * as EventsActions from "./actions";
-
-// The deadline field is a datetime-local input, so every expectation below is
-// the fixture's instant read in the *process* zone, and the fixture is written
-// as New York wall-clock times. This file never said so: until #1170 it
-// inherited the zone from event-date-defaults.dom.test.tsx, which pinned New
-// York and never handed it back, and the two happened to land in that order.
-// Sharding the suite separated them and every assertion here came out four
-// hours off.
-pinTimezone("America/New_York");
 
 type ActionResult = { error: string } | { success: true };
 
@@ -25,25 +15,6 @@ mock.module("./actions", () => ({
   updateEventPlanningAction: updateEventPlanningActionMock,
 }));
 
-const loadEventReminderStatusActionMock = mock(async () => ({
-  success: true as const,
-  status: {
-    sendAt: new Date(Date.now() + 86_400_000).toISOString(),
-    recipients: 12,
-    sent: 0,
-  },
-}));
-
-mock.module("./reminder-actions", () => ({
-  loadEventReminderStatusAction: loadEventReminderStatusActionMock,
-  previewEventReminderAction: mock(async () => ({
-    success: true,
-    subject: "Reminder",
-    html: "<p>Reminder</p>",
-  })),
-  sendEventReminderNowAction: mock(async () => ({ success: true })),
-}));
-
 const { PlanningTab } = await import("./planning-tab");
 
 function makeEvent(overrides: Partial<EventRow> = {}): EventRow {
@@ -51,7 +22,6 @@ function makeEvent(overrides: Partial<EventRow> = {}): EventRow {
     id: "event-1",
     name: "Winter Gear Swap",
     location: "HQ",
-    // 10:00-14:00 in America/New_York.
     starts_at: "2026-09-01T14:00:00.000Z",
     ends_at: "2026-09-01T18:00:00.000Z",
     timezone: "America/New_York",
@@ -99,211 +69,62 @@ function renderTab(event: EventRow, mode: "view" | "edit" = "edit") {
   );
 }
 
-const deadlineField = () => screen.getByLabelText("Registration deadline");
-const registrationToggle = () =>
-  screen.getByRole("checkbox", { name: "Registration enabled" });
-
-describe("PlanningTab registration deadline", () => {
-  beforeEach(() => {
-    updateEventPlanningActionMock.mockClear();
-    updateEventPlanningActionMock.mockImplementation(async () => ({
-      success: true,
-    }));
-  });
-
-  test("disables the deadline while registration is off", () => {
-    renderTab(makeEvent());
-    expect(deadlineField()).toBeDisabled();
-  });
-
-  test("enables the deadline and caps it at the event end", async () => {
-    const user = userEvent.setup();
-    renderTab(makeEvent());
-
-    await user.click(registrationToggle());
-
-    expect(deadlineField()).toBeEnabled();
-    expect(deadlineField()).toHaveAttribute("max", "2026-09-01T14:00");
-  });
-
-  test("defaults a blank deadline to the event end date", async () => {
-    const user = userEvent.setup();
-    renderTab(makeEvent());
-
-    await user.click(registrationToggle());
-
-    expect(deadlineField()).toHaveValue("2026-09-01T14:00");
-  });
-
-  test("falls back to the start date when the event has no end", async () => {
-    const user = userEvent.setup();
-    renderTab(makeEvent({ ends_at: null }));
-
-    await user.click(registrationToggle());
-
-    expect(deadlineField()).toHaveValue("2026-09-01T10:00");
-    expect(deadlineField()).toHaveAttribute("max", "2026-09-01T10:00");
-  });
-
-  test("shows a stored deadline rather than the default", () => {
-    renderTab(
-      makeEvent({
-        registration_enabled: true,
-        registration_deadline: "2026-08-25T14:00:00.000Z",
-      }),
-    );
-
-    expect(deadlineField()).toBeEnabled();
-    expect(deadlineField()).toHaveValue("2026-08-25T10:00");
-  });
-
-  test("submits a deadline the user picked, not the default", async () => {
-    const user = userEvent.setup();
-    renderTab(makeEvent());
-
-    await user.click(registrationToggle());
-    await user.clear(deadlineField());
-    await user.type(deadlineField(), "2026-08-25T10:00");
-
-    await user.click(screen.getByRole("button", { name: "Save" }));
-
-    await waitFor(() =>
-      expect(updateEventPlanningActionMock).toHaveBeenCalledTimes(1),
-    );
-    const submitted = updateEventPlanningActionMock.mock.calls[0][1];
-    expect(submitted.get("registrationEnabled")).toBe("on");
-    expect(submitted.get("registrationDeadline")).toBe(
-      "2026-08-25T14:00:00.000Z",
-    );
-  });
-
-  test("clears the deadline when registration is switched off", async () => {
-    const user = userEvent.setup();
-    renderTab(
-      makeEvent({
-        registration_enabled: true,
-        registration_deadline: "2026-08-25T14:00:00.000Z",
-      }),
-    );
-
-    await user.click(registrationToggle());
-
-    expect(deadlineField()).toBeDisabled();
-    expect(deadlineField()).toHaveValue("");
-
-    await user.click(screen.getByRole("button", { name: "Save" }));
-
-    await waitFor(() =>
-      expect(updateEventPlanningActionMock).toHaveBeenCalledTimes(1),
-    );
-    const submitted = updateEventPlanningActionMock.mock.calls[0][1];
-    expect(submitted.get("registrationEnabled")).toBe("off");
-    expect(submitted.get("registrationDeadline")).toBe("");
-  });
-});
-
-describe("PlanningTab per-person options", () => {
-  test("uses the distinct label in the read-only view", () => {
-    renderTab(makeEvent(), "view");
-
-    expect(screen.getByText("Per-person options")).toBeTruthy();
-  });
-
-  // #1732: capacity/pricing config, so it sits with the discount codes, not
-  // beside the free-form Additional questions at the bottom.
-  const follows = (a: Node, b: Node) =>
-    Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
-
-  for (const mode of ["view", "edit"] as const) {
-    test(`sits after the discount codes and before the questions (${mode})`, () => {
-      renderTab(makeEvent(), mode);
-
-      const discounts = screen.getByText(/^Auto-assign discount codes/);
-      const options = screen.getByText("Per-person options");
-      const adults = screen.getAllByText("Adults only (18+)")[0];
-      const questions = screen.getByText("Additional questions");
-
-      expect(follows(discounts, options)).toBe(true);
-      expect(follows(options, adults)).toBe(true);
-      expect(follows(options, questions)).toBe(true);
-    });
-  }
-});
-
-describe("PlanningTab adults only (#1417)", () => {
+describe("PlanningTab (#1778)", () => {
   beforeEach(() => updateEventPlanningActionMock.mockClear());
 
-  const adultsOnlySwitch = () =>
-    screen.getByRole("switch", { name: /Adults only \(18\+\)/ });
+  test("holds only the lead and budget", () => {
+    renderTab(makeEvent());
 
-  test("starts from the stored value and saves the change", async () => {
+    expect(screen.getByText("Event lead")).toBeInTheDocument();
+    expect(screen.getByLabelText("Budget ($)")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Capacity")).toBeNull();
+    expect(screen.queryByText(/Registration/)).toBeNull();
+  });
+
+  test("saves the budget and lead, and nothing else", async () => {
     const user = userEvent.setup();
-    renderTab(makeEvent({ adults_only: false }));
+    renderTab(makeEvent({ budget_amount: 100 }));
 
-    expect(adultsOnlySwitch()).not.toBeChecked();
-    await user.click(adultsOnlySwitch());
-    await user.click(screen.getByRole("button", { name: "Save" }));
+    const budget = screen.getByLabelText("Budget ($)");
+    await user.clear(budget);
+    await user.type(budget, "250");
+    // Submitted directly: happy-dom's step check rounds, so it calls any
+    // nonzero amount on a `step="0.01"` input a mismatch and the button would
+    // refuse to submit. Browsers do not.
+    fireEvent.submit(document.getElementById("planning-form")!);
 
     await waitFor(() =>
       expect(updateEventPlanningActionMock).toHaveBeenCalledTimes(1),
     );
-    expect(
-      updateEventPlanningActionMock.mock.calls[0][1].get("adultsOnly"),
-    ).toBe("on");
+    const submitted = updateEventPlanningActionMock.mock.calls[0][1];
+    expect([...submitted.keys()].sort()).toEqual([
+      "budgetAmount",
+      "eventLeadId",
+    ]);
+    expect(submitted.get("budgetAmount")).toBe("250");
+    expect(submitted.get("eventLeadId")).toBe("");
   });
 
-  test("an 18+ event shows it on and can turn it off", async () => {
-    const user = userEvent.setup();
-    renderTab(makeEvent({ adults_only: true }));
+  for (const [why, mode, report] of [
+    ["in view mode", "view", "not_started"],
+    ["once the report is submitted", "edit", "submitted"],
+  ] as const) {
+    test(`is read-only ${why}`, () => {
+      renderTab(
+        makeEvent({
+          report_status: report,
+          budget_amount: 500,
+          event_lead: {
+            id: "person-1",
+            name: "Sam Rivera",
+          } as EventRow["event_lead"],
+        }),
+        mode,
+      );
 
-    expect(adultsOnlySwitch()).toBeChecked();
-    await user.click(adultsOnlySwitch());
-    await user.click(screen.getByRole("button", { name: "Save" }));
-
-    await waitFor(() =>
-      expect(updateEventPlanningActionMock).toHaveBeenCalledTimes(1),
-    );
-    expect(
-      updateEventPlanningActionMock.mock.calls[0][1].get("adultsOnly"),
-    ).toBe("off");
-  });
-});
-
-describe("PlanningTab reminder email (#1652)", () => {
-  beforeEach(() => {
-    updateEventPlanningActionMock.mockClear();
-  });
-
-  test("shows the schedule and saves the days and intro", async () => {
-    const user = userEvent.setup();
-    renderTab(makeEvent({ reminder_enabled: true, reminder_days_before: 2 }));
-
-    const status = await screen.findByTestId("reminder-status");
-    expect(status.textContent).toMatch(
-      /^Scheduled for .*E[DS]T · 12 recipients$/,
-    );
-    const days = screen.getByLabelText("Days before the event");
-    await user.clear(days);
-    await user.type(days, "3");
-    const intro = screen.getByLabelText("Reminder intro");
-    await user.clear(intro);
-    await user.type(intro, "Bring layers");
-    await user.click(screen.getByRole("button", { name: "Save" }));
-
-    await waitFor(() =>
-      expect(updateEventPlanningActionMock).toHaveBeenCalledTimes(1),
-    );
-    const formData = updateEventPlanningActionMock.mock.calls[0][1];
-    expect(formData.get("reminderEnabled")).toBe("on");
-    expect(formData.get("reminderDaysBefore")).toBe("3");
-    expect(formData.get("reminderIntro")).toBe("Bring layers");
-  });
-
-  test("hides the days and intro while it is off", () => {
-    renderTab(makeEvent({ reminder_enabled: false }));
-    expect(
-      screen.getByRole("switch", { name: "Reminder email" }),
-    ).not.toBeChecked();
-    expect(screen.queryByLabelText("Days before the event")).toBeNull();
-  });
+      expect(screen.queryByRole("spinbutton")).toBeNull();
+      expect(screen.getByText("Sam Rivera")).toBeInTheDocument();
+      expect(screen.getByText("$500.00")).toBeInTheDocument();
+    });
+  }
 });

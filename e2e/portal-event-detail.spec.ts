@@ -266,9 +266,9 @@ test.describe("portal event detail", () => {
 
       // And straight back to a Planning section afterwards: the lifecycle is
       // not one-way, and correcting the budget after the event is ordinary.
-      await openSection(page, "Registration & planning");
+      await openSection(page, "Planning");
       await expect(page).toHaveURL(/[?&]tab=planning/);
-      await expect(card(page, "Registration & planning")).toBeVisible();
+      await expect(card(page, "Planning")).toBeVisible();
 
       // History, not component state -- Back returns to the previous section
       // rather than leaving the event.
@@ -320,7 +320,7 @@ test.describe("portal event detail", () => {
 
       // "Which phase is the budget on?" was the question the phase tabs could
       // not answer without opening them. The budget is on a card called
-      // Registration & planning.
+      // Planning.
       await showRail(page);
       await page
         .getByRole("searchbox", { name: "Search this event's sections" })
@@ -330,7 +330,7 @@ test.describe("portal event detail", () => {
       await results.getByRole("button").click();
       await expect(railSheet(page)).toHaveCount(0);
 
-      await expect(card(page, "Registration & planning")).toBeVisible();
+      await expect(card(page, "Planning")).toBeVisible();
       await expect(page).toHaveURL(/[?&]tab=planning/);
     } finally {
       await fixture.cleanup();
@@ -401,18 +401,20 @@ test.describe("portal event detail", () => {
     try {
       await openEvent(page, fixture);
 
-      // Editable to begin with, on both cards the submit locks.
+      // Editable to begin with, on the cards the submit locks.
       await expect(
         card(page, "Event details").getByRole("button", {
           name: "Edit event details",
         }),
       ).toBeVisible();
-      await openSection(page, "Registration & planning");
-      await expect(
-        card(page, "Registration & planning").getByRole("button", {
-          name: "Edit registration & planning",
-        }),
-      ).toBeVisible();
+      for (const title of ["Planning", "Registration"]) {
+        await openSection(page, title);
+        await expect(
+          card(page, title).getByRole("button", {
+            name: `Edit ${title.toLowerCase()}`,
+          }),
+        ).toBeVisible();
+      }
 
       await openSection(page, "Results");
       const report = card(page, "Results");
@@ -442,12 +444,14 @@ test.describe("portal event detail", () => {
           name: "Edit event details",
         }),
       ).toHaveCount(0);
-      await openSection(page, "Registration & planning");
-      await expect(
-        card(page, "Registration & planning").getByRole("button", {
-          name: "Edit registration & planning",
-        }),
-      ).toHaveCount(0);
+      for (const title of ["Planning", "Registration"]) {
+        await openSection(page, title);
+        await expect(
+          card(page, title).getByRole("button", {
+            name: `Edit ${title.toLowerCase()}`,
+          }),
+        ).toHaveCount(0);
+      }
     } finally {
       await fixture.cleanup();
     }

@@ -13,7 +13,7 @@ import {
 } from "@/lib/minors";
 import {
   ADULTS_ONLY_CONFIRMATION_REQUIRED_CODE,
-  ADULTS_ONLY_CONFIRMATION_REQUIRED_ERROR,
+  minimumAgeConfirmationRequiredError,
 } from "@/lib/adults-only";
 import { PRONOUNS_TOO_LONG_ERROR } from "@/lib/pronouns";
 import { REGISTRATION_OPTION_ERROR_MESSAGES } from "@/lib/registration-options";
@@ -78,10 +78,6 @@ const ERROR_MESSAGES: Record<string, string> = {
   // reaching this means a client that did not -- the public API, or a browser
   // that let a half-filled form through. Worth a sentence either way.
   [MINOR_CONTACTS_REQUIRED_CODE]: MINOR_CONTACTS_REQUIRED_ERROR,
-  // #1417. The box is required on step 2, so reaching this means a client
-  // that did not ask.
-  [ADULTS_ONLY_CONFIRMATION_REQUIRED_CODE]:
-    ADULTS_ONLY_CONFIRMATION_REQUIRED_ERROR,
   // #686. Three ways a waiver can stop a registration, and they are three
   // different things to say. The first is the reader's to fix; the second is
   // nobody's fault and asks them to read again; the third is the
@@ -187,6 +183,11 @@ export async function registerForEventAction(
       error:
         (error.message === "ALREADY_REGISTERED"
           ? await alreadyRegisteredMessage(supabase, eventId, parsed.data.email)
+          : null) ??
+        // #1417. The box is required on step 2, so reaching this means a
+        // client that did not ask; the age is the error's DETAIL (#1782).
+        (error.message === ADULTS_ONLY_CONFIRMATION_REQUIRED_CODE
+          ? minimumAgeConfirmationRequiredError(error.details)
           : null) ??
         ERROR_MESSAGES[error.message] ??
         "Could not save your registration. Please try again.",

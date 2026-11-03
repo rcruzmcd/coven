@@ -2,17 +2,17 @@ import { describe, expect, test } from "bun:test";
 import { render, screen } from "@testing-library/react";
 import { AdultsOnlyBadge } from "./adults-only-badge";
 
-describe("AdultsOnlyBadge (#1417)", () => {
-  test("renders 18+ on an adults-only event", () => {
-    render(<AdultsOnlyBadge adultsOnly />);
-    expect(screen.getByText("18+")).toBeVisible();
+describe("AdultsOnlyBadge (#1417, #1782)", () => {
+  test.each([18, 21] as const)("renders %p+ for that age", (age) => {
+    render(<AdultsOnlyBadge minimumAge={age} />);
+    expect(screen.getByText(`${age}+`)).toBeVisible();
     expect(
-      screen.getByText("Adults only: everyone must be 18 or over"),
+      screen.getByText(`Adults only: everyone must be ${age} or over`),
     ).toBeInTheDocument();
   });
 
-  test.each([false, null, undefined])("renders nothing for %p", (value) => {
-    const { container } = render(<AdultsOnlyBadge adultsOnly={value} />);
+  test.each([null, undefined])("renders nothing for %p", (value) => {
+    const { container } = render(<AdultsOnlyBadge minimumAge={value} />);
     expect(container).toBeEmptyDOMElement();
   });
 });

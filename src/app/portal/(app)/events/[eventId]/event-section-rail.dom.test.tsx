@@ -12,16 +12,24 @@ const GROUPS: EventGroup[] = [
       {
         value: "overview",
         canManage: true,
+        canManageSettings: false,
         label: "Event details",
         keywords: [],
       },
       {
         value: "planning",
         canManage: true,
-        label: "Registration & planning",
+        canManageSettings: false,
+        label: "Planning",
         keywords: ["budget", "capacity"],
       },
-      { value: "checklist", canManage: true, label: "Checklist", keywords: [] },
+      {
+        value: "checklist",
+        canManage: true,
+        canManageSettings: false,
+        label: "Checklist",
+        keywords: [],
+      },
     ],
   },
   {
@@ -31,10 +39,17 @@ const GROUPS: EventGroup[] = [
       {
         value: "logistics",
         canManage: true,
+        canManageSettings: false,
         label: "Logistics",
         keywords: ["venue"],
       },
-      { value: "incidents", canManage: true, label: "Incidents", keywords: [] },
+      {
+        value: "incidents",
+        canManage: true,
+        canManageSettings: false,
+        label: "Incidents",
+        keywords: [],
+      },
     ],
   },
 ];
@@ -77,9 +92,7 @@ describe("EventSectionRail", () => {
     expect(sections().getAllByRole("button")).toHaveLength(5);
     expect(sections().getByText("Overview")).toBeInTheDocument();
     expect(sections().getByText("Operations")).toBeInTheDocument();
-    expect(
-      sections().getByRole("button", { name: /Registration & planning/ }),
-    ).toBeVisible();
+    expect(sections().getByRole("button", { name: /Planning/ })).toBeVisible();
   });
 
   test("marks the open section, and only it", () => {
@@ -112,14 +125,12 @@ describe("EventSectionRail", () => {
 
   test("matches a search on a keyword the title does not contain", () => {
     // The lookup the phase tabs could not answer: "budget" is on a card
-    // called Registration & planning, in a group called Overview.
+    // called Planning, in a group called Overview.
     renderRail();
 
     fireEvent.change(search(), { target: { value: "Budget" } });
 
-    expect(
-      results().getByRole("button", { name: /Registration & planning/ }),
-    ).toBeVisible();
+    expect(results().getByRole("button", { name: /Planning/ })).toBeVisible();
   });
 
   test("matches a search on the group heading", () => {
@@ -215,9 +226,7 @@ describe("EventSectionRail on a phone", () => {
 
     const sheet = within(await screen.findByRole("dialog"));
     expect(sheet.getByRole("searchbox")).toBeInTheDocument();
-    expect(
-      sheet.getByRole("button", { name: /Registration & planning/ }),
-    ).toBeVisible();
+    expect(sheet.getByRole("button", { name: /Planning/ })).toBeVisible();
   });
 
   test("closes on a pick, and reports it once it is gone", async () => {

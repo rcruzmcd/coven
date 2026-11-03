@@ -27,7 +27,10 @@ import {
 } from "@/components/minor-accompaniment-fields";
 import { PartyIncludesMinorField } from "@/components/party-includes-minor-field";
 import { AdultsOnlyConfirmationField } from "@/components/adults-only-confirmation-field";
-import { ADULTS_ONLY_CONFIRMED_FIELD } from "@/lib/adults-only";
+import {
+  ADULTS_ONLY_CONFIRMED_FIELD,
+  type MinimumAge,
+} from "@/lib/adults-only";
 import { MINORS_ASKED_FIELD } from "@/lib/minors";
 import { PhotoConsentNotice } from "@/components/photo-consent-notice";
 import { CarpoolCostNotice } from "@/components/carpool-cost-notice";
@@ -95,7 +98,7 @@ export function EventRegistrationForm({
   waiverBlock = null,
   asksAboutMinors = true,
   requiresInstagram = false,
-  adultsOnly = false,
+  minimumAge = null,
   minorAccompaniment = [],
   photoConsent = [],
   carpoolCostNotice = [],
@@ -139,11 +142,12 @@ export function EventRegistrationForm({
    */
   requiresInstagram?: boolean;
   /**
-   * Whether the event is adults only (#1417). On, step 2 asks every registrant
-   * to confirm everyone in their party is 18 or over. The caller turns
-   * `asksAboutMinors` off with it: an 18+ event never asks the question.
+   * The event's age requirement (#1417, #1782). Set, step 2 asks every
+   * registrant to confirm everyone in their party is that age or over. The
+   * caller turns `asksAboutMinors` off with it: an 18+ or 21+ event never asks
+   * the question.
    */
-  adultsOnly?: boolean;
+  minimumAge?: MinimumAge | null;
   /**
    * This organization's rule for a party that includes anyone under 18
    * (#685), from `events.minor_accompaniment`. Empty on a tenant that has
@@ -297,7 +301,7 @@ export function EventRegistrationForm({
         formData.set(key, value);
       }
     }
-    if (adultsOnly && adultsOnlyConfirmed) {
+    if (minimumAge && adultsOnlyConfirmed) {
       formData.set(ADULTS_ONLY_CONFIRMED_FIELD, "on");
     }
     if (registrationOptions) setOptionCounts(formData, optionCounts);
@@ -514,8 +518,9 @@ export function EventRegistrationForm({
               )}
             </>
           )}
-          {adultsOnly && (
+          {minimumAge && (
             <AdultsOnlyConfirmationField
+              minimumAge={minimumAge}
               id="registration-adults-only"
               checked={adultsOnlyConfirmed}
               onChange={setAdultsOnlyConfirmed}
@@ -572,7 +577,7 @@ export function EventRegistrationForm({
           partySize,
           partyIncludesMinor,
           minorContacts,
-          adultsOnlyConfirmed: adultsOnly && adultsOnlyConfirmed,
+          confirmedMinimumAge: adultsOnlyConfirmed ? minimumAge : null,
           registrationOptions,
           optionCounts,
           answers: [

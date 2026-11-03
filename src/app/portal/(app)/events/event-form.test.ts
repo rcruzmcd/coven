@@ -9,6 +9,11 @@ import {
   parseEventForm,
   CONFIRMATION_NOTE_MAX_LENGTH,
   parseEventPlanningForm,
+  parseEventAutoAssignForm,
+  parseEventCarpoolSettingsForm,
+  parseEventGroupChatForm,
+  parseEventRegistrantEmailsForm,
+  parseEventRegistrationForm,
   parseEventRegistrationOptionsField,
   parseEventReportForm,
   REGISTRATION_OPTIONS_SAVE_ERRORS,
@@ -172,168 +177,99 @@ describe("parseEventAttendanceForm", () => {
   });
 });
 
-describe("parseEventPlanningForm", () => {
+describe("parseEventRegistrationForm", () => {
   // Postgres-shaped timestamps, as the action reads them off the event row.
   const eventDates = {
     startsAt: "2026-12-01T17:00:00+00:00",
     endsAt: "2026-12-01T21:00:00+00:00",
   };
 
-  test("allows all-empty planning fields", () => {
-    expect(parseEventPlanningForm(formData({}), eventDates)).toEqual({
+  test("allows all-empty registration fields", () => {
+    expect(parseEventRegistrationForm(formData({}), eventDates)).toEqual({
       data: {
-        eventLeadId: null,
         capacity: null,
         registrationEnabled: false,
         registrationDeadline: null,
-        autoAssignDiscountCodes: false,
-        // Not sent, so left as it was (#1417).
-        adultsOnly: null,
-        budgetAmount: null,
-        // Not sent either, so left as it was.
-        confirmationNote: undefined,
-        groupChatEnabled: null,
-        groupChatLabel: undefined,
+        // Not sent, so left as it was (#1417, #1782).
+        minimumAge: undefined,
         carpoolsEnabled: null,
-        carpoolSeatsQuestionId: undefined,
-        carpoolCostNotice: undefined,
-        reminderEnabled: null,
-        reminderDaysBefore: null,
-        reminderIntro: undefined,
       },
     });
   });
 
-  test("reads the adults-only switch (#1417)", () => {
+  test("reads the age requirement (#1782)", () => {
     const parse = (value: string) =>
-      parseEventPlanningForm(formData({ adultsOnly: value }), eventDates);
-    expect(parse("on")).toMatchObject({ data: { adultsOnly: true } });
-    expect(parse("off")).toMatchObject({ data: { adultsOnly: false } });
+      parseEventRegistrationForm(formData({ minimumAge: value }), eventDates);
+    expect(parse("18")).toMatchObject({ data: { minimumAge: 18 } });
+    expect(parse("21")).toMatchObject({ data: { minimumAge: 21 } });
+    expect(parse("")).toMatchObject({ data: { minimumAge: null } });
+    expect(parse("16")).toMatchObject({ data: { minimumAge: null } });
   });
 
-  test("reads the confirmation email note", () => {
+  test("reads the carpools switch (#1649)", () => {
     const parse = (fields: Record<string, string>) =>
-      parseEventPlanningForm(formData(fields), eventDates);
-    expect(parse({})).toMatchObject({ data: { confirmationNote: undefined } });
-    expect(
-      parse({ confirmationNote: "  Use code SNOW10 at checkout.  " }),
-    ).toMatchObject({
-      data: { confirmationNote: "Use code SNOW10 at checkout." },
+      parseEventRegistrationForm(formData(fields), eventDates);
+    expect(parse({ carpoolsEnabled: "on" })).toMatchObject({
+      data: { carpoolsEnabled: true },
     });
-    expect(parse({ confirmationNote: "   " })).toMatchObject({
-      data: { confirmationNote: null },
-    });
-    expect(
-      parse({ confirmationNote: "x".repeat(CONFIRMATION_NOTE_MAX_LENGTH + 1) }),
-    ).toEqual({
-      error: `Confirmation email note must be ${CONFIRMATION_NOTE_MAX_LENGTH} characters or fewer.`,
+    expect(parse({ carpoolsEnabled: "off" })).toMatchObject({
+      data: { carpoolsEnabled: false },
     });
   });
 
-  test("reads the carpools switch and the seats question (#1649)", () => {
-    const parse = (fields: Record<string, string>) =>
-      parseEventPlanningForm(formData(fields), eventDates);
-    expect(
-      parse({ carpoolsEnabled: "on", carpoolSeatsQuestionId: " q-1 " }),
-    ).toMatchObject({
-      data: { carpoolsEnabled: true, carpoolSeatsQuestionId: "q-1" },
-    });
-    // Blank is "typed for each car".
-    expect(
-      parse({ carpoolsEnabled: "off", carpoolSeatsQuestionId: "" }),
-    ).toMatchObject({
-      data: { carpoolsEnabled: false, carpoolSeatsQuestionId: null },
-    });
-  });
-
-  test("reads the group chat switch and its label (#1648)", () => {
-    const parse = (fields: Record<string, string>) =>
-      parseEventPlanningForm(formData(fields), eventDates);
-    expect(
-      parse({ groupChatEnabled: "on", groupChatLabel: "  Instagram chat " }),
-    ).toMatchObject({
-      data: { groupChatEnabled: true, groupChatLabel: "Instagram chat" },
-    });
-    expect(
-      parse({ groupChatEnabled: "off", groupChatLabel: "  " }),
-    ).toMatchObject({
-      data: { groupChatEnabled: false, groupChatLabel: null },
-    });
-    expect(
-      parse({ groupChatLabel: "x".repeat(GROUP_CHAT_LABEL_MAX_LENGTH + 1) }),
-    ).toEqual({
-      error: `Group chat name must be ${GROUP_CHAT_LABEL_MAX_LENGTH} characters or fewer.`,
-    });
-  });
-
-  test("reads the reminder switch, days and intro (#1652)", () => {
-    const parse = (fields: Record<string, string>) =>
-      parseEventPlanningForm(formData(fields), eventDates);
-    expect(
-      parse({
+  test("leaves the settings other cards save alone (#1777)", () => {
+    const result = parseEventRegistrationForm(
+      formData({
+        autoAssignDiscountCodes: "on",
+        confirmationNote: "Bring gloves.",
+        groupChatEnabled: "on",
+        carpoolSeatsQuestionId: "q-1",
+        carpoolNoticeMode: "hidden",
         reminderEnabled: "on",
-        reminderDaysBefore: "3",
-        reminderIntro: "  See you on the hill. ",
       }),
-    ).toMatchObject({
-      data: {
-        reminderEnabled: true,
-        reminderDaysBefore: 3,
-        reminderIntro: "See you on the hill.",
-      },
-    });
-    // The prefilled default, saved unchanged, and a blank both store null.
-    expect(
-      parse({ reminderEnabled: "off", reminderIntro: DEFAULT_REMINDER_INTRO }),
-    ).toMatchObject({ data: { reminderEnabled: false, reminderIntro: null } });
-    expect(parse({ reminderIntro: "  " })).toMatchObject({
-      data: { reminderIntro: null },
-    });
-    for (const days of ["0", "15", "2.5", "two"]) {
-      expect(parse({ reminderDaysBefore: days })).toEqual({
-        error: "Reminder days must be a whole number from 1 to 14.",
-      });
+      eventDates,
+    );
+    for (const key of [
+      "autoAssignDiscountCodes",
+      "confirmationNote",
+      "groupChatEnabled",
+      "carpoolSeatsQuestionId",
+      "carpoolCostNotice",
+      "reminderEnabled",
+    ]) {
+      expect("data" in result && result.data).not.toHaveProperty(key);
     }
-    expect(
-      parse({ reminderIntro: "x".repeat(REMINDER_INTRO_MAX_LENGTH + 1) }),
-    ).toEqual({
-      error: `Reminder intro must be ${REMINDER_INTRO_MAX_LENGTH} characters or fewer.`,
-    });
   });
 
   test("rejects a negative capacity", () => {
     expect(
-      parseEventPlanningForm(formData({ capacity: "-5" }), eventDates),
+      parseEventRegistrationForm(formData({ capacity: "-5" }), eventDates),
     ).toEqual({
       error: "Capacity must be a whole number of 0 or more.",
     });
   });
 
-  test("rejects a negative budget", () => {
-    expect(
-      parseEventPlanningForm(formData({ budgetAmount: "-100" }), eventDates),
-    ).toEqual({
-      error: "Budget must be a positive number.",
-    });
-  });
-
-  test("parses valid planning fields", () => {
-    const result = parseEventPlanningForm(
-      formData({
-        capacity: "50",
-        registrationEnabled: "on",
-        budgetAmount: "1200.50",
-      }),
+  test("parses valid registration fields", () => {
+    const result = parseEventRegistrationForm(
+      formData({ capacity: "50", registrationEnabled: "on" }),
       eventDates,
     );
     expect("data" in result && result.data.capacity).toBe(50);
     expect("data" in result && result.data.registrationEnabled).toBe(true);
-    expect("data" in result && result.data.budgetAmount).toBe(1200.5);
+  });
+
+  test("leaves the lead and budget to the Planning card (#1778)", () => {
+    const result = parseEventRegistrationForm(
+      formData({ eventLeadId: "person-1", budgetAmount: "100" }),
+      eventDates,
+    );
+    expect("data" in result && result.data).not.toHaveProperty("eventLeadId");
+    expect("data" in result && result.data).not.toHaveProperty("budgetAmount");
   });
 
   test("rejects a deadline after the event end", () => {
     expect(
-      parseEventPlanningForm(
+      parseEventRegistrationForm(
         formData({
           registrationEnabled: "on",
           registrationDeadline: "2026-12-01T21:00:00.001Z",
@@ -346,7 +282,7 @@ describe("parseEventPlanningForm", () => {
   });
 
   test("accepts a deadline exactly at the event end", () => {
-    const result = parseEventPlanningForm(
+    const result = parseEventRegistrationForm(
       formData({
         registrationEnabled: "on",
         registrationDeadline: "2026-12-01T21:00:00.000Z",
@@ -361,7 +297,7 @@ describe("parseEventPlanningForm", () => {
   test("falls back to the start date when the event has no end", () => {
     const noEnd = { startsAt: eventDates.startsAt, endsAt: null };
     expect(
-      parseEventPlanningForm(
+      parseEventRegistrationForm(
         formData({
           registrationEnabled: "on",
           registrationDeadline: "2026-12-01T18:00:00.000Z",
@@ -372,7 +308,7 @@ describe("parseEventPlanningForm", () => {
       error:
         "Registration deadline must be on or before the event's start date.",
     });
-    const result = parseEventPlanningForm(
+    const result = parseEventRegistrationForm(
       formData({
         registrationEnabled: "on",
         registrationDeadline: "2026-12-01T16:00:00.000Z",
@@ -385,7 +321,7 @@ describe("parseEventPlanningForm", () => {
   });
 
   test("clears the deadline when registration is disabled", () => {
-    const result = parseEventPlanningForm(
+    const result = parseEventRegistrationForm(
       formData({ registrationDeadline: "2026-11-20T17:00:00.000Z" }),
       eventDates,
     );
@@ -395,7 +331,7 @@ describe("parseEventPlanningForm", () => {
 
   test("rejects an unparseable deadline", () => {
     expect(
-      parseEventPlanningForm(
+      parseEventRegistrationForm(
         formData({
           registrationEnabled: "on",
           registrationDeadline: "not-a-date",
@@ -403,6 +339,32 @@ describe("parseEventPlanningForm", () => {
         eventDates,
       ),
     ).toEqual({ error: "Enter a valid registration deadline." });
+  });
+});
+
+describe("parseEventPlanningForm (#1778)", () => {
+  test("allows an empty lead and budget", () => {
+    expect(parseEventPlanningForm(formData({}))).toEqual({
+      data: { eventLeadId: null, budgetAmount: null },
+    });
+  });
+
+  test("parses a lead and budget, and nothing else", () => {
+    expect(
+      parseEventPlanningForm(
+        formData({
+          eventLeadId: " person-1 ",
+          budgetAmount: "1200.50",
+          capacity: "50",
+        }),
+      ),
+    ).toEqual({ data: { eventLeadId: "person-1", budgetAmount: 1200.5 } });
+  });
+
+  test("rejects a negative budget", () => {
+    expect(parseEventPlanningForm(formData({ budgetAmount: "-100" }))).toEqual({
+      error: "Budget must be a positive number.",
+    });
   });
 });
 
@@ -522,15 +484,119 @@ describe("parseEventRegistrationOptionsField (#1407)", () => {
   });
 });
 
-describe("parseEventPlanningForm: carpool cost notice", () => {
-  const eventDates = {
-    startsAt: "2026-12-01T17:00:00+00:00",
-    endsAt: "2026-12-01T21:00:00+00:00",
-  };
+describe("parseEventRegistrantEmailsForm (#1779)", () => {
+  const parse = (fields: Record<string, string>) =>
+    parseEventRegistrantEmailsForm(
+      formData({ reminderDaysBefore: "3", ...fields }),
+    );
+
+  test("reads the confirmation email note", () => {
+    expect(
+      parse({ confirmationNote: "  Use code SNOW10 at checkout.  " }),
+    ).toMatchObject({
+      data: { confirmationNote: "Use code SNOW10 at checkout." },
+    });
+    expect(parse({ confirmationNote: "   " })).toMatchObject({
+      data: { confirmationNote: null },
+    });
+    expect(
+      parse({ confirmationNote: "x".repeat(CONFIRMATION_NOTE_MAX_LENGTH + 1) }),
+    ).toEqual({
+      error: `Confirmation email note must be ${CONFIRMATION_NOTE_MAX_LENGTH} characters or fewer.`,
+    });
+  });
+
+  test("reads the reminder switch, days and intro (#1652)", () => {
+    expect(
+      parse({
+        reminderEnabled: "on",
+        reminderDaysBefore: "3",
+        reminderIntro: "  See you on the hill. ",
+      }),
+    ).toMatchObject({
+      data: {
+        reminderEnabled: true,
+        reminderDaysBefore: 3,
+        reminderIntro: "See you on the hill.",
+      },
+    });
+    // The prefilled default, saved unchanged, and a blank both store null.
+    expect(
+      parse({ reminderEnabled: "off", reminderIntro: DEFAULT_REMINDER_INTRO }),
+    ).toMatchObject({ data: { reminderEnabled: false, reminderIntro: null } });
+    expect(parse({ reminderIntro: "  " })).toMatchObject({
+      data: { reminderIntro: null },
+    });
+    for (const days of ["0", "15", "2.5", "two", ""]) {
+      expect(parse({ reminderDaysBefore: days })).toEqual({
+        error: "Reminder days must be a whole number from 1 to 14.",
+      });
+    }
+    expect(
+      parse({ reminderIntro: "x".repeat(REMINDER_INTRO_MAX_LENGTH + 1) }),
+    ).toEqual({
+      error: `Reminder intro must be ${REMINDER_INTRO_MAX_LENGTH} characters or fewer.`,
+    });
+  });
+});
+
+describe("parseEventGroupChatForm (#1781)", () => {
+  test("reads the group chat switch and its label (#1648)", () => {
+    const parse = (fields: Record<string, string>) =>
+      parseEventGroupChatForm(formData(fields));
+    expect(
+      parse({ groupChatEnabled: "on", groupChatLabel: "  Instagram chat " }),
+    ).toEqual({
+      data: { groupChatEnabled: true, groupChatLabel: "Instagram chat" },
+    });
+    expect(parse({ groupChatEnabled: "off", groupChatLabel: "  " })).toEqual({
+      data: { groupChatEnabled: false, groupChatLabel: null },
+    });
+    expect(
+      parse({ groupChatLabel: "x".repeat(GROUP_CHAT_LABEL_MAX_LENGTH + 1) }),
+    ).toEqual({
+      error: `Group chat name must be ${GROUP_CHAT_LABEL_MAX_LENGTH} characters or fewer.`,
+    });
+  });
+});
+
+describe("parseEventAutoAssignForm (#1781)", () => {
+  test("reads the switch", () => {
+    expect(
+      parseEventAutoAssignForm(formData({ autoAssignDiscountCodes: "on" })),
+    ).toEqual({ data: { autoAssignDiscountCodes: true } });
+    expect(parseEventAutoAssignForm(formData({}))).toEqual({
+      data: { autoAssignDiscountCodes: false },
+    });
+  });
+});
+
+describe("parseEventCarpoolSettingsForm (#1780)", () => {
   function notice(fields: Record<string, string>) {
-    const result = parseEventPlanningForm(formData(fields), eventDates);
+    const result = parseEventCarpoolSettingsForm(formData(fields));
     return "data" in result ? result.data.carpoolCostNotice : result;
   }
+
+  test("reads the seats question (#1649)", () => {
+    expect(
+      parseEventCarpoolSettingsForm(
+        formData({
+          carpoolSeatsQuestionId: " q-1 ",
+          carpoolNoticeMode: "organization",
+        }),
+      ),
+    ).toEqual({
+      data: { carpoolSeatsQuestionId: "q-1", carpoolCostNotice: null },
+    });
+    // Blank is "typed for each car".
+    expect(
+      parseEventCarpoolSettingsForm(
+        formData({ carpoolSeatsQuestionId: "", carpoolNoticeMode: "hidden" }),
+      ),
+    ).toEqual({
+      data: { carpoolSeatsQuestionId: null, carpoolCostNotice: [] },
+    });
+  });
 
   test("each choice becomes what the column stores", () => {
     expect(notice({ carpoolNoticeMode: "organization" })).toBeNull();

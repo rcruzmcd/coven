@@ -16,7 +16,10 @@ import {
 } from "@/components/minor-accompaniment-fields";
 import { PartyIncludesMinorField } from "@/components/party-includes-minor-field";
 import { AdultsOnlyConfirmationField } from "@/components/adults-only-confirmation-field";
-import { ADULTS_ONLY_CONFIRMED_FIELD } from "@/lib/adults-only";
+import {
+  ADULTS_ONLY_CONFIRMED_FIELD,
+  type MinimumAge,
+} from "@/lib/adults-only";
 import { MINORS_ASKED_FIELD } from "@/lib/minors";
 import { PhotoConsentNotice } from "@/components/photo-consent-notice";
 import { CarpoolCostNotice } from "@/components/carpool-cost-notice";
@@ -90,7 +93,7 @@ export function MyEventRegistrationForm({
   waiverOnFile = null,
   asksAboutMinors = true,
   requiresInstagram = false,
-  adultsOnly = false,
+  minimumAge = null,
   minorAccompaniment = [],
   photoConsent = [],
   carpoolCostNotice = [],
@@ -130,10 +133,10 @@ export function MyEventRegistrationForm({
    */
   requiresInstagram?: boolean;
   /**
-   * Whether the event is adults only (#1417): step 2 asks for the
+   * The event's age requirement (#1417, #1782): set, step 2 asks for the
    * confirmation, as on the anonymous form.
    */
-  adultsOnly?: boolean;
+  minimumAge?: MinimumAge | null;
   /**
    * This organization's rule for a party that includes anyone under 18
    * (#685). Empty on a tenant that has written none.
@@ -261,7 +264,7 @@ export function MyEventRegistrationForm({
 
     const formData = new FormData();
     formData.set("partySize", partySize);
-    if (adultsOnly && adultsOnlyConfirmed) {
+    if (minimumAge && adultsOnlyConfirmed) {
       formData.set(ADULTS_ONLY_CONFIRMED_FIELD, "on");
     }
     if (registrationOptions) setOptionCounts(formData, optionCounts);
@@ -438,8 +441,9 @@ export function MyEventRegistrationForm({
             </>
           )}
 
-          {adultsOnly && (
+          {minimumAge && (
             <AdultsOnlyConfirmationField
+              minimumAge={minimumAge}
               id="my-registration-adults-only"
               checked={adultsOnlyConfirmed}
               onChange={setAdultsOnlyConfirmed}
@@ -502,7 +506,7 @@ export function MyEventRegistrationForm({
           partySize,
           partyIncludesMinor,
           minorContacts,
-          adultsOnlyConfirmed: adultsOnly && adultsOnlyConfirmed,
+          confirmedMinimumAge: adultsOnlyConfirmed ? minimumAge : null,
           registrationOptions,
           optionCounts,
           answers: [

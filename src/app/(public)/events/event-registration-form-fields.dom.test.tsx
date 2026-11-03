@@ -703,7 +703,7 @@ describe("EventRegistrationForm and the minors question", () => {
   });
 });
 
-describe("EventRegistrationForm on an adults-only event (#1417)", () => {
+describe("EventRegistrationForm on an event with an age requirement (#1417, #1782)", () => {
   beforeEach(() => registerForEventActionMock.mockClear());
 
   const confirmation = () =>
@@ -723,7 +723,7 @@ describe("EventRegistrationForm on an adults-only event (#1417)", () => {
     render(
       <EventRegistrationForm
         eventId="event-1"
-        adultsOnly
+        minimumAge={18}
         asksAboutMinors={false}
       />,
     );
@@ -743,7 +743,7 @@ describe("EventRegistrationForm on an adults-only event (#1417)", () => {
     render(
       <EventRegistrationForm
         eventId="event-1"
-        adultsOnly
+        minimumAge={18}
         asksAboutMinors={false}
       />,
     );
@@ -762,6 +762,25 @@ describe("EventRegistrationForm on an adults-only event (#1417)", () => {
       screen.getByRole("button", { name: "Complete registration" }),
     );
     expect(lastSubmission().adultsOnlyConfirmed).toBe("on");
+  });
+
+  test("a 21+ event asks for 21", async () => {
+    const user = userEvent.setup();
+    render(
+      <EventRegistrationForm
+        eventId="event-1"
+        minimumAge={21}
+        asksAboutMinors={false}
+      />,
+    );
+    await fillAboutYou(user);
+    await toThisEvent(user);
+
+    expect(
+      screen.getByRole("checkbox", {
+        name: /Everyone in my party is 21 or over/,
+      }),
+    ).not.toBeChecked();
   });
 });
 

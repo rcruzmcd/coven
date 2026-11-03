@@ -4,8 +4,13 @@ import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   parseEventAttendanceForm,
+  parseEventAutoAssignForm,
+  parseEventCarpoolSettingsForm,
   parseEventForm,
+  parseEventGroupChatForm,
   parseEventPlanningForm,
+  parseEventRegistrantEmailsForm,
+  parseEventRegistrationForm,
   parseEventRegistrationOptionsField,
   parseEventReportForm,
   parseReopenReason,
@@ -26,6 +31,7 @@ import {
   type EventRegistrationQuestion,
 } from "./registration-questions-draft";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { TablesUpdate } from "@/lib/database.types";
 
 export type CreateEventResult = { error: string } | { success: true };
 
@@ -250,6 +256,42 @@ export async function updateEventPlanningAction(
   });
   if (permissionError) return permissionError;
 
+  // #1778. Lead and budget only; the Registration card saves the rest.
+  const parsed = parseEventPlanningForm(formData);
+  if ("error" in parsed) return parsed;
+  const { eventLeadId, budgetAmount } = parsed.data;
+
+  const { error } = await supabase
+    .from("events")
+    .update({ event_lead_id: eventLeadId, budget_amount: budgetAmount })
+    .eq("id", id);
+
+  if (error) {
+    return { error: "Could not update planning details. Please try again." };
+  }
+
+  revalidatePath("/portal/home");
+  revalidatePath("/portal/events");
+  return { success: true };
+}
+
+export async function updateEventRegistrationAction(
+  id: string,
+  formData: FormData,
+): Promise<CreateEventResult> {
+  const supabase = await createSupabaseServerClient();
+  const userResult = await checkUser(
+    supabase,
+    "You must be signed in to update registration settings.",
+  );
+  if ("error" in userResult) return userResult;
+  const permissionError = await checkEventAccess(supabase, {
+    table: "events",
+    level: "manage",
+    eventId: id,
+  });
+  if (permissionError) return permissionError;
+
   // The deadline is validated against the event's stored dates rather than
   // anything the client submitted alongside it.
   const { data: eventRow } = await supabase
@@ -261,7 +303,7 @@ export async function updateEventPlanningAction(
     return { error: "Could not find that event." };
   }
 
-  const parsed = parseEventPlanningForm(formData, {
+  const parsed = parseEventRegistrationForm(formData, {
     startsAt: eventRow.starts_at,
     endsAt: eventRow.ends_at,
   });
@@ -282,70 +324,30 @@ export async function updateEventPlanningAction(
     return registrationQuestions;
   }
   const {
-    eventLeadId,
     capacity,
     registrationEnabled,
     registrationDeadline,
-    autoAssignDiscountCodes,
-    adultsOnly,
-    budgetAmount,
-    confirmationNote,
-    groupChatEnabled,
-    groupChatLabel,
+    minimumAge,
     carpoolsEnabled,
-    carpoolSeatsQuestionId,
-    carpoolCostNotice,
-    reminderEnabled,
-    reminderDaysBefore,
-    reminderIntro,
   } = parsed.data;
 
   const { error } = await supabase
     .from("events")
     .update({
-      event_lead_id: eventLeadId,
       capacity,
       registration_enabled: registrationEnabled,
       registration_deadline: registrationDeadline,
-      auto_assign_discount_codes: autoAssignDiscountCodes,
-      ...(adultsOnly === null ? {} : { adults_only: adultsOnly }),
-      budget_amount: budgetAmount,
-      ...(confirmationNote === undefined
-        ? {}
-        : { confirmation_note: confirmationNote }),
-      ...(groupChatEnabled === null
-        ? {}
-        : { group_chat_enabled: groupChatEnabled }),
-      ...(groupChatLabel === undefined
-        ? {}
-        : { group_chat_label: groupChatLabel }),
+      ...(minimumAge === undefined ? {} : { minimum_age: minimumAge }),
       ...(carpoolsEnabled === null
         ? {}
         : { carpools_enabled: carpoolsEnabled }),
-      ...(carpoolSeatsQuestionId === undefined
-        ? {}
-        : { carpool_seats_question_id: carpoolSeatsQuestionId }),
-      ...(carpoolCostNotice === undefined
-        ? {}
-        : { carpool_cost_notice: carpoolCostNotice }),
-      ...(reminderEnabled === null
-        ? {}
-        : { reminder_enabled: reminderEnabled }),
-      ...(reminderDaysBefore === null
-        ? {}
-        : { reminder_days_before: reminderDaysBefore }),
-      ...(reminderIntro === undefined ? {} : { reminder_intro: reminderIntro }),
     })
     .eq("id", id);
 
   if (error) {
-    // #1649. The trigger standing in for a foreign key.
-    if (error.message === "CARPOOL_SEATS_QUESTION_INVALID") {
-      return {
-        error: "Seats can only come from a number question on this event.",
-      };
-    }
-    return { error: "Could not update planning details. Please try again." };
+    return {
+      error: "Could not update registration settings. Please try again.",
+    };
   }
 
   if (registrationOptions) {
@@ -361,7 +363,7 @@ export async function updateEventPlanningAction(
       return {
         error:
           REGISTRATION_OPTIONS_SAVE_ERRORS[optionsError.message] ??
-          "Planning details were saved, but the registration question was not. Please try again.",
+          "Registration settings were saved, but the registration question was not. Please try again.",
       };
     }
   }
@@ -375,7 +377,7 @@ export async function updateEventPlanningAction(
       return {
         error:
           REGISTRATION_QUESTION_ERROR_MESSAGES[questionsError.message] ??
-          "Planning details were saved, but the registration questions were not. Please try again.",
+          "Registration settings were saved, but the registration questions were not. Please try again.",
       };
     }
   }
@@ -383,6 +385,122 @@ export async function updateEventPlanningAction(
   revalidatePath("/portal/home");
   revalidatePath("/portal/events");
   return { success: true };
+}
+
+/**
+ * #1777. Saves one card's own `events` columns: the Registrant emails card
+ * and the settings dialogs on Carpools, Registrants and Discount codes. They
+ * write `events`, so they take the same `events` grant (the `details` area)
+ * whichever card shows them.
+ */
+async function updateEventColumns(
+  id: string,
+  columns: TablesUpdate<"events">,
+  what: string,
+  errors: Readonly<Record<string, string>> = {},
+): Promise<CreateEventResult> {
+  const supabase = await createSupabaseServerClient();
+  const userResult = await checkUser(
+    supabase,
+    `You must be signed in to update ${what}.`,
+  );
+  if ("error" in userResult) return userResult;
+  const permissionError = await checkEventAccess(supabase, {
+    table: "events",
+    level: "manage",
+    eventId: id,
+  });
+  if (permissionError) return permissionError;
+
+  const { error } = await supabase.from("events").update(columns).eq("id", id);
+  if (error) {
+    return {
+      error:
+        errors[error.message] ?? `Could not update ${what}. Please try again.`,
+    };
+  }
+
+  revalidatePath("/portal/home");
+  revalidatePath("/portal/events");
+  return { success: true };
+}
+
+/** #1779. The confirmation note and the reminder. */
+export async function updateEventRegistrantEmailsAction(
+  id: string,
+  formData: FormData,
+): Promise<CreateEventResult> {
+  const parsed = parseEventRegistrantEmailsForm(formData);
+  if ("error" in parsed) return parsed;
+  const {
+    confirmationNote,
+    reminderEnabled,
+    reminderDaysBefore,
+    reminderIntro,
+  } = parsed.data;
+  return updateEventColumns(
+    id,
+    {
+      confirmation_note: confirmationNote,
+      reminder_enabled: reminderEnabled,
+      reminder_days_before: reminderDaysBefore,
+      reminder_intro: reminderIntro,
+    },
+    "registrant emails",
+  );
+}
+
+/** #1780. Where a car's seats come from, and the cost notice. */
+export async function updateEventCarpoolSettingsAction(
+  id: string,
+  formData: FormData,
+): Promise<CreateEventResult> {
+  const parsed = parseEventCarpoolSettingsForm(formData);
+  if ("error" in parsed) return parsed;
+  return updateEventColumns(
+    id,
+    {
+      carpool_seats_question_id: parsed.data.carpoolSeatsQuestionId,
+      carpool_cost_notice: parsed.data.carpoolCostNotice,
+    },
+    "carpool settings",
+    // #1649. The trigger standing in for a foreign key.
+    {
+      CARPOOL_SEATS_QUESTION_INVALID:
+        "Seats can only come from a number question on this event.",
+    },
+  );
+}
+
+/** #1781. The group chat switch and its name. */
+export async function updateEventGroupChatAction(
+  id: string,
+  formData: FormData,
+): Promise<CreateEventResult> {
+  const parsed = parseEventGroupChatForm(formData);
+  if ("error" in parsed) return parsed;
+  return updateEventColumns(
+    id,
+    {
+      group_chat_enabled: parsed.data.groupChatEnabled,
+      group_chat_label: parsed.data.groupChatLabel,
+    },
+    "the group chat setting",
+  );
+}
+
+/** #1781. Whether new registrants are handed a discount code. */
+export async function updateEventAutoAssignAction(
+  id: string,
+  formData: FormData,
+): Promise<CreateEventResult> {
+  const parsed = parseEventAutoAssignForm(formData);
+  if ("error" in parsed) return parsed;
+  return updateEventColumns(
+    id,
+    { auto_assign_discount_codes: parsed.data.autoAssignDiscountCodes },
+    "auto-assign",
+  );
 }
 
 export async function updateEventReportAction(

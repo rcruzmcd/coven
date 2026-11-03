@@ -15,6 +15,11 @@ import type { FormTabCallbacks } from "./use-form-tab-state";
 import type { EventSharedData, SharedEventResource } from "./event-shared-data";
 import { OverviewTab } from "./overview-tab";
 import { PlanningTab } from "./planning-tab";
+import { RegistrationTab } from "./registration-tab";
+import { RegistrantEmailsTab } from "./registrant-emails-tab";
+import { CarpoolSettingsDialog } from "./carpool-settings-dialog";
+import { GroupChatSettingsDialog } from "./group-chat-settings-dialog";
+import { AutoAssignSettingsDialog } from "./auto-assign-settings-dialog";
 import { LogisticsTab } from "./logistics-tab";
 import { VolunteersTab } from "./volunteers-tab";
 import { SponsorsTab } from "./sponsors-tab";
@@ -59,12 +64,14 @@ export type TabValue =
   | "overview"
   | "checklist"
   | "planning"
+  | "registration"
   | "logistics"
   | "volunteers"
   | "staff"
   | "sponsors"
   | "attendance"
   | "registrants"
+  | "registrant-emails"
   | "carpools"
   | "places"
   | "answers"
@@ -95,6 +102,12 @@ export type TabRenderContext = {
 export type ToolbarActionContext = {
   eventId: string;
   eventName: string;
+  onSaved: () => void;
+};
+
+/** #1777. What a card's settings dialog is handed. */
+export type SettingsActionContext = {
+  event: EventRow;
   onSaved: () => void;
 };
 
@@ -134,7 +147,7 @@ export type TabConfigEntry = {
   sharedData?: readonly SharedEventResource[];
   /**
    * Extra words the rail's search matches, for cards whose title is not what a
-   * coordinator would type (#1008). "Budget" is on Registration & planning,
+   * coordinator would type (#1008). "Budget" is on Planning,
    * "raffle" is Giveaway, "venue" is Logistics -- and before the rail, finding
    * any of them meant already knowing which of four phases held the card.
    *
@@ -154,6 +167,14 @@ export type TabConfigEntry = {
    * `CardAction` slot on the edit pencil.
    */
   toolbarActions?: (ctx: ToolbarActionContext) => ReactNode;
+  /**
+   * #1777. A `kind: "plain"` card's own settings, as a dialog in its header
+   * beside `toolbarActions`. They are `events` columns, so they take the
+   * `details` area whatever this card's own `area` is -- a grant can manage
+   * the registrants list and still not be one RLS lets write the event row.
+   * Read-only once the report is submitted, like the form cards.
+   */
+  settingsActions?: (ctx: SettingsActionContext) => ReactNode;
 };
 
 export const TAB_CONFIG: readonly TabConfigEntry[] = [
@@ -180,7 +201,7 @@ export const TAB_CONFIG: readonly TabConfigEntry[] = [
     value: "planning",
     area: "details",
     label: "Planning",
-    keywords: ["budget", "capacity", "lead", "registration", "deadline"],
+    keywords: ["budget", "lead"],
     group: "overview",
     kind: "form",
     sharedData: ["people"],
@@ -195,6 +216,32 @@ export const TAB_CONFIG: readonly TabConfigEntry[] = [
         onSaved={ctx.onSaved}
         onPendingChange={ctx.formCallbacks.planning.onPendingChange}
         onDirtyChange={ctx.formCallbacks.planning.onDirtyChange}
+      />
+    ),
+  },
+  {
+    value: "registration",
+    area: "details",
+    label: "Registration",
+    keywords: [
+      "deadline",
+      "capacity",
+      "questions",
+      "age",
+      "options",
+      "carpools",
+    ],
+    group: "overview",
+    kind: "form",
+    render: (ctx) => (
+      <RegistrationTab
+        ref={ctx.formCallbacks.registration.registerHandle}
+        event={ctx.event}
+        formId={ctx.formId("registration")}
+        mode={ctx.mode}
+        onSaved={ctx.onSaved}
+        onPendingChange={ctx.formCallbacks.registration.onPendingChange}
+        onDirtyChange={ctx.formCallbacks.registration.onDirtyChange}
       />
     ),
   },
@@ -215,7 +262,7 @@ export const TAB_CONFIG: readonly TabConfigEntry[] = [
     value: "registrants",
     area: "registrations",
     label: "Registrants",
-    keywords: ["tickets", "rsvp", "sign-ups", "check-in"],
+    keywords: ["tickets", "rsvp", "sign-ups", "check-in", "group chat"],
     group: "guests",
     kind: "plain",
     sharedData: ["registrants", "impactDerived"],
@@ -232,6 +279,30 @@ export const TAB_CONFIG: readonly TabConfigEntry[] = [
     toolbarActions: (ctx) => (
       <RegistrantsToolbar eventId={ctx.eventId} onSaved={ctx.onSaved} />
     ),
+    settingsActions: (ctx) => (
+      <GroupChatSettingsDialog event={ctx.event} onSaved={ctx.onSaved} />
+    ),
+  },
+  {
+    // #1779. Shown whether or not registration is on, with a note when it is
+    // off, so the emails can be written before registration opens.
+    value: "registrant-emails",
+    area: "details",
+    label: "Registrant emails",
+    keywords: ["reminder", "confirmation"],
+    group: "guests",
+    kind: "form",
+    render: (ctx) => (
+      <RegistrantEmailsTab
+        ref={ctx.formCallbacks["registrant-emails"].registerHandle}
+        event={ctx.event}
+        formId={ctx.formId("registrant-emails")}
+        mode={ctx.mode}
+        onSaved={ctx.onSaved}
+        onPendingChange={ctx.formCallbacks["registrant-emails"].onPendingChange}
+        onDirtyChange={ctx.formCallbacks["registrant-emails"].onDirtyChange}
+      />
+    ),
   },
   {
     // #1649. Only on an event with Organize carpools on; the board itself is
@@ -239,7 +310,15 @@ export const TAB_CONFIG: readonly TabConfigEntry[] = [
     value: "carpools",
     area: "registrations",
     label: "Carpools",
-    keywords: ["rides", "drivers", "cars", "passengers", "transport"],
+    keywords: [
+      "rides",
+      "drivers",
+      "cars",
+      "passengers",
+      "transport",
+      "seats",
+      "cost notice",
+    ],
     group: "guests",
     kind: "plain",
     shownWhen: "carpoolsEnabled",
@@ -249,6 +328,11 @@ export const TAB_CONFIG: readonly TabConfigEntry[] = [
         eventId={ctx.event.id}
         registrants={ctx.shared.registrants}
       />
+    ),
+    // #1780. Seats and the cost notice; the switch stays on Registration,
+    // since this card is listed only while it is on.
+    settingsActions: (ctx) => (
+      <CarpoolSettingsDialog event={ctx.event} onSaved={ctx.onSaved} />
     ),
   },
   {
@@ -301,6 +385,7 @@ export const TAB_CONFIG: readonly TabConfigEntry[] = [
     value: "discount-codes",
     area: "sponsors",
     label: "Discount codes",
+    keywords: ["auto-assign"],
     group: "guests",
     kind: "plain",
     sharedData: ["registrants"],
@@ -314,6 +399,9 @@ export const TAB_CONFIG: readonly TabConfigEntry[] = [
     ),
     toolbarActions: (ctx) => (
       <AddDiscountCodesDialog eventId={ctx.eventId} onSaved={ctx.onSaved} />
+    ),
+    settingsActions: (ctx) => (
+      <AutoAssignSettingsDialog event={ctx.event} onSaved={ctx.onSaved} />
     ),
   },
   {
@@ -664,6 +752,8 @@ export const LEGACY_TAB_VALUES: Readonly<Record<string, TabValue>> = {
 export const LOCKED_ON_REPORT_SUBMIT_TABS: ReadonlySet<TabValue> = new Set([
   "overview",
   "planning",
+  "registration",
+  "registrant-emails",
   "results",
 ]);
 
@@ -696,7 +786,8 @@ export type EventGroupKey = (typeof EVENT_GROUPS)[number]["key"];
 
 /**
  * Where a `?phase=` link from before the rail lands (#958's phase tabs, read
- * since #1008): the card each phase used to open on.
+ * since #1008): the card each phase used to open on. `planning` stays on
+ * Planning after #1778 split Registration out of it.
  */
 export const LEGACY_PHASE_CARDS: Record<PhaseKey, TabValue> = {
   basic: "overview",
@@ -708,12 +799,10 @@ export const LEGACY_PHASE_CARDS: Record<PhaseKey, TabValue> = {
 /**
  * Card titles that differ from the catalog label, so the rail row and the card
  * heading it opens always read the same. "Overview" is also the group heading
- * above it, and "Planning" alone would not say the card carries registration
- * settings.
+ * above it.
  */
 export const CARD_TITLES: Partial<Record<TabValue, string>> = {
   overview: "Event details",
-  planning: "Registration & planning",
 };
 
 export function cardTitle(value: TabValue, label: string): string {
@@ -727,6 +816,11 @@ export type EventSection = {
    * grant covering its area (#1688).
    */
   canManage: boolean;
+  /**
+   * #1777. Whether this reader may change the card's `settingsActions`, which
+   * write `events`: `events: manage`, or a `manage` grant covering `details`.
+   */
+  canManageSettings: boolean;
   /** The display title -- `CARD_TITLES` already applied. */
   label: string;
   /** Extra words the rail's search matches. */
@@ -781,6 +875,10 @@ export function eventGroups(
     grant !== null &&
     entry.area !== undefined &&
     grant.areas.includes(entry.area);
+  const grantManagesDetails =
+    grant !== null &&
+    grant.level === "manage" &&
+    grant.areas.includes("details");
 
   return EVENT_GROUPS.map(({ key, label }) => ({
     key,
@@ -793,6 +891,9 @@ export function eventGroups(
     ).map((entry) => ({
       value: entry.value,
       canManage: roleManages || (granted(entry) && grant?.level === "manage"),
+      canManageSettings:
+        entry.settingsActions !== undefined &&
+        (roleManages || grantManagesDetails),
       label: cardTitle(entry.value, entry.label),
       keywords: [...(entry.keywords ?? [])],
     })),

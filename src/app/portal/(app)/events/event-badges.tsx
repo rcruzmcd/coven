@@ -47,10 +47,10 @@ export type EventRow = {
    */
   registration_options_prompt?: string | null;
   /**
-   * Adults only (18+) (#1417). Loaded by the event detail page, where the
-   * Planning tab edits it; absent elsewhere.
+   * The age requirement (#1417, #1782): 18, 21, or null for none. Loaded by
+   * the event detail page, where the Planning tab edits it; absent elsewhere.
    */
-  adults_only?: boolean;
+  minimum_age?: number | null;
   /**
    * The paragraph added to this event's registration confirmation email.
    * Loaded by the event detail page, where the Planning tab edits it.

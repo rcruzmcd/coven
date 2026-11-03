@@ -22,7 +22,7 @@ type Match = EventSection & { group: string };
  *
  * So the phases became headings and stopped being controls, and search runs
  * over every section at once -- with `keywords` behind it, since "budget" is on
- * a card called Registration & planning and "raffle" is on one called Giveaway.
+ * a card called Planning and "raffle" is on one called Giveaway.
  * #1571 then regrouped the headings by subject (`EVENT_GROUPS`), since most
  * cards are used across more than one phase.
  *

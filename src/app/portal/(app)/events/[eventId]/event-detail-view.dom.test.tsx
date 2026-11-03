@@ -289,8 +289,9 @@ describe("EventDetailView", () => {
 
     // The whole point of the rail (#1008): every section is readable
     // without opening anything, so finding one is not a memory test. Media
-    // joined Results in #1606, Access in #1689.
-    expect(rail().getAllByRole("button")).toHaveLength(21);
+    // joined Results in #1606, Access in #1689, Registration in #1778,
+    // Registrant emails in #1779.
+    expect(rail().getAllByRole("button")).toHaveLength(23);
     for (const heading of [
       "Overview",
       "Guests",
@@ -306,7 +307,8 @@ describe("EventDetailView", () => {
     for (const section of [
       "Event details",
       "Checklist",
-      "Registration & planning",
+      "Planning",
+      "Registration",
       "Sponsors",
       "Registrants",
       "Results",
@@ -339,8 +341,8 @@ describe("EventDetailView", () => {
     // it: Planning is still edited after the event has happened.
     fireEvent.click(railRow("Results"));
     expect(cardTitled("Results")).not.toBeNull();
-    fireEvent.click(railRow("Registration & planning"));
-    expect(cardTitled("Registration & planning")).not.toBeNull();
+    fireEvent.click(railRow("Planning"));
+    expect(cardTitled("Planning")).not.toBeNull();
   });
 
   test("searches sections by title and by keyword", () => {
@@ -350,15 +352,29 @@ describe("EventDetailView", () => {
       name: "Search this event's sections",
     });
 
-    // "budget" is on a card called Registration & planning, which is exactly
+    // "budget" is on a card called Planning, in the Overview group -- exactly
     // the lookup the phase tabs could not answer.
     fireEvent.change(search, { target: { value: "budget" } });
     const results = within(
       screen.getByRole("navigation", { name: "Search results" }),
     );
     expect(results.getAllByRole("button")).toHaveLength(1);
+    expect(results.getByRole("button", { name: /Planning/ })).toBeVisible();
+
+    // #1778. Registration settings have their own card.
+    for (const query of ["registration", "deadline", "capacity", "questions"]) {
+      fireEvent.change(search, { target: { value: query } });
+      expect(
+        within(
+          screen.getByRole("navigation", { name: "Search results" }),
+        ).getByRole("button", { name: /^Registration/ }),
+      ).toBeVisible();
+    }
+    fireEvent.change(search, { target: { value: "lead" } });
     expect(
-      results.getByRole("button", { name: /Registration & planning/ }),
+      within(
+        screen.getByRole("navigation", { name: "Search results" }),
+      ).getByRole("button", { name: /Planning/ }),
     ).toBeVisible();
 
     fireEvent.change(search, { target: { value: "raffle" } });
@@ -398,9 +414,9 @@ describe("EventDetailView", () => {
       screen.queryByRole("button", { name: "Edit" }),
     ).not.toBeInTheDocument();
 
-    fireEvent.click(railRow("Registration & planning"));
+    fireEvent.click(railRow("Planning"));
     expect(
-      screen.getByRole("button", { name: "Edit registration & planning" }),
+      screen.getByRole("button", { name: "Edit planning" }),
     ).toBeInTheDocument();
   });
 
@@ -470,9 +486,7 @@ describe("EventDetailView", () => {
       within(railRow("Checklist")).getByLabelText("2 outstanding"),
     ).toHaveAttribute("title", "Bring the folding tables, Confirm the DJ");
     expect(
-      within(railRow("Registration & planning")).getByLabelText(
-        "1 outstanding",
-      ),
+      within(railRow("Planning")).getByLabelText("1 outstanding"),
     ).toBeInTheDocument();
     expect(
       within(railRow("Results")).getByLabelText("1 outstanding"),
@@ -502,7 +516,7 @@ describe("EventDetailView", () => {
       expect(listEventRegistrantsActionMock).not.toHaveBeenCalled();
       expect(getEventImpactDerivedActionMock).not.toHaveBeenCalled();
 
-      fireEvent.click(railRow("Registration & planning"));
+      fireEvent.click(railRow("Planning"));
       expect(listEventPeopleActionMock).toHaveBeenCalledTimes(1);
       expect(listEventRegistrantsActionMock).not.toHaveBeenCalled();
     });
@@ -510,7 +524,7 @@ describe("EventDetailView", () => {
     test("keeps a read it has already made, across cards", () => {
       renderView();
 
-      fireEvent.click(railRow("Registration & planning"));
+      fireEvent.click(railRow("Planning"));
       expect(listEventPeopleActionMock).toHaveBeenCalledTimes(1);
 
       // Sponsors wants people too, and it is in the same group.

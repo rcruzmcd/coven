@@ -181,11 +181,54 @@ describe("eventGroups", () => {
 
   test("carries each card's display title, not its bare catalog label", () => {
     // The rail row and the card heading it opens have to read the same, and
-    // two of them differ from the label: "Overview" is also the group heading
-    // above it, and "Planning" alone would not say it carries registration.
+    // "Overview" is also the group heading above it.
     const shown = titles(FULL_ACCESS);
     expect(shown).toContain("Event details");
-    expect(shown).toContain("Registration & planning");
+  });
+
+  test("splits Registration out of Planning (#1778)", () => {
+    const shown = titles(FULL_ACCESS);
+    expect(shown).toContain("Planning");
+    expect(shown).toContain("Registration");
+    expect(shown).not.toContain("Registration & planning");
+
+    const entry = (value: TabValue) =>
+      TAB_CONFIG.find((candidate) => candidate.value === value)!;
+    for (const value of ["planning", "registration"] as const) {
+      expect(entry(value).group).toBe("overview");
+      expect(entry(value).kind).toBe("form");
+      expect(entry(value).area).toBe("details");
+      expect(LOCKED_ON_REPORT_SUBMIT_TABS.has(value)).toBe(true);
+    }
+    expect(entry("planning").keywords).toEqual(["budget", "lead"]);
+    for (const keyword of ["deadline", "capacity", "questions"]) {
+      expect(entry("registration").keywords).toContain(keyword);
+    }
+    // Old ?phase=planning links still open Planning.
+    expect(LEGACY_PHASE_CARDS.planning).toBe("planning");
+  });
+
+  test("moves the settings off Registration onto their cards (#1777)", () => {
+    const entry = (value: TabValue) =>
+      TAB_CONFIG.find((candidate) => candidate.value === value)!;
+    const emails = entry("registrant-emails");
+    expect(emails.group).toBe("guests");
+    expect(emails.kind).toBe("form");
+    expect(emails.area).toBe("details");
+    expect(LOCKED_ON_REPORT_SUBMIT_TABS.has("registrant-emails")).toBe(true);
+    expect(emails.keywords).toEqual(["reminder", "confirmation"]);
+    for (const keyword of ["reminder", "confirmation", "group chat"]) {
+      expect(entry("registration").keywords).not.toContain(keyword);
+    }
+    expect(entry("registrants").keywords).toContain("group chat");
+    expect(entry("discount-codes").keywords).toContain("auto-assign");
+    for (const value of [
+      "registrants",
+      "carpools",
+      "discount-codes",
+    ] as const) {
+      expect(entry(value).settingsActions).toBeDefined();
+    }
   });
 
   test("every declared keyword is lowercase and non-empty", () => {
@@ -235,6 +278,33 @@ describe("eventGroups for a guest's grant", () => {
         (section) => section.canManage,
       ),
     ).toBe(true);
+  });
+
+  test("card settings take a manage grant on details, the area of events (#1777)", () => {
+    const settingsOf = (areas: EventGrant["areas"]) =>
+      Object.fromEntries(
+        guestSections("manage", areas).map((section) => [
+          section.value,
+          section.canManageSettings,
+        ]),
+      );
+    // Manages the registrants list, but RLS does not let it write the event.
+    expect(settingsOf(["registrations"])).toMatchObject({
+      registrants: false,
+      carpools: false,
+    });
+    expect(settingsOf(["registrations", "details", "sponsors"])).toMatchObject({
+      registrants: true,
+      carpools: true,
+      "discount-codes": true,
+      // No settings dialog to show.
+      attendance: false,
+    });
+    expect(
+      guestSections("view", ["registrations", "details"]).some(
+        (section) => section.canManageSettings,
+      ),
+    ).toBe(false);
   });
 
   test("no grant and no role shows nothing", () => {
