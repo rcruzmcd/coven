@@ -12,16 +12,24 @@ const GROUPS: EventGroup[] = [
       {
         value: "overview",
         canManage: true,
+        canManageSettings: false,
         label: "Event details",
         keywords: [],
       },
       {
         value: "planning",
         canManage: true,
+        canManageSettings: false,
         label: "Planning",
         keywords: ["budget", "capacity"],
       },
-      { value: "checklist", canManage: true, label: "Checklist", keywords: [] },
+      {
+        value: "checklist",
+        canManage: true,
+        canManageSettings: false,
+        label: "Checklist",
+        keywords: [],
+      },
     ],
   },
   {
@@ -31,10 +39,17 @@ const GROUPS: EventGroup[] = [
       {
         value: "logistics",
         canManage: true,
+        canManageSettings: false,
         label: "Logistics",
         keywords: ["venue"],
       },
-      { value: "incidents", canManage: true, label: "Incidents", keywords: [] },
+      {
+        value: "incidents",
+        canManage: true,
+        canManageSettings: false,
+        label: "Incidents",
+        keywords: [],
+      },
     ],
   },
 ];

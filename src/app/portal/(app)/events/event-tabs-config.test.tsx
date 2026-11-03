@@ -208,6 +208,29 @@ describe("eventGroups", () => {
     expect(LEGACY_PHASE_CARDS.planning).toBe("planning");
   });
 
+  test("moves the settings off Registration onto their cards (#1777)", () => {
+    const entry = (value: TabValue) =>
+      TAB_CONFIG.find((candidate) => candidate.value === value)!;
+    const emails = entry("registrant-emails");
+    expect(emails.group).toBe("guests");
+    expect(emails.kind).toBe("form");
+    expect(emails.area).toBe("details");
+    expect(LOCKED_ON_REPORT_SUBMIT_TABS.has("registrant-emails")).toBe(true);
+    expect(emails.keywords).toEqual(["reminder", "confirmation"]);
+    for (const keyword of ["reminder", "confirmation", "group chat"]) {
+      expect(entry("registration").keywords).not.toContain(keyword);
+    }
+    expect(entry("registrants").keywords).toContain("group chat");
+    expect(entry("discount-codes").keywords).toContain("auto-assign");
+    for (const value of [
+      "registrants",
+      "carpools",
+      "discount-codes",
+    ] as const) {
+      expect(entry(value).settingsActions).toBeDefined();
+    }
+  });
+
   test("every declared keyword is lowercase and non-empty", () => {
     // The rail lowercases the query once and compares; a capitalised keyword
     // would simply never match.
@@ -255,6 +278,33 @@ describe("eventGroups for a guest's grant", () => {
         (section) => section.canManage,
       ),
     ).toBe(true);
+  });
+
+  test("card settings take a manage grant on details, the area of events (#1777)", () => {
+    const settingsOf = (areas: EventGrant["areas"]) =>
+      Object.fromEntries(
+        guestSections("manage", areas).map((section) => [
+          section.value,
+          section.canManageSettings,
+        ]),
+      );
+    // Manages the registrants list, but RLS does not let it write the event.
+    expect(settingsOf(["registrations"])).toMatchObject({
+      registrants: false,
+      carpools: false,
+    });
+    expect(settingsOf(["registrations", "details", "sponsors"])).toMatchObject({
+      registrants: true,
+      carpools: true,
+      "discount-codes": true,
+      // No settings dialog to show.
+      attendance: false,
+    });
+    expect(
+      guestSections("view", ["registrations", "details"]).some(
+        (section) => section.canManageSettings,
+      ),
+    ).toBe(false);
   });
 
   test("no grant and no role shows nothing", () => {
