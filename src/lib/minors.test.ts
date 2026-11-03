@@ -94,6 +94,17 @@ describe("parseMinorContacts", () => {
  * repository, so it is checked against this repository -- the same shape
  * #690's `FORM_ASKS_FOR` case takes beside the volunteer parser.
  */
+/**
+ * #1782. An event's age requirement (18, 21) and the requirement a registrant
+ * confirmed their party meets: a threshold the organization sets and a yes to
+ * it, never the registrant's own age. Named, not pattern-matched, so a new
+ * `_age` column still has to argue its way in here.
+ */
+const EVENT_AGE_REQUIREMENT_COLUMNS = new Set([
+  "minimum_age",
+  "confirmed_minimum_age",
+]);
+
 describe("the promise that no age is collected", () => {
   test("says so, in those words", () => {
     expect(MINOR_FORM_ASKS_FOR).toContain("date of birth");
@@ -115,6 +126,7 @@ describe("the promise that no age is collected", () => {
         /add column\s+([a-z_]+)|^\s{2}([a-z_]+)\s+(?:date|integer|smallint|text)\b/gim,
       )) {
         const column = match[1] ?? match[2] ?? "";
+        if (EVENT_AGE_REQUIREMENT_COLUMNS.has(column)) continue;
         if (/date_of_birth|\bdob\b|birth_date|^age$|_age$/.test(column)) {
           offenders.push(`${file}: ${column}`);
         }
