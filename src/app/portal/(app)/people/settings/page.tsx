@@ -108,15 +108,13 @@ export default async function PeopleSettingsPage() {
             </AlertDescription>
           </Alert>
         ) : (
-          <div className="flex flex-col gap-6">
-            <ProfileQuestionsEditor
-              questions={current}
-              archived={archived}
-              programs={programsResult.data ?? []}
-              usage={usage}
-            />
-            <ProfileMetricsEditor metrics={metrics} questions={all} />
-          </div>
+          <ProfileQuestionsEditor
+            questions={current}
+            archived={archived}
+            programs={programsResult.data ?? []}
+            usage={usage}
+            metrics={<ProfileMetricsEditor metrics={metrics} questions={all} />}
+          />
         )}
       </div>
     </>
