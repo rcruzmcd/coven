@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Pencil } from "lucide-react";
+import { Eye, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -256,6 +256,11 @@ export function EventDetailView(props: {
   canDelete: boolean;
   deleteBlockers: string[];
   /**
+   * The event's public page as a staff preview (#1764), null for a reader
+   * without `events: manage` or a tenant with no public site to open it on.
+   */
+  previewUrl?: string | null;
+  /**
    * The rail's groups and cards for this reader, resolved from the permission
    * map on the server (#903) rather than from the module-level constant this
    * file used to import: the map is the server's to read, and the Finance and
@@ -282,6 +287,7 @@ function EventDetailContent({
   programs,
   canDelete,
   deleteBlockers,
+  previewUrl,
   groups,
   initialCard,
   cardTasks,
@@ -297,6 +303,7 @@ function EventDetailContent({
    */
   canDelete: boolean;
   deleteBlockers: string[];
+  previewUrl?: string | null;
   groups: EventGroup[];
   initialCard: TabValue;
   cardTasks?: Partial<Record<TabValue, string[]>>;
@@ -350,13 +357,34 @@ function EventDetailContent({
             <VisibilityBadge visibility={event.visibility} />
           </div>
         </div>
-        {canDelete && (
-          <DeleteEventButton
-            eventId={event.id}
-            eventName={event.name}
-            blockers={deleteBlockers}
-          />
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {previewUrl && (
+            /* #1764. A new tab, so the portal stays where it was; what
+               registers there is a test registration. */
+            <Button
+              variant="outline"
+              nativeButton={false}
+              render={
+                <a
+                  href={previewUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                />
+              }
+            >
+              <Eye aria-hidden />
+              Preview
+              <span className="sr-only"> (opens in a new tab)</span>
+            </Button>
+          )}
+          {canDelete && (
+            <DeleteEventButton
+              eventId={event.id}
+              eventName={event.name}
+              blockers={deleteBlockers}
+            />
+          )}
+        </div>
       </div>
 
       <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,17rem)_minmax(0,1fr)]">

@@ -74,6 +74,8 @@ export async function GET(
       .select(REGISTRATION_COLUMNS)
       .eq("event_id", eventId)
       .is("cancelled_at", null)
+      // #1764. The export is of real registrants.
+      .eq("is_test", false)
       .order("created_at", { ascending: true }),
   ]);
 

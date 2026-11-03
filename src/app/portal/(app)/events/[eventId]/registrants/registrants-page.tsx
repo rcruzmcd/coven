@@ -34,6 +34,7 @@ import { RegistrantBadges } from "../../registrant-badges";
 import {
   CancelledRegistrations,
   RegistrantAnnouncementsSection,
+  TestRegistrations,
   RegistrantOverlays,
 } from "../../registrants-shared";
 import {
@@ -1082,6 +1083,13 @@ export function RegistrantsPage({
             isRowPending={isRowPending}
             groupChat={groupChat}
             onGroupChatChanged={refreshRegistrants}
+          />
+
+          <TestRegistrations
+            eventId={eventId}
+            tests={data?.tests ?? []}
+            canClear={canManage}
+            onCleared={refreshRegistrants}
           />
 
           <RegistrantAnnouncementsSection data={data} />

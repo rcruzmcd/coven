@@ -13,7 +13,10 @@ import { isRenderableImageSrc, resolveImageUrl } from "@/lib/inventory";
 import { formatDateTimeInZone } from "@/lib/time";
 import { publicGiveawayRulesPath } from "@/lib/giveaway-rules-path";
 import { getEventGiveawayRulesLink } from "@/lib/giveaway-rules-publication";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  createSupabasePreviewClient,
+  createSupabaseServerClient,
+} from "@/lib/supabase/server";
 import { getPublicSite } from "@/lib/public-site";
 import {
   loadEventPersonQuestions,
@@ -104,6 +107,7 @@ function EventDetailBody({
   registrationQuestions,
   profileQuestions,
   myProfileAnswers,
+  preview,
 }: {
   event: PublicEvent;
   viewer: EventViewer | null;
@@ -148,6 +152,8 @@ function EventDetailBody({
    * else, since the anonymous form is never pre-filled (#1409 section 3).
    */
   myProfileAnswers: RegistrationAnswers;
+  /** A staff preview (#1764): the form makes a test registration. */
+  preview: boolean;
 }) {
   const registrationWindow = checkRegistrationWindow(event);
   // Only a linked constituent can have one to find: `my_event_registration()`
@@ -269,6 +275,7 @@ function EventDetailBody({
                   registrationOptions={registrationOptions}
                   registrationQuestions={registrationQuestions}
                   profileQuestions={profileQuestions}
+                  preview={preview}
                 />
               )}
             </EventRegistrationDisclosure>
@@ -290,15 +297,29 @@ function EventDetailBody({
  * sheet gave back. A card on the listing now navigates here, and the
  * breadcrumb leads back.
  */
-export async function EventDetailContent({ event }: { event: PublicEvent }) {
+export async function EventDetailContent({
+  event,
+  preview = false,
+}: {
+  event: PublicEvent;
+  /**
+   * A staff preview (#1764). Reads go through the preview client, so the
+   * event's own options and questions come back, and the reader is treated as
+   * anonymous: a manager tests the form a visitor sees, never their own
+   * "you're registered", and never registers themselves for real.
+   */
+  preview?: boolean;
+}) {
   // Who is reading, for "you're registered" instead of a second form. Null for
   // everyone with no session at all, which is most visitors and costs them one
   // `getUser()`.
-  const viewer = await loadEventViewer(event.id);
+  const viewer = preview ? null : await loadEventViewer(event.id);
   // What the registration can offer afterwards (#1258).
   const accountOffer = await loadRegistrationAccountOffer(viewer);
   // Whether this event's promotion has published rules to point at.
-  const supabase = await createSupabaseServerClient();
+  const supabase = preview
+    ? await createSupabasePreviewClient(event.id)
+    : await createSupabaseServerClient();
   const giveawayRules = await getEventGiveawayRulesLink(supabase, event.id);
   // The participant agreement, if this organization takes one (#686). Rendered
   // here on the server and handed down as an element, so a whole legal
@@ -460,6 +481,7 @@ export async function EventDetailContent({ event }: { event: PublicEvent }) {
             registrationQuestions={registrationQuestions}
             profileQuestions={profileQuestions}
             myProfileAnswers={myProfileAnswers}
+            preview={preview}
           />
           {hasPublicEventMedia(media) && (
             <div className="mt-12">

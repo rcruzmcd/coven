@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { registerForEventAction } from "./event-registration-actions";
+import { PREVIEW_FIELD } from "./event-registration-form";
 import type { RegistrationStep } from "./registration-step";
 import { RegistrationSteps } from "./registration-steps";
 import { trackForm } from "@/lib/analytics/form-events";
@@ -101,6 +102,7 @@ export function EventRegistrationForm({
   registrationOptions = null,
   registrationQuestions = [],
   profileQuestions = [],
+  preview = false,
 }: {
   eventId: string;
   account?: EventViewerAccount | null;
@@ -186,6 +188,11 @@ export function EventRegistrationForm({
    * Empty for a tenant asking none.
    */
   profileQuestions?: RegistrationQuestion[];
+  /**
+   * A staff preview (#1764): the registration is a test one. The RPC is what
+   * decides whether the reader may make one; this only asks.
+   */
+  preview?: boolean;
 }) {
   const [name, setName] = useState(account?.name ?? "");
   const [email, setEmail] = useState(account?.email ?? "");
@@ -300,6 +307,7 @@ export function EventRegistrationForm({
     }
     formData.set("notes", notes);
     formData.set("company", company);
+    if (preview) formData.set(PREVIEW_FIELD, "1");
     if (waiver) {
       formData.set("waiverAccepted", waiverAccepted ? "on" : "");
       formData.set("waiverVersion", String(waiver.version));
