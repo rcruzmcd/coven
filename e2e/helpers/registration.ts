@@ -11,6 +11,23 @@ export function registrationForm(page: Page): Locator {
 }
 
 /**
+ * Presses Register and skips the email-first step (#1765), leaving the
+ * anonymous form as it was before that step existed. The specs that drive it
+ * are about the form, not the code, so they all start here.
+ */
+export async function openAnonymousRegistration(page: Page): Promise<Locator> {
+  await page.getByRole("button", { name: "Register", exact: true }).click();
+  return continueWithoutCode(page);
+}
+
+/** "Continue without it" on the open registration card (#1765). */
+export async function continueWithoutCode(page: Page): Promise<Locator> {
+  const form = registrationForm(page);
+  await form.getByRole("button", { name: "Continue without it" }).click();
+  return form;
+}
+
+/**
  * Answers the registration form's minors question with "no" (#685).
  *
  * The question is required on both public registration forms, so every spec
