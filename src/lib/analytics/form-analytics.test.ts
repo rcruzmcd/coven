@@ -1,5 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { formAnalyticsConfig } from "@/lib/analytics/form-analytics";
+import {
+  formAnalyticsConfig,
+  POSTHOG_PROXY_PATH,
+} from "@/lib/analytics/form-analytics";
+import vercelConfig from "../../../vercel.json";
 
 const PRODUCTION = {
   VERCEL_ENV: "production",
@@ -57,5 +61,27 @@ describe("formAnalyticsConfig", () => {
       formAnalyticsConfig({ form_analytics: false }, "demo", PRODUCTION),
     ).toBeNull();
     expect(formAnalyticsConfig({}, "demo", PRODUCTION)).toBeNull();
+  });
+});
+
+describe("the /ph rewrites in vercel.json", () => {
+  // posthog-js posts to `/e/`, `/i/v0/e/` and `/flags/`, all with a trailing
+  // slash. Vercel's `:path*` does not match that slash, so every event fell
+  // through to the 404 page and nothing reached PostHog. `:path(.*)` is the
+  // form PostHog's Vercel proxy docs give, and it does.
+  const rewrites = vercelConfig.rewrites.filter(({ source }) =>
+    source.startsWith(`${POSTHOG_PROXY_PATH}/`),
+  );
+
+  test("each one captures the rest of the path, slash included", () => {
+    expect(rewrites).toHaveLength(3);
+    for (const { source, destination } of rewrites) {
+      expect(source).toEndWith("/:path(.*)");
+      expect(destination).toEndWith("/:path");
+    }
+  });
+
+  test("the catch-all comes last", () => {
+    expect(rewrites.at(-1)?.source).toBe(`${POSTHOG_PROXY_PATH}/:path(.*)`);
   });
 });
