@@ -217,6 +217,7 @@ export function SocialPostSheet({
   canManage,
   defaults = {},
   newPostDescription = "One social post or story.",
+  onDeleted,
 }: {
   open: boolean;
   /** Kept by the caller after closing, so the closing sheet keeps its content. */
@@ -227,6 +228,11 @@ export function SocialPostSheet({
   canManage: boolean;
   defaults?: SocialPostDefaults;
   newPostDescription?: string;
+  /**
+   * Called instead of refreshing once the post is deleted, for a page that is
+   * about the post itself and so has nothing left to show (#1794).
+   */
+  onDeleted?: () => void;
 }) {
   return (
     <Sheet open={open} onOpenChange={(next) => !next && onClose()}>
@@ -242,6 +248,7 @@ export function SocialPostSheet({
             canManage={canManage}
             defaults={defaults}
             newPostDescription={newPostDescription}
+            onDeleted={onDeleted}
           />
         )}
       </SheetContent>
@@ -258,6 +265,7 @@ function SocialPostSheetBody({
   canManage,
   defaults,
   newPostDescription,
+  onDeleted,
 }: {
   piece: ContentPieceRow | null;
   initialMode: "view" | "edit";
@@ -267,6 +275,7 @@ function SocialPostSheetBody({
   canManage: boolean;
   defaults: SocialPostDefaults;
   newPostDescription: string;
+  onDeleted?: () => void;
 }) {
   const router = useRouter();
   const linkOptions = useLinkOptions();
@@ -353,7 +362,8 @@ function SocialPostSheetBody({
         onSuccess: () => {
           setConfirmDelete(false);
           onClose();
-          router.refresh();
+          if (onDeleted) onDeleted();
+          else router.refresh();
         },
       });
     });

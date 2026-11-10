@@ -896,6 +896,18 @@ begin
     now() + interval '12 days', now() - interval '1 hour', v_admin_id
   );
 
+  -- A standalone post with no publish date yet (#1792, #1794): related to
+  -- nothing, so `/portal/social` has something in its Unscheduled tray and
+  -- under the "Nothing (standalone)" filter.
+  insert into public.content_opportunities (
+    title, content, content_status, owner_id, lead_time_days, created_by
+  )
+  values (
+    'Volunteer spotlight series',
+    E'A monthly post introducing one volunteer: who they are, what they do here, and one thing they wish more people knew.',
+    'idea', v_admin_person_id, 14, v_admin_id
+  );
+
   -- Structured-recurrence calendar item (issue #191): dated to today so the
   -- coverage reminder/"generate next year" flow has something to act on
   -- immediately after a fresh `db reset`, without waiting for a real
