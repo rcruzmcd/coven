@@ -3,6 +3,7 @@
 // each post's own page, and adding only with content_calendar: manage.
 import { describe, expect, test } from "bun:test";
 import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import type { ContentPieceRow } from "@/lib/social-content/pieces";
 import type { EventRow } from "./event-badges";
 import {
@@ -56,6 +57,11 @@ function renderTab(social: Partial<EventSocialContent> = {}) {
           },
         ],
         defaultLeadTimeDays: 21,
+        planTemplate: [
+          { title: "Save the date", offset_days: -30 },
+          { title: "Reminder", offset_days: -7 },
+        ],
+        orgTimeZone: "America/New_York",
         canManage: true,
         error: false,
         ...social,
@@ -114,6 +120,22 @@ describe("SocialContentTab", () => {
     expect(
       screen.queryByRole("button", { name: "Add social post" }),
     ).not.toBeInTheDocument();
+  });
+
+  test("Generate plan previews the template and leaves out titles the event has (#1798)", async () => {
+    renderTab({ pieces: [piece()] });
+    await userEvent.click(
+      screen.getByRole("button", { name: "Generate plan" }),
+    );
+
+    const existing = screen.getByRole("checkbox", { name: /Save the date/ });
+    expect(existing).toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByText("Already planned")).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: /Reminder/ })).toBeChecked();
+    expect(
+      screen.getByText("7 days before ·", { exact: false }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add 1 post" })).toBeEnabled();
   });
 
   test("says so when the posts could not be read", () => {

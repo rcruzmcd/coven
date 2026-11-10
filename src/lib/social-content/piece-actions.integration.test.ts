@@ -29,6 +29,7 @@ const {
   deleteContentPieceAction,
   listSocialContentLinkOptionsAction,
   updateContentPieceStatusAction,
+  generateEventPlanAction,
 } = await import("./piece-actions");
 const { listEventPieces, listSocialPieces } = await import("./queries");
 const { parseSocialFilters } = await import("./social-filters");
@@ -331,5 +332,62 @@ describe("social post actions (integration)", () => {
   test("a deactivated (former) account cannot add a piece", async () => {
     currentSupabase = await signInAs(SEEDED_USERS.former);
     expect(await createContentPieceAction(pieceForm())).toEqual(DENIED);
+  });
+});
+
+describe("generateEventPlanAction (integration, #1798)", () => {
+  const ALL = [
+    "Announce",
+    "Reminder",
+    "Last call",
+    "Day-of",
+    "Recap / thank-you",
+  ];
+
+  test("creates the ticked posts once, however many times it runs", async () => {
+    const event = await createPublishedEvent({
+      startsAt: "2099-06-15T22:00:00.000Z",
+    });
+    currentSupabase = await signInAs(SEEDED_USERS.admin);
+
+    expect(
+      await generateEventPlanAction(event.id, ["Announce", "Reminder"]),
+    ).toEqual({ success: true, created: 2 });
+    expect(await generateEventPlanAction(event.id, ALL)).toEqual({
+      success: true,
+      created: 3,
+    });
+    expect(await generateEventPlanAction(event.id, ALL)).toEqual({
+      success: true,
+      created: 0,
+    });
+
+    const { pieces } = await listEventPieces(adminClient, event.id);
+    expect(pieces.map((piece) => piece.title).sort()).toEqual([...ALL].sort());
+    const reminder = pieces.find((piece) => piece.title === "Reminder")!;
+    expect(reminder.content_status).toBe("idea");
+    expect(new Date(reminder.publish_due_at!).getTime()).toBe(
+      new Date("2099-06-08T22:00:00.000Z").getTime(),
+    );
+    expect(reminder.review_due_at).not.toBeNull();
+    expect(reminder.draft_due_at).not.toBeNull();
+    expect(revalidatePathMock).toHaveBeenCalledWith(
+      `/portal/events/${event.id}`,
+    );
+
+    await adminClient
+      .from("content_opportunities")
+      .delete()
+      .eq("event_id", event.id);
+    await event.cleanup();
+  });
+
+  test("view-only roles cannot generate a plan", async () => {
+    const event = await createPublishedEvent();
+    currentSupabase = await signInAs(SEEDED_USERS.volunteer);
+    expect(await generateEventPlanAction(event.id, ["Announce"])).toEqual(
+      DENIED,
+    );
+    await event.cleanup();
   });
 });

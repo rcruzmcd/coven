@@ -7,6 +7,9 @@ import { CONTENT_STATUSES } from "./pieces";
 import { checkPermission } from "@/lib/auth/permissions";
 import { checkUser } from "@/lib/auth/current-user";
 import { fetchAllPages } from "@/lib/supabase/fetch-all-pages";
+import { getOrgTimeZone } from "@/lib/org-timezone";
+import { planEventPosts, planTitleKey } from "./event-plan";
+import { getDefaultLeadTimeDays, getEventPlanTemplate } from "./queries";
 
 export type ContentPieceActionResult =
   { error: string } | { success: true; warning?: string };
@@ -232,6 +235,87 @@ export async function deleteContentPieceAction(
 
   revalidatePiecePaths((deleted ?? []).map((row) => row.event_id));
   return { success: true };
+}
+
+/**
+ * Creates the chosen posts of an event's starter plan (#1798). The plan is
+ * worked out again here from the event, the tenant's template, time zone and
+ * lead time, rather than taken from the preview, and a title the event already
+ * has a post with is skipped -- so running it twice creates each post once.
+ * `titles` is what the preview left ticked.
+ */
+export async function generateEventPlanAction(
+  eventId: string,
+  titles: string[],
+): Promise<{ error: string } | { success: true; created: number }> {
+  const supabase = await createSupabaseServerClient();
+  const userResult = await checkUser(
+    supabase,
+    "You must be signed in to add social posts.",
+  );
+  if ("error" in userResult) return userResult;
+  const { user } = userResult;
+  const permissionError = await checkPermission(
+    supabase,
+    "content_calendar",
+    "manage",
+  );
+  if (permissionError) return permissionError;
+
+  const { data: event } = await supabase
+    .from("events")
+    .select("id, starts_at")
+    .eq("id", eventId)
+    .maybeSingle();
+  if (!event) return { error: "Could not find the event." };
+  if (!event.starts_at) {
+    return { error: "Set the event's start date before generating a plan." };
+  }
+
+  const [template, timeZone, leadTimeDays, existing] = await Promise.all([
+    getEventPlanTemplate(supabase),
+    getOrgTimeZone(supabase),
+    getDefaultLeadTimeDays(supabase),
+    supabase
+      .from("content_opportunities")
+      .select("title")
+      .eq("event_id", eventId),
+  ]);
+  if (existing.error) {
+    return { error: "Could not add the social posts. Please try again." };
+  }
+
+  const chosen = new Set(titles.map(planTitleKey));
+  const now = new Date().toISOString();
+  const rows = planEventPosts({
+    template,
+    startsAt: event.starts_at,
+    timeZone,
+    leadTimeDays,
+    existingTitles: (existing.data ?? []).map((row) => row.title),
+  })
+    .filter((post) => !post.exists && chosen.has(planTitleKey(post.title)))
+    .map((post) => ({
+      event_id: eventId,
+      title: post.title,
+      content_status: "idea",
+      lead_time_days: leadTimeDays,
+      publish_due_at: post.publishDueAt,
+      review_due_at: post.reviewDueAt,
+      draft_due_at: post.draftDueAt,
+      status_changed_by: user.id,
+      status_changed_at: now,
+    }));
+
+  if (rows.length > 0) {
+    const { error } = await supabase.from("content_opportunities").insert(rows);
+    if (error) {
+      return { error: "Could not add the social posts. Please try again." };
+    }
+  }
+
+  revalidatePiecePaths([eventId]);
+  return { success: true, created: rows.length };
 }
 
 /**

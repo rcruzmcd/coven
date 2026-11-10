@@ -26,6 +26,8 @@ import { ViewerTime } from "@/components/viewer-time";
 import { addDays } from "@/lib/time";
 import { ownerName, type CalendarOwner } from "../calendar/calendar-shared";
 import type { EventRow } from "./event-badges";
+import type { EventPlanTemplateEntry } from "@/lib/social-content/event-plan";
+import { GenerateEventPlanDialog } from "./generate-event-plan-dialog";
 
 /**
  * What the Social content section shows (#1795), read on the server beside the
@@ -36,6 +38,10 @@ export type EventSocialContent = {
   pieces: ContentPieceRow[];
   owners: CalendarOwner[];
   defaultLeadTimeDays: number;
+  /** The tenant's starter plan (#1798); empty for a reader who cannot manage. */
+  planTemplate: EventPlanTemplateEntry[];
+  /** The tenant's `org.timezone`, which the plan's day offsets count in. */
+  orgTimeZone: string;
   /** `content_calendar: manage`, not `events: manage`: the posts are the calendar's rows. */
   canManage: boolean;
   error: boolean;
@@ -89,14 +95,24 @@ export function SocialContentTab({ event }: { event: EventRow }) {
   }
 
   const addButton = canManage ? (
-    <Button
-      type="button"
-      variant="secondary"
-      size="sm"
-      onClick={() => openSheet(null, "edit")}
-    >
-      <Plus /> Add social post
-    </Button>
+    <div className="flex flex-wrap gap-2">
+      <Button
+        type="button"
+        variant="secondary"
+        size="sm"
+        onClick={() => openSheet(null, "edit")}
+      >
+        <Plus /> Add social post
+      </Button>
+      <GenerateEventPlanDialog
+        eventId={event.id}
+        startsAt={event.starts_at}
+        template={social.planTemplate}
+        timeZone={social.orgTimeZone}
+        leadTimeDays={social.defaultLeadTimeDays}
+        existingTitles={pieces.map((piece) => piece.title)}
+      />
+    </div>
   ) : undefined;
 
   return (
@@ -114,7 +130,7 @@ export function SocialContentTab({ event }: { event: EventRow }) {
         />
       ) : (
         <>
-          {addButton && <div>{addButton}</div>}
+          {addButton}
           <PieceList
             pieces={scheduled}
             owners={owners}
