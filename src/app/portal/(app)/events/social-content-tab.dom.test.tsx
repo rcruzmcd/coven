@@ -16,6 +16,7 @@ const event = {
   id: "event-1",
   name: "Winter Gear Swap",
   starts_at: "2026-09-01T14:00:00.000Z",
+  timezone: "America/New_York",
 } as EventRow;
 
 function piece(overrides: Partial<ContentPieceRow> = {}): ContentPieceRow {
@@ -95,6 +96,14 @@ describe("SocialContentTab", () => {
       pieces: [piece({ publish_due_at: "2020-01-01T00:00:00.000Z" })],
     });
     expect(screen.getByText("Publish overdue")).toBeInTheDocument();
+  });
+
+  test("renders deadlines as instants in the event's zone until the viewer's is known", () => {
+    renderTab({ pieces: [piece()] });
+    const publish = document.querySelector(
+      'time[datetime="2099-08-25T14:00:00.000Z"]',
+    );
+    expect(publish).not.toBeNull();
   });
 
   test("offers adding only with content_calendar: manage", () => {

@@ -22,7 +22,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { formatDateTime } from "@/lib/format";
+import { ViewerTime } from "@/components/viewer-time";
 import { addDays } from "@/lib/time";
 import { ownerName, type CalendarOwner } from "../calendar/calendar-shared";
 import type { EventRow } from "./event-badges";
@@ -118,6 +118,7 @@ export function SocialContentTab({ event }: { event: EventRow }) {
           <PieceList
             pieces={scheduled}
             owners={owners}
+            timeZone={event.timezone}
             onView={(piece) => openSheet(piece, "view")}
           />
           <section className="flex flex-col gap-2">
@@ -135,6 +136,7 @@ export function SocialContentTab({ event }: { event: EventRow }) {
               <PieceList
                 pieces={unscheduled}
                 owners={owners}
+                timeZone={event.timezone}
                 onView={(piece) => openSheet(piece, "view")}
               />
             )}
@@ -162,10 +164,13 @@ export function SocialContentTab({ event }: { event: EventRow }) {
 function PieceList({
   pieces,
   owners,
+  timeZone,
   onView,
 }: {
   pieces: ContentPieceRow[];
   owners: CalendarOwner[];
+  /** What the dates render in on the server: the event's own zone (#1057). */
+  timeZone: string;
   onView: (piece: ContentPieceRow) => void;
 }) {
   if (pieces.length === 0) return null;
@@ -201,9 +206,21 @@ function PieceList({
                 </span>
               </div>
               <dl className="app-muted flex flex-wrap gap-x-3 text-xs">
-                <DueDate label="Draft" iso={piece.draft_due_at} />
-                <DueDate label="Review" iso={piece.review_due_at} />
-                <DueDate label="Publish" iso={piece.publish_due_at} />
+                <DueDate
+                  label="Draft"
+                  iso={piece.draft_due_at}
+                  timeZone={timeZone}
+                />
+                <DueDate
+                  label="Review"
+                  iso={piece.review_due_at}
+                  timeZone={timeZone}
+                />
+                <DueDate
+                  label="Publish"
+                  iso={piece.publish_due_at}
+                  timeZone={timeZone}
+                />
               </dl>
             </div>
             <Tooltip>
@@ -229,12 +246,22 @@ function PieceList({
   );
 }
 
-function DueDate({ label, iso }: { label: string; iso: string | null }) {
+function DueDate({
+  label,
+  iso,
+  timeZone,
+}: {
+  label: string;
+  iso: string | null;
+  timeZone: string;
+}) {
   if (!iso) return null;
   return (
     <div className="flex gap-1">
       <dt>{label}</dt>
-      <dd>{formatDateTime(iso)}</dd>
+      <dd>
+        <ViewerTime iso={iso} fallbackZone={timeZone} />
+      </dd>
     </div>
   );
 }
