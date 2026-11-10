@@ -33,6 +33,7 @@ const FULL_ACCESS: PermissionMap = Object.fromEntries(
     "inventory",
     "inventory_reports",
     "person_answers",
+    "content_calendar",
   ].map((resource) => [resource, "manage" as PermissionLevel]),
 );
 
@@ -86,6 +87,30 @@ describe("eventGroups", () => {
         { hasSnapshotQuestion: true },
       ),
     ).not.toContain("answers");
+  });
+
+  test("Social content is listed under Overview with content_calendar:view, and never on a grant (#1795)", () => {
+    const overview = eventGroups(FULL_ACCESS).find(
+      (group) => group.key === "overview",
+    );
+    expect(overview?.tabs.map((tab) => tab.value)).toContain("social");
+    expect(cards({ events: "view", content_calendar: "view" })).toContain(
+      "social",
+    );
+    expect(cards(without("content_calendar"))).not.toContain("social");
+    expect(
+      eventGroups(
+        {},
+        {},
+        {
+          event_id: "event-1",
+          level: "manage",
+          areas: [...EVENT_ACCESS_AREAS],
+        },
+      )
+        .flatMap((group) => group.tabs)
+        .map((tab) => tab.value),
+    ).not.toContain("social");
   });
 
   test("an admin holding everything gets every card in the catalog", () => {

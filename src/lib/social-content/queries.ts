@@ -83,3 +83,42 @@ export async function getSocialPiece(
   if (error && error.code !== "22P02") return { piece: null, error: true };
   return { piece: (data as unknown as SocialPieceRow) ?? null, error: false };
 }
+
+/**
+ * The posts related to one event, for its Social content section (#1795):
+ * scheduled ones by publish date, then the unscheduled. An error is said out
+ * loud for the same reason as `listSocialPieces`.
+ */
+export async function listEventPieces(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<{ pieces: ContentPieceRow[]; error: boolean }> {
+  // Paged past the response cap, so the undated posts sorted last and any
+  // overdue ones still reach the section and its badge.
+  let failed = false;
+  const pieces = await fetchAllPages(async (from, to) => {
+    const result = await supabase
+      .from("content_opportunities")
+      .select(PIECE_COLUMNS)
+      .eq("event_id", eventId)
+      .order("publish_due_at", { ascending: true, nullsFirst: false })
+      .order("id", { ascending: true })
+      .range(from, to);
+    if (result.error) failed = true;
+    return result;
+  });
+  if (failed) return { pieces: [], error: true };
+  return { pieces: pieces as ContentPieceRow[], error: false };
+}
+
+/** The tenant's default lead time for a new post, in days. */
+export async function getDefaultLeadTimeDays(
+  supabase: SupabaseClient,
+): Promise<number> {
+  const { data } = await supabase
+    .from("app_settings")
+    .select("value")
+    .eq("key", "content.default_lead_time_days")
+    .maybeSingle();
+  return typeof data?.value === "number" ? data.value : 21;
+}

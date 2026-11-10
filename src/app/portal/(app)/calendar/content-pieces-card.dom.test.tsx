@@ -64,6 +64,10 @@ describe("ContentPiecesCard", () => {
     expect(
       screen.getByRole("button", { name: "View Instagram carousel" }),
     ).toBeInTheDocument();
+    // Each post links to its own page (#1796).
+    expect(
+      screen.getByRole("link", { name: "Instagram carousel" }),
+    ).toHaveAttribute("href", "/portal/social/piece-1");
   });
 
   test("offers to add a piece when the item has none", () => {

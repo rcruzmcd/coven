@@ -394,7 +394,8 @@ export const helpContent: Record<string, HelpEntry> = {
               item usually produces several posts or stories. Each social post
               is added on the item&apos;s Social content card and moves through
               its own draft/review/publish stages. A post can also be related to
-              an event, or to nothing, and its publish date is optional; once it
+              an event, and planned from that event&apos;s own Social content
+              section, or to nothing, and its publish date is optional; once it
               has one, its draft and review dates can be set from its lead time.
             </li>
           </ol>

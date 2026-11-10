@@ -30,6 +30,8 @@ const {
   listSocialContentLinkOptionsAction,
   updateContentPieceStatusAction,
 } = await import("./piece-actions");
+const { listEventPieces, listSocialPieces } = await import("./queries");
+const { parseSocialFilters } = await import("./social-filters");
 
 afterEach(() => {
   revalidatePathMock.mockClear();
@@ -170,6 +172,38 @@ describe("social post actions (integration)", () => {
       success: true,
     });
     await item.cleanup();
+    await event.cleanup();
+  });
+
+  test("a post added from an event's Social content section is the event's and /portal/social's (#1795)", async () => {
+    const event = await createPublishedEvent();
+    currentSupabase = await signInAs(SEEDED_USERS.admin);
+    const title = `Event section ${crypto.randomUUID()}`;
+
+    // As the section submits it: related to the event it is on.
+    expect(
+      await createContentPieceAction(pieceForm({ title, eventId: event.id })),
+    ).toEqual({ success: true });
+
+    const forEvent = await listEventPieces(currentSupabase, event.id);
+    expect(forEvent.error).toBe(false);
+    const created = forEvent.pieces.find((piece) => piece.title === title);
+    expect(created).toMatchObject({ event_id: event.id });
+
+    // The same row on /portal/social, under its event filter and unfiltered.
+    for (const params of [{ event: event.id }, {}]) {
+      const social = await listSocialPieces(
+        currentSupabase,
+        parseSocialFilters(params),
+      );
+      expect(social.error).toBe(false);
+      const row = social.pieces.find((piece) => piece.id === created!.id);
+      expect(row?.event).toMatchObject({ id: event.id, name: event.name });
+    }
+
+    expect(await deleteContentPieceAction(created!.id)).toEqual({
+      success: true,
+    });
     await event.cleanup();
   });
 
