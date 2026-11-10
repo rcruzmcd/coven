@@ -42,7 +42,10 @@ function piece(overrides: Partial<ContentPieceRow> = {}): ContentPieceRow {
   };
 }
 
-function renderTab(social: Partial<EventSocialContent> = {}) {
+function renderTab(
+  social: Partial<EventSocialContent> = {},
+  eventRow: EventRow = event,
+) {
   return render(
     <EventSocialContentProvider
       value={{
@@ -67,7 +70,7 @@ function renderTab(social: Partial<EventSocialContent> = {}) {
         ...social,
       }}
     >
-      <SocialContentTab event={event} />
+      <SocialContentTab event={eventRow} />
     </EventSocialContentProvider>,
   );
 }
@@ -136,6 +139,32 @@ describe("SocialContentTab", () => {
       screen.getByText("7 days before ·", { exact: false }),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Add 1 post" })).toBeEnabled();
+  });
+
+  test("a cancelled event lists its open posts with Skip all (#1799)", () => {
+    renderTab(
+      {
+        pieces: [
+          piece(),
+          piece({ id: "p2", title: "Recap", content_status: "published" }),
+        ],
+      },
+      { ...event, status: "cancelled" },
+    );
+    const banner = screen.getByRole("alert");
+    expect(
+      within(banner).getByText(/1 social post is still open/),
+    ).toBeInTheDocument();
+    expect(within(banner).getByText("Save the date")).toBeInTheDocument();
+    expect(within(banner).queryByText("Recap")).not.toBeInTheDocument();
+    expect(
+      within(banner).getByRole("button", { name: "Skip all" }),
+    ).toBeInTheDocument();
+  });
+
+  test("no cancelled banner while the event is on", () => {
+    renderTab({ pieces: [piece()] }, { ...event, status: "published" });
+    expect(screen.queryByRole("button", { name: "Skip all" })).toBeNull();
   });
 
   test("says so when the posts could not be read", () => {

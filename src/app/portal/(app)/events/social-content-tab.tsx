@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Eye, Plus } from "lucide-react";
 import {
   OVERDUE_STAGE_LABELS,
+  isOpenPiece,
   overdueStage,
   type ContentPieceRow,
 } from "@/lib/social-content/pieces";
@@ -28,6 +29,7 @@ import { ownerName, type CalendarOwner } from "../calendar/calendar-shared";
 import type { EventRow } from "./event-badges";
 import type { EventPlanTemplateEntry } from "@/lib/social-content/event-plan";
 import { GenerateEventPlanDialog } from "./generate-event-plan-dialog";
+import { CancelledEventPostsBanner } from "./cancelled-event-posts-banner";
 
 /**
  * What the Social content section shows (#1795), read on the server beside the
@@ -52,6 +54,22 @@ const EventSocialContentContext = createContext<EventSocialContent | null>(
 );
 
 export const EventSocialContentProvider = EventSocialContentContext.Provider;
+
+/** The event's social posts, or null outside the event page or without access. */
+export function useEventSocialContent() {
+  return useContext(EventSocialContentContext);
+}
+
+/**
+ * The posts that follow the event when its start moves (#1799): dated, and
+ * neither published nor skipped. Only a manager may move them.
+ */
+export function movableEventPieces(social: EventSocialContent | null) {
+  if (!social?.canManage) return [];
+  return social.pieces.filter(
+    (piece) => piece.publish_due_at !== null && isOpenPiece(piece),
+  );
+}
 
 /**
  * How long before the event a new post is suggested to go out: an event's
@@ -115,8 +133,17 @@ export function SocialContentTab({ event }: { event: EventRow }) {
     </div>
   ) : undefined;
 
+  const openPieces = pieces.filter(isOpenPiece);
+
   return (
     <div className="flex flex-col gap-4">
+      {event.status === "cancelled" && openPieces.length > 0 && (
+        <CancelledEventPostsBanner
+          eventId={event.id}
+          pieces={openPieces}
+          canManage={canManage}
+        />
+      )}
       {pieces.length === 0 ? (
         <EmptyState
           className="py-4"

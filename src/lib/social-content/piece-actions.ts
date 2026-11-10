@@ -318,6 +318,98 @@ export async function generateEventPlanAction(
   return { success: true, created: rows.length };
 }
 
+/** What a reason "Skip all" on a cancelled event's posts records (#1799). */
+const EVENT_CANCELLED_SKIP_REASON = "Event cancelled";
+
+/**
+ * Moves an event's open posts by however far its start moved (#1799): the
+ * publish, review and draft dates of every dated post not yet published or
+ * skipped, in one statement (`shift_event_social_posts`).
+ */
+export async function shiftEventPostsAction(
+  eventId: string,
+  shiftMs: number,
+): Promise<{ error: string } | { success: true; moved: number }> {
+  const supabase = await createSupabaseServerClient();
+  const userResult = await checkUser(
+    supabase,
+    "You must be signed in to move social posts.",
+  );
+  if ("error" in userResult) return userResult;
+  const permissionError = await checkPermission(
+    supabase,
+    "content_calendar",
+    "manage",
+  );
+  if (permissionError) return permissionError;
+
+  const shiftSeconds = Math.round(shiftMs / 1000);
+  if (!Number.isFinite(shiftSeconds) || shiftSeconds === 0) {
+    return { success: true, moved: 0 };
+  }
+
+  const { data, error } = await supabase.rpc("shift_event_social_posts", {
+    p_event_id: eventId,
+    p_shift_seconds: shiftSeconds,
+  });
+  if (error) {
+    return { error: "Could not move the social posts. Please try again." };
+  }
+
+  revalidatePiecePaths([eventId]);
+  return { success: true, moved: data ?? 0 };
+}
+
+/**
+ * Skips every post of a cancelled event still open (#1799), recording why.
+ * Published posts, and posts already skipped, keep what they have.
+ */
+export async function skipEventPostsAction(
+  eventId: string,
+): Promise<{ error: string } | { success: true; skipped: number }> {
+  const supabase = await createSupabaseServerClient();
+  const userResult = await checkUser(
+    supabase,
+    "You must be signed in to update social posts.",
+  );
+  if ("error" in userResult) return userResult;
+  const { user } = userResult;
+  const permissionError = await checkPermission(
+    supabase,
+    "content_calendar",
+    "manage",
+  );
+  if (permissionError) return permissionError;
+
+  const { data: event } = await supabase
+    .from("events")
+    .select("status")
+    .eq("id", eventId)
+    .maybeSingle();
+  if (!event) return { error: "Could not find the event." };
+  if (event.status !== "cancelled") {
+    return { error: "Only a cancelled event's posts can be skipped together." };
+  }
+
+  const { data, error } = await supabase
+    .from("content_opportunities")
+    .update({
+      content_status: "skipped",
+      skip_reason: EVENT_CANCELLED_SKIP_REASON,
+      status_changed_by: user.id,
+      status_changed_at: new Date().toISOString(),
+    })
+    .eq("event_id", eventId)
+    .not("content_status", "in", "(published,skipped)")
+    .select("id");
+  if (error) {
+    return { error: "Could not skip the social posts. Please try again." };
+  }
+
+  revalidatePiecePaths([eventId]);
+  return { success: true, skipped: data?.length ?? 0 };
+}
+
 /**
  * The events and community dates the Related to picker offers, newest first.
  *

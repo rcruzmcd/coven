@@ -14319,6 +14319,10 @@ export type Database = {
       show_limit: { Args: never; Returns: number };
       show_trgm: { Args: { "": string }; Returns: string[] };
       site_content_approver_count: { Args: never; Returns: number };
+      shift_event_social_posts: {
+        Args: { p_event_id: string; p_shift_seconds: number };
+        Returns: number;
+      };
       stamp_event_reminder: {
         Args: { p_registration_id: string };
         Returns: boolean;
