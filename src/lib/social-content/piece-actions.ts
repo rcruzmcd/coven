@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { parseContentPieceForm, type ContentPieceFormData } from "./piece-form";
+import { CONTENT_STATUSES } from "./pieces";
 import { checkPermission } from "@/lib/auth/permissions";
 import { checkUser } from "@/lib/auth/current-user";
 import { fetchAllPages } from "@/lib/supabase/fetch-all-pages";
@@ -23,13 +24,14 @@ export type SocialContentLinkOptions = {
 };
 
 /**
- * Every page a piece shows on: the calendar, its own route, and the event it
- * is related to. The calendar item's detail page reads under `/portal/calendar`
- * and refreshes with `router.refresh()` like it always has.
+ * Every page a piece shows on: the calendar, `/portal/social` and each post's
+ * own page under it (hence `layout`), and the event it is related to. The
+ * calendar item's detail page reads under `/portal/calendar` and refreshes
+ * with `router.refresh()` like it always has.
  */
 function revalidatePiecePaths(eventIds: (string | null | undefined)[]) {
   revalidatePath("/portal/calendar");
-  revalidatePath("/portal/social");
+  revalidatePath("/portal/social", "layout");
   for (const eventId of new Set(eventIds)) {
     if (eventId) revalidatePath(`/portal/events/${eventId}`);
   }
@@ -145,6 +147,60 @@ export async function updateContentPieceAction(
 
   // The event it was related to loses it as well as the one it moves to.
   revalidatePiecePaths([current.event_id, data.eventId]);
+  return { success: true };
+}
+
+/**
+ * Moves a post to another status without touching anything else, for the
+ * status control on `/portal/social/[pieceId]` (#1794). Skipping still needs a
+ * reason, the same rule the full form applies.
+ */
+export async function updateContentPieceStatusAction(
+  id: string,
+  contentStatus: string,
+  skipReason: string | null = null,
+): Promise<ContentPieceActionResult> {
+  const supabase = await createSupabaseServerClient();
+  const userResult = await checkUser(
+    supabase,
+    "You must be signed in to update a social post.",
+  );
+  if ("error" in userResult) return userResult;
+  const { user } = userResult;
+  const permissionError = await checkPermission(
+    supabase,
+    "content_calendar",
+    "manage",
+  );
+  if (permissionError) return permissionError;
+
+  if (!CONTENT_STATUSES.some((option) => option.value === contentStatus)) {
+    return { error: "Select a valid content status." };
+  }
+  const reason = skipReason?.trim() || null;
+  if (contentStatus === "skipped" && !reason) {
+    return { error: "A reason is required when content is skipped." };
+  }
+
+  const { data: updated, error } = await supabase
+    .from("content_opportunities")
+    .update({
+      content_status: contentStatus,
+      skip_reason: contentStatus === "skipped" ? reason : null,
+      status_changed_by: user.id,
+      status_changed_at: new Date().toISOString(),
+    })
+    .eq("id", id)
+    .select("event_id");
+
+  if (error) {
+    return { error: "Could not update the social post. Please try again." };
+  }
+  if (!updated || updated.length === 0) {
+    return { error: "Could not find the social post to update." };
+  }
+
+  revalidatePiecePaths(updated.map((row) => row.event_id));
   return { success: true };
 }
 

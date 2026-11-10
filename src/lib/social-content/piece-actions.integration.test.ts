@@ -28,6 +28,7 @@ const {
   updateContentPieceAction,
   deleteContentPieceAction,
   listSocialContentLinkOptionsAction,
+  updateContentPieceStatusAction,
 } = await import("./piece-actions");
 
 afterEach(() => {
@@ -169,6 +170,59 @@ describe("social post actions (integration)", () => {
       success: true,
     });
     await item.cleanup();
+    await event.cleanup();
+  });
+
+  test("moves only the status, and asks for a reason to skip (#1794)", async () => {
+    const event = await createPublishedEvent();
+    currentSupabase = await signInAs(SEEDED_USERS.admin);
+    expect(
+      await createContentPieceAction(
+        pieceForm({ eventId: event.id, internalNotes: "keep me" }),
+      ),
+    ).toEqual({ success: true });
+    const { data: created } = await adminClient
+      .from("content_opportunities")
+      .select("id")
+      .eq("event_id", event.id)
+      .single();
+
+    expect(
+      await updateContentPieceStatusAction(created!.id, "skipped"),
+    ).toEqual({ error: "A reason is required when content is skipped." });
+    expect(await updateContentPieceStatusAction(created!.id, "bogus")).toEqual({
+      error: "Select a valid content status.",
+    });
+    expect(
+      await updateContentPieceStatusAction(created!.id, "in_review"),
+    ).toEqual({ success: true });
+    expect(revalidatePathMock).toHaveBeenCalledWith(
+      `/portal/events/${event.id}`,
+    );
+
+    const { data: row } = await adminClient
+      .from("content_opportunities")
+      .select("content_status, internal_notes, event_id, status_changed_at")
+      .eq("id", created!.id)
+      .single();
+    expect(row).toMatchObject({
+      content_status: "in_review",
+      internal_notes: "keep me",
+      event_id: event.id,
+    });
+    expect(row!.status_changed_at).not.toBeNull();
+
+    // View-only cannot move it; an unknown id is reported, not silently ok.
+    currentSupabase = await signInAs(SEEDED_USERS.finance);
+    expect(
+      await updateContentPieceStatusAction(created!.id, "approved"),
+    ).toEqual(DENIED);
+    currentSupabase = await signInAs(SEEDED_USERS.admin);
+    expect(
+      await updateContentPieceStatusAction(crypto.randomUUID(), "approved"),
+    ).toEqual({ error: "Could not find the social post to update." });
+
+    await deleteContentPieceAction(created!.id);
     await event.cleanup();
   });
 
