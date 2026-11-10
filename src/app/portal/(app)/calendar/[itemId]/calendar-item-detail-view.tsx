@@ -293,9 +293,10 @@ export function CalendarItemDetailView({
           <AlertDialogHeader>
             <AlertDialogTitle>Delete this calendar item?</AlertDialogTitle>
             <AlertDialogDescription>
-              This permanently deletes &ldquo;{item.title}&rdquo; along with
-              every content piece planned for it. This can&apos;t be undone — to
-              keep it out of active views without losing it, archive it instead.
+              This permanently deletes &ldquo;{item.title}&rdquo;. Its social
+              posts are kept, no longer related to it. This can&apos;t be undone
+              — to keep it out of active views without losing it, archive it
+              instead.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

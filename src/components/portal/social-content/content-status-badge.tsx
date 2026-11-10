@@ -3,7 +3,7 @@ import {
   CONTENT_STATUSES,
   summaryContentStatus,
   type ContentPieceRow,
-} from "./content-opportunity-shared";
+} from "@/lib/social-content/pieces";
 
 const CONTENT_STATUS_STYLES: Record<string, StatusTone> = {
   not_planned: "neutral",
@@ -44,7 +44,7 @@ export function ContentPiecesBadge({
     <span className="inline-flex items-center gap-1">
       <ContentStatusBadge status={status} />
       {pieces.length > 1 && (
-        <span className="app-muted text-xs">{pieces.length} pieces</span>
+        <span className="app-muted text-xs">{pieces.length} posts</span>
       )}
     </span>
   );

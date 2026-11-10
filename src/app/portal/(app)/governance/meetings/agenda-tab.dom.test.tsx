@@ -609,7 +609,7 @@ describe("AgendaTab calendar and partnerships feeds", () => {
 
     // Two pieces, summarised by the least-advanced one still needing work.
     expect(within(marketingTable).getByText("Idea")).toBeDefined();
-    expect(within(marketingTable).getByText("2 pieces")).toBeDefined();
+    expect(within(marketingTable).getByText("2 posts")).toBeDefined();
     // Past its publish date with nothing published: the row the board acts on.
     expect(within(marketingTable).getByText(/^Overdue/)).toBeDefined();
     // Owner and tier share the line under the title rather than taking two

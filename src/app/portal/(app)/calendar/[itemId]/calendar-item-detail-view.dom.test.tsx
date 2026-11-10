@@ -63,7 +63,7 @@ describe("CalendarItemDetailView", () => {
       "Schedule & details",
       "Planning & decision",
       "Sensitive topic",
-      "Content",
+      "Social content",
     ]) {
       expect(screen.getByText(label)).toBeInTheDocument();
     }

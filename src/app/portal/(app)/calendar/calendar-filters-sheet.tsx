@@ -33,7 +33,7 @@ import {
   ownerName,
 } from "./calendar-shared";
 import type { CalendarCategory } from "./calendar-shared";
-import { CONTENT_STATUSES } from "./content-opportunity-shared";
+import { CONTENT_STATUSES } from "@/lib/social-content/pieces";
 import { personDisplayName } from "@/lib/format";
 import type { CalendarView } from "./view-toggle";
 import type { ListSortColumn } from "./list-view";
@@ -480,7 +480,7 @@ export function CalendarFiltersSheet({
               </SelectContent>
             </Select>
             <p className="app-muted text-xs">
-              Items with at least one content piece at this status.
+              Items with at least one social post at this status.
             </p>
           </div>
         </div>

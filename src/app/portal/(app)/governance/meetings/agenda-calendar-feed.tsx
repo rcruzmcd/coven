@@ -38,7 +38,7 @@ import {
   PRIORITY_TIERS,
   labelFor,
 } from "../../calendar/calendar-shared";
-import { ContentPiecesBadge } from "../../calendar/content-opportunity-badges";
+import { ContentPiecesBadge } from "@/components/portal/social-content/content-status-badge";
 import type {
   AgendaCalendarFeed as AgendaCalendarFeedData,
   AgendaCalendarItem,

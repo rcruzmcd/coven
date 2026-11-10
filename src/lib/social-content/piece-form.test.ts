@@ -1,10 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { parseContentPieceForm } from "./content-opportunity-form";
-import {
-  leadTimeSchedule,
-  nextDueAt,
-  summaryContentStatus,
-} from "./content-opportunity-shared";
+import { parseContentPieceForm } from "./piece-form";
+import { leadTimeSchedule, nextDueAt, summaryContentStatus } from "./pieces";
 
 function formData(fields: Record<string, string>) {
   const fd = new FormData();
@@ -35,7 +31,7 @@ describe("parseContentPieceForm", () => {
   test("requires a title", () => {
     expect(
       parseContentPieceForm(formData({ ...validFields, title: "   " })),
-    ).toEqual({ error: "Give this piece a title." });
+    ).toEqual({ error: "Give this post a title." });
   });
 
   test("requires a valid content status", () => {
@@ -140,6 +136,45 @@ describe("parseContentPieceForm", () => {
       }),
     );
     expect("data" in result && result.data.publishDueAt).toBeNull();
+  });
+});
+
+describe("parseContentPieceForm: Related to (#1793)", () => {
+  const ITEM = "11111111-1111-4111-8111-111111111111";
+  const EVENT = "22222222-2222-4222-8222-222222222222";
+
+  test("relates a piece to nothing by default", () => {
+    const result = parseContentPieceForm(formData(validFields));
+    expect("data" in result && result.data.calendarItemId).toBeNull();
+    expect("data" in result && result.data.eventId).toBeNull();
+  });
+
+  test("relates a piece to a community date, an event, or both", () => {
+    const both = parseContentPieceForm(
+      formData({ ...validFields, calendarItemId: ITEM, eventId: EVENT }),
+    );
+    expect("data" in both && both.data.calendarItemId).toBe(ITEM);
+    expect("data" in both && both.data.eventId).toBe(EVENT);
+
+    const eventOnly = parseContentPieceForm(
+      formData({ ...validFields, eventId: EVENT }),
+    );
+    expect("data" in eventOnly && eventOnly.data.calendarItemId).toBeNull();
+    expect("data" in eventOnly && eventOnly.data.eventId).toBe(EVENT);
+  });
+
+  test("refuses a malformed link", () => {
+    expect(
+      parseContentPieceForm(formData({ ...validFields, eventId: "nope" })),
+    ).toEqual({ error: "Select a valid event.", field: "eventId" });
+    expect(
+      parseContentPieceForm(
+        formData({ ...validFields, calendarItemId: "nope" }),
+      ),
+    ).toEqual({
+      error: "Select a valid community date.",
+      field: "calendarItemId",
+    });
   });
 });
 
