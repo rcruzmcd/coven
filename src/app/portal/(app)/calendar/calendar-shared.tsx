@@ -1,6 +1,6 @@
 import { personDisplayName } from "@/lib/format";
 import type { PersonSelectOption } from "../people/person-select";
-import type { ContentPieceRow } from "./content-opportunity-shared";
+import type { ContentPieceRow } from "@/lib/social-content/pieces";
 
 export const ITEM_TYPES = [
   { value: "own_event", label: "Our own event" },

@@ -6,7 +6,7 @@ import {
   type MissingCoverageSeries,
 } from "./calendar-recurrence";
 
-export const CALENDAR_ITEM_WITH_CONTENT_PIECES_SELECT = `id, title, item_type, starts_at, ends_at, time_zone, recurrence_rule, summary, priority_tier, priority_rationale, calendar_status, visibility, owner_id, decision, decision_note, source, region, exceptions, is_sensitive_topic, tone_guidance, series_key, recurrence_start_month, recurrence_start_day, recurrence_end_month, recurrence_end_day, recurrence_end_is_month_end, calendar_item_categories(category), calendar_item_programs(program_id), content_opportunities(id, calendar_item_id, title, content, content_status, skip_reason, internal_notes, owner_id, reviewer_id, lead_time_days, publish_due_at, review_due_at, draft_due_at, status_changed_by, status_changed_at)`;
+export const CALENDAR_ITEM_WITH_CONTENT_PIECES_SELECT = `id, title, item_type, starts_at, ends_at, time_zone, recurrence_rule, summary, priority_tier, priority_rationale, calendar_status, visibility, owner_id, decision, decision_note, source, region, exceptions, is_sensitive_topic, tone_guidance, series_key, recurrence_start_month, recurrence_start_day, recurrence_end_month, recurrence_end_day, recurrence_end_is_month_end, calendar_item_categories(category), calendar_item_programs(program_id), content_opportunities(id, calendar_item_id, event_id, title, content, content_status, skip_reason, internal_notes, owner_id, reviewer_id, lead_time_days, publish_due_at, review_due_at, draft_due_at, status_changed_by, status_changed_at)`;
 
 /** Columns needed to compute coverage-reminder/generate-next-year gaps -- no content pieces join, this isn't rendered as a full calendar item. */
 const SERIES_CANDIDATE_SELECT =

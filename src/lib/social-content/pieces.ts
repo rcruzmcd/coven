@@ -13,15 +13,24 @@ export const CONTENT_STATUSES = [
 ] as const;
 
 /**
- * One post or story planned for a calendar item (#1231) -- several per item.
+ * The social content module shared by the calendar, events and `/portal/social`
+ * (#1793): status vocabulary, the row shape and the date helpers. The form
+ * parser is `./piece-form`, the Server Actions `./piece-actions`.
+ */
+
+/**
+ * One social post or story (#1231). Since #1792 a piece stands on its own and
+ * may be related to a calendar item (a community date), an event, both or
+ * neither -- deleting either clears the link and keeps the piece.
  *
  * Stored in `content_opportunities`, which kept its name through the reshape
  * so its audit history and RLS policies carried over; everything a person
- * reads calls these content pieces.
+ * reads calls these social posts.
  */
 export type ContentPieceRow = {
   id: string;
-  calendar_item_id: string;
+  calendar_item_id: string | null;
+  event_id: string | null;
   title: string;
   content: string | null;
   content_status: string;
@@ -95,6 +104,9 @@ export function nextDueAt(
 }
 
 /**
+ * Only meaningful once a piece has a publish date: a piece with none sits
+ * unscheduled, and there is nothing to count back from.
+ *
  * 21-day lead time -> draft T-14, review T-7 (the issue's worked example):
  * the draft period is the first two-thirds of the lead time, the review
  * period is the last third.

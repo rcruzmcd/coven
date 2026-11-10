@@ -19,7 +19,7 @@ import { formatDateInZone } from "@/lib/time";
 import {
   CONTENT_STATUSES,
   summaryContentStatus,
-} from "../../calendar/content-opportunity-shared";
+} from "@/lib/social-content/pieces";
 import { ITEM_TYPES, labelFor } from "../../calendar/calendar-shared";
 import { PARTNERSHIP_STAGE_LABELS } from "../partnerships/partnership-opportunity-form-fields";
 import type {

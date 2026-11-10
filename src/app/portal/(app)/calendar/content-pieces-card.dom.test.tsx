@@ -4,12 +4,13 @@
 import { describe, expect, test } from "bun:test";
 import { render, screen } from "@testing-library/react";
 import { ContentPiecesCard } from "./content-pieces-card";
-import type { ContentPieceRow } from "./content-opportunity-shared";
+import type { ContentPieceRow } from "@/lib/social-content/pieces";
 
 function piece(overrides: Partial<ContentPieceRow> = {}): ContentPieceRow {
   return {
     id: "piece-1",
     calendar_item_id: "item-1",
+    event_id: null,
     title: "Instagram carousel",
     content: null,
     content_status: "draft",
@@ -69,10 +70,10 @@ describe("ContentPiecesCard", () => {
     renderCard([]);
 
     expect(
-      screen.getByText("No content planned for this item yet"),
+      screen.getByText("No social posts planned for this item yet"),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Add content" }),
+      screen.getByRole("button", { name: "Add social post" }),
     ).toBeInTheDocument();
   });
 
@@ -81,7 +82,7 @@ describe("ContentPiecesCard", () => {
 
     expect(screen.getByText("Instagram carousel")).toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: "Add content" }),
+      screen.queryByRole("button", { name: "Add social post" }),
     ).not.toBeInTheDocument();
   });
 

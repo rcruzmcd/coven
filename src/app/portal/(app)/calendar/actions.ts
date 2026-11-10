@@ -96,7 +96,7 @@ function findMissingToneGuidanceWarning(item: {
   toneGuidance: string | null;
 }): string | undefined {
   if (item.isSensitiveTopic && !item.toneGuidance) {
-    return "This item is flagged as a sensitive topic but has no tone guidance yet — add guidance so it's surfaced on its content pieces.";
+    return "This item is flagged as a sensitive topic but has no tone guidance yet — add guidance so it's surfaced on its social posts.";
   }
   return undefined;
 }

@@ -34,7 +34,7 @@ import {
   ownerName,
   type CalendarOwner,
 } from "./calendar-shared";
-import { ContentPiecesBadge } from "./content-opportunity-badges";
+import { ContentPiecesBadge } from "@/components/portal/social-content/content-status-badge";
 import type { CalendarEntry } from "./calendar-entries";
 import { formatDateTime } from "@/lib/format";
 

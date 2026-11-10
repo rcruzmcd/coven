@@ -11,8 +11,9 @@ import {
   adminClient,
   anonClient,
   createCalendarItem,
+  createPublishedEvent,
   signInAs,
-} from "../../../../../test/integration-setup";
+} from "../../../test/integration-setup";
 
 const revalidatePathMock = mock(() => {});
 mock.module("next/cache", () => ({ revalidatePath: revalidatePathMock }));
@@ -26,29 +27,46 @@ const {
   createContentPieceAction,
   updateContentPieceAction,
   deleteContentPieceAction,
-} = await import("./content-opportunity-actions");
+  listSocialContentLinkOptionsAction,
+} = await import("./piece-actions");
 
 afterEach(() => {
   revalidatePathMock.mockClear();
 });
 
-function pieceForm(overrides: { title?: string; internalNotes?: string } = {}) {
+function pieceForm(
+  overrides: {
+    title?: string;
+    internalNotes?: string;
+    calendarItemId?: string;
+    eventId?: string;
+  } = {},
+) {
   const fd = new FormData();
   fd.set("title", overrides.title ?? "Instagram carousel");
   fd.set("contentStatus", "idea");
   fd.set("leadTimeDays", "21");
   if (overrides.internalNotes) fd.set("internalNotes", overrides.internalNotes);
+  if (overrides.calendarItemId)
+    fd.set("calendarItemId", overrides.calendarItemId);
+  if (overrides.eventId) fd.set("eventId", overrides.eventId);
   return fd;
 }
 
+/** As the calendar item card submits it: related to the item it is on. */
+const itemForm = (
+  calendarItemId: string,
+  overrides: Parameters<typeof pieceForm>[0] = {},
+) => pieceForm({ ...overrides, calendarItemId });
+
 const DENIED = { error: "You don't have permission to perform this action." };
 
-describe("content piece actions (integration)", () => {
-  test("requires a signed-in user to add a content piece", async () => {
+describe("social post actions (integration)", () => {
+  test("requires a signed-in user to add a social post", async () => {
     currentSupabase = anonClient();
-    expect(
-      await createContentPieceAction(crypto.randomUUID(), pieceForm()),
-    ).toEqual({ error: "You must be signed in to add a content piece." });
+    expect(await createContentPieceAction(pieceForm())).toEqual({
+      error: "You must be signed in to add a social post.",
+    });
   });
 
   test("admin role (content_calendar manage) can add, update and delete pieces", async () => {
@@ -57,13 +75,12 @@ describe("content piece actions (integration)", () => {
 
     // Two pieces on the one item: what the dropped unique constraint used to
     // refuse, and the whole point of #1231.
-    expect(await createContentPieceAction(item.id, pieceForm())).toEqual({
+    expect(await createContentPieceAction(itemForm(item.id))).toEqual({
       success: true,
     });
     expect(
       await createContentPieceAction(
-        item.id,
-        pieceForm({ title: "Email to past participants" }),
+        itemForm(item.id, { title: "Email to past participants" }),
       ),
     ).toEqual({ success: true });
 
@@ -81,7 +98,7 @@ describe("content piece actions (integration)", () => {
     expect(
       await updateContentPieceAction(
         created![0].id,
-        pieceForm({ internalNotes: "Updated in integration test" }),
+        itemForm(item.id, { internalNotes: "Updated in integration test" }),
       ),
     ).toEqual({ success: true });
 
@@ -104,11 +121,88 @@ describe("content piece actions (integration)", () => {
     await item.cleanup();
   });
 
+  test("relates a post to an event, an item, both or nothing, and moves it (#1793)", async () => {
+    const item = await createCalendarItem();
+    const event = await createPublishedEvent();
+    currentSupabase = await signInAs(SEEDED_USERS.admin);
+    const title = `Related-to ${crypto.randomUUID()}`;
+
+    expect(
+      await createContentPieceAction(
+        pieceForm({ title, calendarItemId: item.id, eventId: event.id }),
+      ),
+    ).toEqual({ success: true });
+    const { data: created } = await adminClient
+      .from("content_opportunities")
+      .select("id, calendar_item_id, event_id")
+      .eq("title", title)
+      .single();
+    expect(created).toMatchObject({
+      calendar_item_id: item.id,
+      event_id: event.id,
+    });
+    expect(revalidatePathMock).toHaveBeenCalledWith(
+      `/portal/events/${event.id}`,
+    );
+
+    // Unlinked from both: a standalone post, publish date and all optional.
+    revalidatePathMock.mockClear();
+    expect(
+      await updateContentPieceAction(created!.id, pieceForm({ title })),
+    ).toEqual({ success: true });
+    const { data: standalone } = await adminClient
+      .from("content_opportunities")
+      .select("calendar_item_id, event_id, publish_due_at")
+      .eq("id", created!.id)
+      .single();
+    expect(standalone).toEqual({
+      calendar_item_id: null,
+      event_id: null,
+      publish_due_at: null,
+    });
+    // The event it left is refreshed too.
+    expect(revalidatePathMock).toHaveBeenCalledWith(
+      `/portal/events/${event.id}`,
+    );
+
+    expect(await deleteContentPieceAction(created!.id)).toEqual({
+      success: true,
+    });
+    await item.cleanup();
+    await event.cleanup();
+  });
+
+  test("refuses a link to a record that does not exist", async () => {
+    currentSupabase = await signInAs(SEEDED_USERS.admin);
+    expect(
+      await createContentPieceAction(
+        pieceForm({ eventId: crypto.randomUUID() }),
+      ),
+    ).toEqual({ error: "Could not add the social post. Please try again." });
+  });
+
+  test("offers events and community dates to relate a post to", async () => {
+    const item = await createCalendarItem();
+    currentSupabase = await signInAs(SEEDED_USERS.admin);
+
+    const options = await listSocialContentLinkOptionsAction();
+    expect(options.calendarItems.map((option) => option.id)).toContain(item.id);
+    expect(options.events.length).toBeGreaterThan(0);
+
+    currentSupabase = anonClient();
+    expect(await listSocialContentLinkOptionsAction()).toEqual({
+      events: [],
+      calendarItems: [],
+    });
+
+    await item.cleanup();
+  });
+
   test("event_coordinator role (content_calendar manage) can add a piece", async () => {
     const item = await createCalendarItem();
     currentSupabase = await signInAs(SEEDED_USERS.coordinator);
 
-    expect(await createContentPieceAction(item.id, pieceForm())).toEqual({
+    expect(await createContentPieceAction(itemForm(item.id))).toEqual({
       success: true,
     });
 
@@ -119,9 +213,7 @@ describe("content piece actions (integration)", () => {
     const item = await createCalendarItem();
     currentSupabase = await signInAs(SEEDED_USERS.finance);
 
-    expect(await createContentPieceAction(item.id, pieceForm())).toEqual(
-      DENIED,
-    );
+    expect(await createContentPieceAction(itemForm(item.id))).toEqual(DENIED);
     expect(
       await updateContentPieceAction(crypto.randomUUID(), pieceForm()),
     ).toEqual(DENIED);
@@ -134,9 +226,7 @@ describe("content piece actions (integration)", () => {
     const item = await createCalendarItem();
     currentSupabase = await signInAs(SEEDED_USERS.board);
 
-    expect(await createContentPieceAction(item.id, pieceForm())).toEqual(
-      DENIED,
-    );
+    expect(await createContentPieceAction(itemForm(item.id))).toEqual(DENIED);
 
     await item.cleanup();
   });
@@ -145,17 +235,13 @@ describe("content piece actions (integration)", () => {
     const item = await createCalendarItem();
     currentSupabase = await signInAs(SEEDED_USERS.volunteer);
 
-    expect(await createContentPieceAction(item.id, pieceForm())).toEqual(
-      DENIED,
-    );
+    expect(await createContentPieceAction(itemForm(item.id))).toEqual(DENIED);
 
     await item.cleanup();
   });
 
   test("a deactivated (former) account cannot add a piece", async () => {
     currentSupabase = await signInAs(SEEDED_USERS.former);
-    expect(
-      await createContentPieceAction(crypto.randomUUID(), pieceForm()),
-    ).toEqual(DENIED);
+    expect(await createContentPieceAction(pieceForm())).toEqual(DENIED);
   });
 });
