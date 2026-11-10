@@ -5,6 +5,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { parseContentPieceForm, type ContentPieceFormData } from "./piece-form";
 import { checkPermission } from "@/lib/auth/permissions";
 import { checkUser } from "@/lib/auth/current-user";
+import { fetchAllPages } from "@/lib/supabase/fetch-all-pages";
 
 export type ContentPieceActionResult =
   { error: string } | { success: true; warning?: string };
@@ -194,24 +195,32 @@ export async function listSocialContentLinkOptionsAction(): Promise<SocialConten
   );
   if (permissionError) return { events: [], calendarItems: [] };
 
-  const [{ data: events }, { data: calendarItems }] = await Promise.all([
-    supabase
-      .from("events")
-      .select("id, name, starts_at")
-      .order("starts_at", { ascending: false }),
-    supabase
-      .from("calendar_items")
-      .select("id, title, starts_at")
-      .order("starts_at", { ascending: false }),
+  const [events, calendarItems] = await Promise.all([
+    fetchAllPages((from, to) =>
+      supabase
+        .from("events")
+        .select("id, name, starts_at")
+        .order("starts_at", { ascending: false })
+        .order("id", { ascending: true })
+        .range(from, to),
+    ),
+    fetchAllPages((from, to) =>
+      supabase
+        .from("calendar_items")
+        .select("id, title, starts_at")
+        .order("starts_at", { ascending: false })
+        .order("id", { ascending: true })
+        .range(from, to),
+    ),
   ]);
 
   return {
-    events: (events ?? []).map((event) => ({
+    events: events.map((event) => ({
       id: event.id,
       label: event.name,
       starts_at: event.starts_at,
     })),
-    calendarItems: (calendarItems ?? []).map((item) => ({
+    calendarItems: calendarItems.map((item) => ({
       id: item.id,
       label: item.title,
       starts_at: item.starts_at,
