@@ -27,6 +27,13 @@ import { currentTenant, getTenantContext } from "@/lib/portal/tenants";
 import { getRequestHost } from "@/lib/request-origin";
 import { publicEventPreviewPath } from "@/app/(public)/events/event-path";
 import { fillEventPeople } from "@/lib/events/event-people";
+import {
+  getDefaultLeadTimeDays,
+  listEventPieces,
+} from "@/lib/social-content/queries";
+import { overduePieceTaskLabels } from "@/lib/social-content/pieces";
+import { listCalendarOwnersAction } from "../../calendar/actions";
+import type { EventSocialContent } from "../social-content-tab";
 
 /**
  * The row as PostgREST returns it: program links arrive as an embedded array
@@ -199,6 +206,7 @@ export default async function EventDetailPage({
     { data: deleteBlockers },
     { data: openChecklistItems },
     { data: retroItems },
+    social,
   ] = await Promise.all([
     listProgramsAction(),
     // What, if anything, stops this event from being deleted -- so the delete
@@ -221,6 +229,10 @@ export default async function EventDetailPage({
       .from("event_retro_items")
       .select("kind, status")
       .eq("event_id", eventId),
+    // #1795. Only for a reader the rail shows the Social content section to.
+    visible.some((section) => section.value === "social")
+      ? loadEventSocialContent(supabase, eventId, permissions)
+      : Promise.resolve(null),
   ]);
 
   // Which shape the section rail takes, decided here rather than measured in
@@ -235,6 +247,9 @@ export default async function EventDetailPage({
     ).length,
     openChecklistTitles: (openChecklistItems ?? []).map((row) => row.title),
   });
+  // Overdue posts count toward the section's outstanding badge (#1795).
+  const overduePosts = overduePieceTaskLabels(social?.pieces ?? []);
+  if (overduePosts.length > 0) cardTasks.social = overduePosts;
 
   return (
     <>
@@ -250,8 +265,29 @@ export default async function EventDetailPage({
         groups={groups}
         initialCard={initialCard}
         cardTasks={cardTasks}
+        social={social}
         nowIso={new Date().toISOString()}
       />
     </>
   );
+}
+
+async function loadEventSocialContent(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  eventId: string,
+  permissions: Awaited<ReturnType<typeof getCurrentUserPermissions>>,
+): Promise<EventSocialContent> {
+  const [{ pieces, error }, ownersResult, defaultLeadTimeDays] =
+    await Promise.all([
+      listEventPieces(supabase, eventId),
+      listCalendarOwnersAction(),
+      getDefaultLeadTimeDays(supabase),
+    ]);
+  return {
+    pieces,
+    owners: "data" in ownersResult ? ownersResult.data : [],
+    defaultLeadTimeDays,
+    canManage: hasPermission(permissions, "content_calendar", "manage"),
+    error,
+  };
 }

@@ -120,3 +120,66 @@ export function leadTimeSchedule(
     reviewDueAt: addDays(publishDueAt, -Math.round(leadTimeDays / 3)),
   };
 }
+
+export type OverdueStage = "draft" | "review" | "publish";
+
+/** Statuses still short of each deadline: the work that date was for is not done. */
+const SHORT_OF: Record<OverdueStage, ReadonlySet<string>> = {
+  draft: new Set(["not_planned", "idea", "draft"]),
+  review: new Set([
+    "not_planned",
+    "idea",
+    "draft",
+    "in_review",
+    "changes_requested",
+  ]),
+  publish: new Set(
+    STATUS_ORDER.filter((status) => !TERMINAL_STATUSES.has(status)),
+  ),
+};
+
+/**
+ * The furthest deadline a piece has missed, or null when it is on time (#1795).
+ * A deadline counts as missed once it has passed and the piece is still short
+ * of the stage it was for: a draft date passed with the piece already in
+ * review is not overdue. Published and skipped pieces owe nothing.
+ */
+export function overdueStage(
+  piece: Pick<
+    ContentPieceRow,
+    "content_status" | "draft_due_at" | "review_due_at" | "publish_due_at"
+  >,
+  now: Date = new Date(),
+): OverdueStage | null {
+  const missed = (stage: OverdueStage, due: string | null) =>
+    due !== null &&
+    new Date(due) < now &&
+    SHORT_OF[stage].has(piece.content_status);
+  if (missed("publish", piece.publish_due_at)) return "publish";
+  if (missed("review", piece.review_due_at)) return "review";
+  if (missed("draft", piece.draft_due_at)) return "draft";
+  return null;
+}
+
+export const OVERDUE_STAGE_LABELS: Record<OverdueStage, string> = {
+  draft: "Draft overdue",
+  review: "Review overdue",
+  publish: "Publish overdue",
+};
+
+/**
+ * One outstanding-task label per overdue piece, for the event rail's badge on
+ * its Social content section (#1795).
+ */
+export function overduePieceTaskLabels(
+  pieces: (Parameters<typeof overdueStage>[0] &
+    Pick<ContentPieceRow, "title">)[],
+  now: Date = new Date(),
+): string[] {
+  return pieces.flatMap((piece) => {
+    const stage = overdueStage(piece, now);
+    return stage
+      ? [`${piece.title}: ${OVERDUE_STAGE_LABELS[stage].toLowerCase()}`]
+      : [];
+  });
+}

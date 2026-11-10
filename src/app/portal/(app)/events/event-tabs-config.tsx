@@ -21,6 +21,7 @@ import { CarpoolSettingsDialog } from "./carpool-settings-dialog";
 import { GroupChatSettingsDialog } from "./group-chat-settings-dialog";
 import { AutoAssignSettingsDialog } from "./auto-assign-settings-dialog";
 import { LogisticsTab } from "./logistics-tab";
+import { SocialContentTab } from "./social-content-tab";
 import { VolunteersTab } from "./volunteers-tab";
 import { SponsorsTab } from "./sponsors-tab";
 import { StaffTab } from "./staff-tab";
@@ -63,6 +64,7 @@ export type Mode = "view" | "edit";
 export type TabValue =
   | "overview"
   | "checklist"
+  | "social"
   | "planning"
   | "registration"
   | "logistics"
@@ -257,6 +259,26 @@ export const TAB_CONFIG: readonly TabConfigEntry[] = [
     toolbarActions: (ctx) => (
       <AddChecklistItemDialog eventId={ctx.eventId} onSaved={ctx.onSaved} />
     ),
+  },
+  {
+    // The event's social posts (#1795): the content calendar's own rows, so
+    // gated by it and edited by `content_calendar: manage` rather than by the
+    // event's own manage. No `area`, so a grant never shows it. Listed under
+    // Overview, not a one-card group of its own (#1571).
+    value: "social",
+    label: "Social content",
+    keywords: [
+      "posts",
+      "stories",
+      "instagram",
+      "promotion",
+      "content",
+      "announce",
+    ],
+    group: "overview",
+    kind: "plain",
+    access: [{ resource: "content_calendar", level: "view" }],
+    render: (ctx) => <SocialContentTab event={ctx.event} />,
   },
   {
     value: "registrants",

@@ -525,7 +525,7 @@ export const PERMISSION_DOCS: Record<string, PermissionDoc> = {
 
   // ------------------------------------------------- Content & Community Calendar
   content_calendar: {
-    view: "Open the Calendar and read its items, categories and the events shown beside them. Also open Social content and read every social post, whether related to an event, a community date or nothing.",
+    view: "Open the Calendar and read its items, categories and the events shown beside them. Also open Social content and read every social post, whether related to an event, a community date or nothing, and see an event's Social content section (with `events: view`).",
     manage:
       "Create and edit calendar items, run recurrence and the importer, and manage categories. Add, edit, delete and move the status of social posts, from Social content or wherever they are shown.",
     excludes: [{ key: "events", covers: "the events the calendar displays" }],
