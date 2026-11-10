@@ -1,6 +1,11 @@
 import type { ContentPieceRow } from "@/lib/social-content/pieces";
+import { utcIsoToDateInZone } from "@/lib/time";
 
-/** `YYYY-MM-DD` of an instant in the viewer's own timezone. */
+/**
+ * `YYYY-MM-DD` of a `Date` built from calendar parts (a grid cell), read with
+ * the local getters it was built with. Not for instants: those go through
+ * `placePieces`'s explicit zone.
+ */
 export function localDayKey(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
@@ -22,14 +27,21 @@ export function monthGridDays(year: number, monthIndex: number): Date[] {
 }
 
 /**
- * Splits posts into the ones the grid places, keyed by the local day of their
- * publish date, and the ones with no publish date yet, which go in the
- * Unscheduled tray (#1794). Order within a day and within the tray is the
- * order they arrived in.
+ * Splits posts into the ones the grid places, keyed by the day of their
+ * publish date in `timeZone`, and the ones with no publish date yet, which go
+ * in the Unscheduled tray (#1794). Order within a day and within the tray is
+ * the order they arrived in.
+ *
+ * The zone is explicit rather than the process's own so the server render and
+ * the browser's first render place a post in the same cell: callers pass the
+ * viewer's zone once it is known and `UTC` until then (`useViewerTimeZone`).
  */
 export function placePieces<
   Piece extends Pick<ContentPieceRow, "publish_due_at">,
->(pieces: Piece[]): { byDay: Map<string, Piece[]>; unscheduled: Piece[] } {
+>(
+  pieces: Piece[],
+  timeZone: string,
+): { byDay: Map<string, Piece[]>; unscheduled: Piece[] } {
   const byDay = new Map<string, Piece[]>();
   const unscheduled: Piece[] = [];
   for (const piece of pieces) {
@@ -37,7 +49,7 @@ export function placePieces<
       unscheduled.push(piece);
       continue;
     }
-    const key = localDayKey(new Date(piece.publish_due_at));
+    const key = utcIsoToDateInZone(piece.publish_due_at, timeZone);
     const list = byDay.get(key);
     if (list) list.push(piece);
     else byDay.set(key, [piece]);

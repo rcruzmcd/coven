@@ -25,7 +25,7 @@ import {
 import { CONTENT_STATUSES } from "@/lib/social-content/pieces";
 import { updateContentPieceStatusAction } from "@/lib/social-content/piece-actions";
 import type { SocialPieceRow } from "@/lib/social-content/queries";
-import { formatDateTime } from "@/lib/format";
+import { ViewerTime } from "@/components/viewer-time";
 import {
   calendarActorName,
   ownerName,
@@ -91,15 +91,17 @@ export function SocialPostDetail({
               </Field>
               <Field orientation="responsive">
                 <ReadOnlyField label="Draft due" htmlFor="post-draft">
-                  {formatDateTime(piece.draft_due_at)}
+                  <ViewerTime iso={piece.draft_due_at} fallbackZone="UTC" />
                 </ReadOnlyField>
                 <ReadOnlyField label="Review due" htmlFor="post-review">
-                  {formatDateTime(piece.review_due_at)}
+                  <ViewerTime iso={piece.review_due_at} fallbackZone="UTC" />
                 </ReadOnlyField>
                 <ReadOnlyField label="Publish date" htmlFor="post-publish">
-                  {piece.publish_due_at
-                    ? formatDateTime(piece.publish_due_at)
-                    : "Unscheduled"}
+                  {piece.publish_due_at ? (
+                    <ViewerTime iso={piece.publish_due_at} fallbackZone="UTC" />
+                  ) : (
+                    "Unscheduled"
+                  )}
                 </ReadOnlyField>
               </Field>
               <ReadOnlyField label="Lead time" htmlFor="post-lead-time">
@@ -130,13 +132,21 @@ export function SocialPostDetail({
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
             {canManage ? (
-              <StatusControl piece={piece} />
+              // Keyed on what is saved, so an edit through the sheet that
+              // moves the status resets this control's draft rather than
+              // leaving it on the old value, one click from undoing the save.
+              <StatusControl
+                key={`${piece.content_status}:${piece.skip_reason ?? ""}`}
+                piece={piece}
+              />
             ) : (
               <ContentStatusBadge status={piece.content_status} />
             )}
             {piece.status_changed_at && (
               <p className="app-muted text-xs">
-                Last changed {formatDateTime(piece.status_changed_at)} by{" "}
+                Last changed{" "}
+                <ViewerTime iso={piece.status_changed_at} fallbackZone="UTC" />{" "}
+                by{" "}
                 {calendarActorName(
                   owners,
                   piece.status_changed_by,

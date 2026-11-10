@@ -12,6 +12,7 @@ import {
   type CalendarEntry,
   type CalendarItemEntryRow,
 } from "../calendar/calendar-entries";
+import { fetchAllPages } from "@/lib/supabase/fetch-all-pages";
 import { SocialWorkspace } from "./social-workspace";
 
 export const metadata: Metadata = {
@@ -56,7 +57,7 @@ export default async function SocialContentPage({
       .eq("key", "content.default_lead_time_days")
       .maybeSingle(),
     filters.overlay && filters.view === "month"
-      ? loadOverlay(supabase, canViewEvents)
+      ? loadOverlay(supabase, canViewEvents, filters.month)
       : Promise.resolve([] as CalendarEntry<CalendarItemEntryRow>[]),
   ]);
 
@@ -96,28 +97,53 @@ export default async function SocialContentPage({
 }
 
 /**
+ * The instants a month grid can show, with room to spare: up to six days of
+ * the neighbouring months either side, plus a day each way for whatever zone
+ * the viewer is in. Anything starting outside it cannot land in a cell.
+ */
+function overlayWindow(month: string) {
+  const [year, monthNum] = month.split("-").map(Number);
+  const DAY = 24 * 60 * 60 * 1000;
+  return {
+    fromInstant: new Date(
+      Date.UTC(year, monthNum - 1, 1) - 8 * DAY,
+    ).toISOString(),
+    toInstant: new Date(Date.UTC(year, monthNum, 1) + 8 * DAY).toISOString(),
+  };
+}
+
+/**
  * Events and community dates drawn read-only behind the posts, through the
  * calendar's own projection so each one links where the calendar links it.
- * Events are gated on `events` view, as on the calendar.
+ * Events are gated on `events` view, as on the calendar. Read for the shown
+ * month only, and the items in pages, so neither the response cap nor years
+ * of history can drop a date from the grid.
  */
 async function loadOverlay(
   supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
   canViewEvents: boolean,
+  month: string,
 ): Promise<CalendarEntry<CalendarItemEntryRow>[]> {
-  const [{ data: items }, { events }] = await Promise.all([
-    supabase
-      .from("calendar_items")
-      .select(
-        "id, title, item_type, starts_at, ends_at, time_zone, summary, calendar_status",
-      )
-      .order("starts_at", { ascending: true })
-      .order("id", { ascending: true }),
+  const window = overlayWindow(month);
+  const [items, { events }] = await Promise.all([
+    fetchAllPages((from, to) =>
+      supabase
+        .from("calendar_items")
+        .select(
+          "id, title, item_type, starts_at, ends_at, time_zone, summary, calendar_status",
+        )
+        .gte("starts_at", window.fromInstant)
+        .lt("starts_at", window.toInstant)
+        .order("starts_at", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, to),
+    ),
     canViewEvents
-      ? listCalendarEvents(supabase)
+      ? listCalendarEvents(supabase, { window })
       : Promise.resolve({ events: [], error: false }),
   ]);
   return [
-    ...((items ?? []) as CalendarItemEntryRow[]).map(calendarItemEntry),
+    ...(items as CalendarItemEntryRow[]).map(calendarItemEntry),
     ...events.map(eventEntry),
   ];
 }

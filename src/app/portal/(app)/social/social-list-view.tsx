@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/table";
 import { EmptyState } from "@/components/portal/empty-state";
 import { ContentStatusBadge } from "@/components/portal/social-content/content-status-badge";
-import { formatDateTime } from "@/lib/format";
+import { ViewerTime } from "@/components/viewer-time";
 import { socialPieceHref } from "@/lib/social-content/social-filters";
 import type { SocialPieceRow } from "@/lib/social-content/queries";
 import { ownerName, type CalendarOwner } from "../calendar/calendar-shared";
@@ -56,7 +56,9 @@ export function SocialListView({
                       {piece.title}
                     </Link>
                   </TableCell>
-                  <TableCell>{formatDateTime(piece.publish_due_at)}</TableCell>
+                  <TableCell>
+                    <ViewerTime iso={piece.publish_due_at} fallbackZone="UTC" />
+                  </TableCell>
                   <TableCell>
                     <ContentStatusBadge status={piece.content_status} />
                   </TableCell>

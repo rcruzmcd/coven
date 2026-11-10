@@ -10,6 +10,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { utcIsoToDateInZone } from "@/lib/time";
 import { CONTENT_STATUSES } from "@/lib/social-content/pieces";
 import { socialPieceHref } from "@/lib/social-content/social-filters";
 import type { SocialPieceRow } from "@/lib/social-content/queries";
@@ -40,11 +41,14 @@ export function SocialMonthView({
   month,
   piecesByDay,
   overlay,
+  timeZone,
   monthHref,
 }: {
   month: string;
   piecesByDay: Map<string, SocialPieceRow[]>;
   overlay: CalendarEntry<CalendarItemEntryRow>[];
+  /** The zone `piecesByDay` was keyed in; the overlay is placed in it too. */
+  timeZone: string;
   monthHref: (month: string) => string;
 }) {
   const monthStart = parseMonth(month);
@@ -54,7 +58,7 @@ export function SocialMonthView({
 
   const overlayByDay = new Map<string, typeof overlay>();
   for (const entry of overlay) {
-    const key = localDayKey(new Date(entry.starts_at));
+    const key = utcIsoToDateInZone(entry.starts_at, timeZone);
     const list = overlayByDay.get(key);
     if (list) list.push(entry);
     else overlayByDay.set(key, [entry]);

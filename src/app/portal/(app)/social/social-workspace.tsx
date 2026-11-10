@@ -26,6 +26,7 @@ import { SocialFiltersSheet } from "./social-filters-sheet";
 import { SocialMonthView } from "./social-month-view";
 import { SocialListView, UnscheduledTray } from "./social-list-view";
 import { placePieces } from "./social-placement";
+import { useViewerTimeZone } from "@/hooks/use-viewer-time-zone";
 
 const VIEWS: { value: SocialView; label: string }[] = [
   { value: "month", label: "Month" },
@@ -55,7 +56,13 @@ export function SocialWorkspace({
   const [sheetOpen, setSheetOpen] = useState(false);
   const [session, setSession] = useState<SocialPostSheetSession | null>(null);
 
-  const { byDay, unscheduled } = useMemo(() => placePieces(pieces), [pieces]);
+  // UTC until the browser reports its zone, so the server render and the
+  // first client render place every post in the same cell.
+  const timeZone = useViewerTimeZone() ?? "UTC";
+  const { byDay, unscheduled } = useMemo(
+    () => placePieces(pieces, timeZone),
+    [pieces, timeZone],
+  );
   const scheduled = useMemo(
     () => pieces.filter((piece) => piece.publish_due_at),
     [pieces],
@@ -121,6 +128,7 @@ export function SocialWorkspace({
             month={filters.month}
             piecesByDay={byDay}
             overlay={overlay}
+            timeZone={timeZone}
             monthHref={(month) =>
               socialHref({ ...filters, view: "month", month })
             }
