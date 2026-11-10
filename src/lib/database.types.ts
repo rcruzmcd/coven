@@ -1980,12 +1980,13 @@ export type Database = {
       };
       content_opportunities: {
         Row: {
-          calendar_item_id: string;
+          calendar_item_id: string | null;
           content: string | null;
           content_status: string;
           created_at: string;
           created_by: string;
           draft_due_at: string | null;
+          event_id: string | null;
           id: string;
           internal_notes: string | null;
           lead_time_days: number;
@@ -2002,12 +2003,13 @@ export type Database = {
           updated_by: string | null;
         };
         Insert: {
-          calendar_item_id: string;
+          calendar_item_id?: string | null;
           content?: string | null;
           content_status?: string;
           created_at?: string;
           created_by?: string;
           draft_due_at?: string | null;
+          event_id?: string | null;
           id?: string;
           internal_notes?: string | null;
           lead_time_days?: number;
@@ -2024,12 +2026,13 @@ export type Database = {
           updated_by?: string | null;
         };
         Update: {
-          calendar_item_id?: string;
+          calendar_item_id?: string | null;
           content?: string | null;
           content_status?: string;
           created_at?: string;
           created_by?: string;
           draft_due_at?: string | null;
+          event_id?: string | null;
           id?: string;
           internal_notes?: string | null;
           lead_time_days?: number;
@@ -2051,6 +2054,13 @@ export type Database = {
             columns: ["tenant_id", "calendar_item_id"];
             isOneToOne: false;
             referencedRelation: "calendar_items";
+            referencedColumns: ["tenant_id", "id"];
+          },
+          {
+            foreignKeyName: "content_opportunities_event_id_fkey";
+            columns: ["tenant_id", "event_id"];
+            isOneToOne: false;
+            referencedRelation: "events";
             referencedColumns: ["tenant_id", "id"];
           },
           {
