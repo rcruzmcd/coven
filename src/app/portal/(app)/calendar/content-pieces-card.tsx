@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Pencil, Plus } from "lucide-react";
 import { nextDueAt, type ContentPieceRow } from "@/lib/social-content/pieces";
+import { socialPieceHref } from "@/lib/social-content/social-filters";
 import { ContentStatusBadge } from "@/components/portal/social-content/content-status-badge";
 import {
   SocialPostSheet,
@@ -33,7 +35,8 @@ import { EmptyState } from "@/components/portal/empty-state";
  * A calendar item produces several posts or stories, not one brief, so this is
  * a list of posts with the shared social post sheet (#1793) behind each one.
  * A post added here is related to this item to start with; the sheet's
- * Related to picker can add an event or move it elsewhere.
+ * Related to picker can add an event or move it elsewhere. Each title links to
+ * the post's own page under `/portal/social` (#1796).
  */
 export function ContentPiecesCard({
   calendarItemId,
@@ -126,9 +129,13 @@ export function ContentPiecesCard({
                   className="flex items-center justify-between gap-3 py-2"
                 >
                   <div className="flex min-w-0 flex-col gap-1">
-                    <span className="truncate font-medium" title={row.title}>
+                    <Link
+                      href={socialPieceHref(row.id)}
+                      className="truncate font-medium hover:underline"
+                      title={row.title}
+                    >
                       {row.title}
-                    </span>
+                    </Link>
                     <div className="flex flex-wrap items-center gap-2">
                       <ContentStatusBadge status={row.content_status} />
                       <span className="app-muted text-xs">

@@ -120,6 +120,11 @@ const AGENDA_CALENDAR_ITEM_SELECT =
 // for: Community & Partnerships never shows a content column, and rows it
 // would only throw away are rows its section should not wait for. The table
 // kept its `content_opportunities` name through #1231's reshape.
+//
+// Item-scoped on purpose (#1796): a row here is a community date, and these
+// are the posts planned against it. A standalone or event-only post has no
+// such row to sit on, and is planned on `/portal/social` and on its event's
+// Social content section instead -- see §5.20.
 const AGENDA_CALENDAR_ITEM_WITH_CONTENT_SELECT = `${AGENDA_CALENDAR_ITEM_SELECT}, content_opportunities(content_status, publish_due_at)`;
 
 type RawAgendaCalendarRow = {
