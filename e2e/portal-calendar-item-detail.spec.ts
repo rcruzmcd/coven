@@ -44,8 +44,11 @@ test.describe("portal calendar item detail page", () => {
     ).toBeVisible();
 
     // Every section is a flat, always-visible card -- no tabs anywhere.
+    // Scoped to the page body: the sidebar has its own "Social content" entry
+    // under Calendar (#1794).
+    const main = page.getByRole("main");
     for (const title of SECTION_TITLES) {
-      await expect(page.getByText(title, { exact: true })).toBeVisible();
+      await expect(main.getByText(title, { exact: true })).toBeVisible();
     }
     await expect(page.getByRole("tab")).toHaveCount(0);
 
