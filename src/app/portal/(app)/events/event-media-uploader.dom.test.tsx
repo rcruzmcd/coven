@@ -5,6 +5,8 @@ import * as MediaActions from "./media-actions";
 import * as EventMedia from "@/lib/storage/event-media";
 import type { EventMediaSlot } from "@/lib/storage/event-media-files";
 import type { VideoUploadHandlers } from "@/lib/storage/event-media";
+import * as GoogleDrive from "@/lib/storage/google-drive";
+import type { PickedDriveDoc } from "@/lib/storage/google-drive";
 
 const mintMock = mock(
   async (_eventId: string, files: { name: string; type: string }[]) => ({
@@ -48,7 +50,34 @@ mock.module("@/lib/storage/event-media", () => ({
   },
 }));
 
+// Drive itself is covered by google-drive-button.dom.test.tsx and
+// google-drive.test.ts; here a pick hands back docs, and each download is
+// answered from `driveFiles` by name.
+let pickedDocs: PickedDriveDoc[] = [];
+mock.module("@/components/portal/google-drive-button", () => ({
+  GoogleDriveButton: (props: {
+    onPick: (pick: { docs: PickedDriveDoc[]; accessToken: string }) => void;
+  }) => (
+    <button
+      type="button"
+      onClick={() => props.onPick({ docs: pickedDocs, accessToken: "tok" })}
+    >
+      From Google Drive
+    </button>
+  ),
+}));
+const downloadMock = mock(
+  async (plan: { name: string; type: string }) =>
+    new File(["x"], plan.name, { type: plan.type }),
+);
+mock.module("@/lib/storage/google-drive", () => ({
+  ...GoogleDrive,
+  downloadDriveFile: downloadMock,
+}));
+
 const { EventMediaUploader } = await import("./event-media-uploader");
+const { DRIVE_MEDIA_MAX_BYTES } =
+  await import("@/components/event-media/media-uploader");
 
 function pick(files: File[]) {
   return userEvent.upload(
@@ -67,6 +96,8 @@ beforeEach(() => {
   mintMock.mockClear();
   recordMock.mockClear();
   pauseMock.mockClear();
+  downloadMock.mockClear();
+  pickedDocs = [];
 });
 
 describe("EventMediaUploader", () => {
@@ -167,5 +198,75 @@ describe("EventMediaUploader", () => {
       screen.queryByRole("button", { name: "Retry notes.pdf" }),
     ).toBeNull();
     expect(mintMock).not.toHaveBeenCalled();
+  });
+
+  describe("from Google Drive (#1634)", () => {
+    function pickFromDrive(docs: PickedDriveDoc[]) {
+      pickedDocs = docs;
+      return userEvent.click(
+        screen.getByRole("button", { name: "From Google Drive" }),
+      );
+    }
+
+    test("a photo and a video from Drive upload like a local pick", async () => {
+      render(<EventMediaUploader eventId="event-1" />);
+      await pickFromDrive([
+        { id: "1", name: "drive.jpg", mimeType: "image/jpeg", sizeBytes: 5 },
+        { id: "2", name: "drive.mp4", mimeType: "video/mp4", sizeBytes: 9 },
+      ]);
+
+      await waitFor(() =>
+        expect(row("drive.jpg").getAttribute("data-status")).toBe("done"),
+      );
+      expect(recordMock).toHaveBeenCalledWith("t/e/drive.jpg", "drive.jpg");
+      await screen.findByRole("progressbar", { name: "Uploading drive.mp4" });
+      expect(downloadMock.mock.calls.map(([plan]) => plan.name)).toEqual([
+        "drive.jpg",
+        "drive.mp4",
+      ]);
+    });
+
+    test("a video over the Drive cap is refused before download", async () => {
+      render(<EventMediaUploader eventId="event-1" />);
+      await pickFromDrive([
+        {
+          id: "1",
+          name: "long.mp4",
+          mimeType: "video/mp4",
+          sizeBytes: DRIVE_MEDIA_MAX_BYTES + 1,
+        },
+      ]);
+
+      expect(row("long.mp4").getAttribute("data-status")).toBe("failed");
+      expect(
+        screen.getByText(
+          /long\.mp4 is larger than 500 MB.*Download it from Drive/,
+        ),
+      ).toBeTruthy();
+      expect(downloadMock).not.toHaveBeenCalled();
+      expect(
+        screen.queryByRole("button", { name: "Retry long.mp4" }),
+      ).toBeNull();
+    });
+
+    test("a row shows Downloading from Drive while it is fetched", async () => {
+      let release!: (file: File) => void;
+      downloadMock.mockImplementationOnce(
+        () => new Promise<File>((resolve) => (release = resolve)),
+      );
+      render(<EventMediaUploader eventId="event-1" />);
+      await pickFromDrive([
+        { id: "1", name: "slow.jpg", mimeType: "image/jpeg", sizeBytes: 5 },
+      ]);
+
+      expect(row("slow.jpg").getAttribute("data-status")).toBe("downloading");
+      expect(
+        within(row("slow.jpg")).getByText(/Downloading from Drive/),
+      ).toBeTruthy();
+      release(new File(["x"], "slow.jpg", { type: "image/jpeg" }));
+      await waitFor(() =>
+        expect(row("slow.jpg").getAttribute("data-status")).toBe("done"),
+      );
+    });
   });
 });

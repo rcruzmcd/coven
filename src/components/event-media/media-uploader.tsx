@@ -17,6 +17,7 @@ import {
   Upload,
   X,
 } from "lucide-react";
+import { GoogleDriveButton } from "@/components/portal/google-drive-button";
 import { Button } from "@/components/ui/button";
 import { formatFileSize } from "@/lib/publications";
 import {
@@ -24,7 +25,14 @@ import {
   type EventMediaItem,
   type EventMediaQueue,
   type EventMediaQueueDeps,
+  type RemoteFile,
 } from "@/lib/storage/event-media-queue";
+import {
+  downloadDriveFile,
+  formatMegabytes,
+  planDriveDownload,
+  type PickedDriveDoc,
+} from "@/lib/storage/google-drive";
 
 /**
  * What the file picker offers. HEIC/HEIF and .mov are named by extension too,
@@ -40,8 +48,56 @@ const ACCEPT =
  */
 export const UPLOADED_REFRESH_DELAY_MS = 1000;
 
+/**
+ * The largest file taken from Google Drive (#1634). A Drive file is held in
+ * the browser's memory between download and upload, so it is bounded well
+ * below the 10 GB a local file may be; the server-side transfer (#1637) lifts
+ * this.
+ */
+export const DRIVE_MEDIA_MAX_BYTES = 500 * 1024 * 1024;
+
+function driveTooLarge(name: string, maxBytes: number) {
+  return `${name} is larger than ${formatMegabytes(maxBytes)}, the limit from Google Drive. Download it from Drive and upload it from this device instead.`;
+}
+
+/** Picked Drive docs as queue rows, each fetched only when the queue is ready. */
+export function driveRemoteFiles(
+  docs: PickedDriveDoc[],
+  accessToken: string,
+): RemoteFile[] {
+  return docs.map((doc) => {
+    const plan = planDriveDownload(doc, {
+      accept: ACCEPT,
+      maxBytes: DRIVE_MEDIA_MAX_BYTES,
+      tooLarge: driveTooLarge,
+    });
+    const size = Number(doc.sizeBytes);
+    const base = {
+      name: doc.name || "Untitled",
+      size: doc.sizeBytes !== undefined && Number.isFinite(size) ? size : null,
+      kind: doc.mimeType.startsWith("video/")
+        ? ("video" as const)
+        : doc.mimeType.startsWith("image/")
+          ? ("photo" as const)
+          : null,
+    };
+    if ("error" in plan) return { ...base, error: plan.error };
+    return {
+      ...base,
+      fetch: (onProgress) =>
+        downloadDriveFile(plan, accessToken, {
+          maxBytes: DRIVE_MEDIA_MAX_BYTES,
+          tooLarge: driveTooLarge,
+          onProgress: (loaded, total) =>
+            onProgress(total ? Math.min(1, loaded / total) : null),
+        }),
+    };
+  });
+}
+
 const STATUS_LABELS: Record<EventMediaItem["status"], string> = {
   queued: "Waiting",
+  downloading: "Downloading from Drive",
   uploading: "Uploading",
   paused: "Paused",
   failed: "Failed",
@@ -61,12 +117,18 @@ export function MediaUploader({
   deps,
   hint,
   disabled = false,
+  googleDrive = false,
   onUploaded,
 }: {
   deps: EventMediaQueueDeps;
   hint: React.ReactNode;
   /** Holds the picker shut, e.g. until the rights box is ticked. */
   disabled?: boolean;
+  /**
+   * Offer **From Google Drive** (#1634). Signed-in pages only: the upload-link
+   * page is public and leaves it off (#1627 non-goals).
+   */
+  googleDrive?: boolean;
   onUploaded?: () => void;
 }) {
   const [queue] = useState<EventMediaQueue>(() => createEventMediaQueue(deps));
@@ -102,7 +164,10 @@ export function MediaUploader({
 
   // Leaving the page drops every request in flight; say so first.
   const busy = items.some(
-    (item) => item.status === "uploading" || item.status === "queued",
+    (item) =>
+      item.status === "uploading" ||
+      item.status === "queued" ||
+      item.status === "downloading",
   );
   useEffect(() => {
     if (!busy) return;
@@ -143,6 +208,16 @@ export function MediaUploader({
           aria-label="Choose photos and videos to upload"
           onChange={handlePick}
         />
+        {googleDrive && (
+          <GoogleDriveButton
+            accept={ACCEPT}
+            multiple
+            disabled={disabled}
+            onPick={({ docs, accessToken }) =>
+              queue.addRemote(driveRemoteFiles(docs, accessToken))
+            }
+          />
+        )}
         <p className="app-muted text-xs">{hint}</p>
       </div>
 
@@ -166,7 +241,10 @@ function UploadRow({
 }) {
   const percent =
     item.progress === null ? null : Math.round(item.progress * 100);
-  const showBar = item.status === "uploading" || item.status === "paused";
+  const showBar =
+    item.status === "uploading" ||
+    item.status === "paused" ||
+    item.status === "downloading";
   const KindIcon = item.kind === "video" ? Film : ImageIcon;
 
   return (
@@ -179,9 +257,11 @@ function UploadRow({
         <span className="min-w-0 flex-1 truncate" title={item.name}>
           {item.name}
         </span>
-        <span className="app-muted shrink-0 text-xs tabular-nums">
-          {formatFileSize(item.size)}
-        </span>
+        {item.size !== null && (
+          <span className="app-muted shrink-0 text-xs tabular-nums">
+            {formatFileSize(item.size)}
+          </span>
+        )}
         <span
           className={
             item.status === "failed"
@@ -252,7 +332,7 @@ function UploadRow({
       {showBar && (
         <div
           role="progressbar"
-          aria-label={`Uploading ${item.name}`}
+          aria-label={`${item.status === "downloading" ? "Downloading" : "Uploading"} ${item.name}`}
           // Omitted while indeterminate, as on the artwork upload field.
           aria-valuenow={percent ?? undefined}
           aria-valuemin={percent === null ? undefined : 0}

@@ -11,6 +11,7 @@ import {
   googleDriveConfig,
   newDrivePickerNonce,
   parseDrivePickerMessage,
+  type PickedDriveDoc,
   type TooLargeMessage,
 } from "@/lib/storage/google-drive";
 
@@ -25,10 +26,24 @@ type GoogleDriveButtonProps = {
   maxBytes?: number;
   /** The field's own wording for that refusal, so Drive and a local pick match. */
   tooLarge?: TooLargeMessage;
-  /** Called with the downloaded files, the same as a local pick. */
-  onFiles: (files: File[]) => void;
   disabled?: boolean;
-};
+} & (
+  | {
+      /** Called with the downloaded files, the same as a local pick. */
+      onFiles: (files: File[]) => void;
+      onPick?: never;
+    }
+  | {
+      /**
+       * Called with the picked docs and their token instead of downloading
+       * them here, for a caller that fetches each file only when it is ready
+       * for it (the event media queue, #1634). The token is good for about an
+       * hour; hold it in memory only.
+       */
+      onPick: (pick: { docs: PickedDriveDoc[]; accessToken: string }) => void;
+      onFiles?: never;
+    }
+);
 
 type State =
   | { name: "idle" }
@@ -50,6 +65,7 @@ export function GoogleDriveButton({
   maxBytes,
   tooLarge,
   onFiles,
+  onPick,
   disabled,
 }: GoogleDriveButtonProps) {
   const [state, setState] = useState<State>({ name: "idle" });
@@ -103,6 +119,11 @@ export function GoogleDriveButton({
         setState({ name: "idle" });
         return;
       }
+      if (onPick) {
+        setState({ name: "idle" });
+        onPick({ docs: message.docs, accessToken: message.accessToken });
+        return;
+      }
       setState({ name: "downloading", label: "Getting files from Drive…" });
       const { files, errors: failed } = await filesFromDrivePick(
         message.docs,
@@ -123,7 +144,7 @@ export function GoogleDriveButton({
       );
       setErrors(failed);
       setState({ name: "idle" });
-      if (files.length > 0) onFiles(files);
+      if (files.length > 0) onFiles?.(files);
     }
 
     // A popup closed without a message (the window's own close button).
