@@ -1,5 +1,5 @@
-import { afterEach, describe, expect, mock, test } from "bun:test";
-import { render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, mock, spyOn, test } from "bun:test";
+import { fireEvent, render, screen } from "@testing-library/react";
 
 let params = new URLSearchParams();
 const actualNavigation = await import("next/navigation");
@@ -9,11 +9,13 @@ mock.module("next/navigation", () => ({
   useSearchParams: () => params,
 }));
 
+const signInWithOAuth = mock(async () => ({ error: null }));
 mock.module("@/lib/supabase/client", () => ({
   createSupabaseBrowserClient: () => ({
     auth: {
       getUser: async () => ({ data: { user: null } }),
       signOut: async () => ({ error: null }),
+      signInWithOAuth,
     },
   }),
 }));
@@ -51,5 +53,40 @@ describe("LoginForm inactivity notice", () => {
 
     expect(screen.getByText(/Google sign-in failed/i)).toBeInTheDocument();
     expect(screen.queryByText(NOTICE)).not.toBeInTheDocument();
+  });
+});
+
+describe("LoginForm Google button (#1249)", () => {
+  afterEach(() => {
+    params = new URLSearchParams();
+    delete process.env.NEXT_PUBLIC_PLATFORM_AUTH_ORIGIN;
+    signInWithOAuth.mockClear();
+  });
+
+  test("goes through the platform host when it is configured", () => {
+    process.env.NEXT_PUBLIC_PLATFORM_AUTH_ORIGIN = "https://coven.rcmlabs.dev";
+    params = new URLSearchParams("error=no_access&next=/portal/events");
+    const assign = spyOn(window.location, "assign").mockImplementation(
+      () => {},
+    );
+    render(<LoginForm />);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /continue with google/i }),
+    );
+
+    expect(assign).toHaveBeenCalledWith(
+      "/auth/google?next=%2Fportal%2Fevents&prompt=select_account",
+    );
+    expect(signInWithOAuth).not.toHaveBeenCalled();
+    assign.mockRestore();
+  });
+
+  test("keeps the Supabase redirect flow when it is not", () => {
+    render(<LoginForm />);
+    fireEvent.click(
+      screen.getByRole("button", { name: /continue with google/i }),
+    );
+    expect(signInWithOAuth).toHaveBeenCalledTimes(1);
   });
 });
