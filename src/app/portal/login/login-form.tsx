@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { safePortalDestination } from "@/lib/auth/next-destination";
+import { platformGoogleStartPath } from "@/lib/auth/platform-google";
 import { IDLE_SIGNOUT_REASON } from "@/lib/auth/idle-timeout";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -115,6 +116,14 @@ export function LoginForm() {
   async function handleGoogleSignIn() {
     setError(null);
     setIsGoogleSubmitting(true);
+
+    // Through the platform host when configured, so Google names Coven
+    // rather than the Supabase project (#1249).
+    const platformPath = platformGoogleStartPath(destination, isNoAccess);
+    if (platformPath) {
+      window.location.assign(platformPath);
+      return;
+    }
 
     const supabase = createSupabaseBrowserClient();
     const { error: signInError } = await supabase.auth.signInWithOAuth({
