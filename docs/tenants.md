@@ -306,12 +306,14 @@ domain would otherwise need its own console entry, easy to forget, with Drive
 broken silently until it was made. Instead:
 
 1. **From Google Drive** on a tenant page opens a small popup at
-   `https://coven.rcmlabs.dev/drive-picker`, the platform origin, with a nonce
-   the opener generated.
+   `https://coven.rcmlabs.dev/auth/google/drive-picker`, the platform origin,
+   with a nonce the opener generated. Under `/auth/` so no host rewrites it.
 2. The popup proceeds only if the opener's origin is a known tenant host (the
-   same allowlist the sign-in return check uses, `isAllowedReturnHost`), runs
-   the Picker, and `postMessage`s `{ docs, accessToken, nonce }` to the
-   opener's exact origin.
+   same allowlist the sign-in return check uses, `isAllowedReturnHost`). The
+   person clicks **Open Google Drive** there, which requests the token inside
+   that click (a popup may open Google's consent window only from a user
+   gesture), runs the Picker, and `postMessage`s `{ docs, accessToken, nonce }`
+   to the opener's exact origin.
 3. The opener accepts the message only from the platform origin and with its
    own nonce, then downloads from `googleapis.com` itself. The Drive API takes
    a bearer token over CORS from any origin; only issuing the token needs a
