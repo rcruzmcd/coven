@@ -30,6 +30,25 @@ export async function fetchAuditLogEntries(
 
   if (filters.table !== "all") query = query.eq("table_name", filters.table);
   if (filters.action !== "all") query = query.eq("action", filters.action);
+  // A link counts if either side of the change holds it, so linking and
+  // unlinking both show under the event or item. Standalone means neither
+  // side does; `->>` on a missing snapshot is null, so inserts and deletes
+  // qualify (#1797).
+  if (filters.related !== "all") {
+    query = query.eq("table_name", "content_opportunities");
+    if (filters.related === "none") {
+      query = query
+        .is("old_data->>event_id", null)
+        .is("new_data->>event_id", null)
+        .is("old_data->>calendar_item_id", null)
+        .is("new_data->>calendar_item_id", null);
+    } else {
+      const key = filters.related === "event" ? "event_id" : "calendar_item_id";
+      query = query.or(
+        `old_data->>${key}.not.is.null,new_data->>${key}.not.is.null`,
+      );
+    }
+  }
   if (filters.actor !== "all") query = query.eq("actor_id", filters.actor);
   if (filters.from)
     query = query.gte("occurred_at", `${filters.from}T00:00:00.000Z`);

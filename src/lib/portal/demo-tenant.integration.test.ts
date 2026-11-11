@@ -247,6 +247,27 @@ describe("seed_demo_tenant", () => {
     expect(otherCount).toBe(0);
   });
 
+  test("seeds social posts of every kind, one unscheduled (#1797)", async () => {
+    type Post = {
+      event_id: string | null;
+      calendar_item_id: string | null;
+      publish_due_at: string | null;
+    };
+    const posts: Post[] = await must(
+      service
+        .from("content_opportunities")
+        .select("event_id, calendar_item_id, publish_due_at")
+        .eq("tenant_id", demoTenantId),
+      "reading posts",
+    );
+    const standalone = posts.filter((p) => !p.event_id && !p.calendar_item_id);
+    expect(posts.some((p) => p.event_id && !p.calendar_item_id)).toBe(true);
+    expect(posts.some((p) => p.calendar_item_id && !p.event_id)).toBe(true);
+    expect(posts.some((p) => p.event_id && p.calendar_item_id)).toBe(true);
+    expect(standalone.length).toBeGreaterThan(0);
+    expect(posts.filter((p) => !p.publish_due_at)).toHaveLength(1);
+  });
+
   test("refuses to seed the same tenant twice", async () => {
     const { error } = await service.rpc("seed_demo_tenant", {
       p_tenant_id: demoTenantId,

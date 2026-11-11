@@ -18,6 +18,12 @@ export const TABLE_VALUES = [
 
 export const ACTION_VALUES = ["insert", "update", "delete"] as const;
 
+/**
+ * What a social post entry was related to (#1797). Any value but "all" also
+ * narrows the log to social posts, the only table whose rows carry the links.
+ */
+export const RELATED_VALUES = ["event", "calendar_item", "none"] as const;
+
 export const SORTABLE_COLUMNS = [
   "occurred_at",
   "table_name",
@@ -27,12 +33,14 @@ export type SortColumn = (typeof SORTABLE_COLUMNS)[number];
 
 export type TableFilter = (typeof TABLE_VALUES)[number] | "all";
 export type ActionFilter = (typeof ACTION_VALUES)[number] | "all";
+export type RelatedFilter = (typeof RELATED_VALUES)[number] | "all";
 
 export type AuditLogParams = {
   sort: SortColumn;
   dir: "asc" | "desc";
   table: TableFilter;
   action: ActionFilter;
+  related: RelatedFilter;
   actor: string;
   from: string;
   to: string;
@@ -70,11 +78,18 @@ export function parseAuditLogParams(
     ? (actionRaw as (typeof ACTION_VALUES)[number])
     : "all";
 
+  const relatedRaw = raw("related");
+  const related: RelatedFilter = RELATED_VALUES.includes(
+    relatedRaw as (typeof RELATED_VALUES)[number],
+  )
+    ? (relatedRaw as (typeof RELATED_VALUES)[number])
+    : "all";
+
   const actor = raw("actor") || "all";
   const from = raw("from") || "";
   const to = raw("to") || "";
   const page = parsePage(raw("page"));
   const perPage = parsePerPage(raw("perPage"));
 
-  return { sort, dir, table, action, actor, from, to, page, perPage };
+  return { sort, dir, table, action, related, actor, from, to, page, perPage };
 }

@@ -4,8 +4,15 @@ import { FiltersSheet } from "@/components/filters-sheet";
 import { FilterSubmitButton } from "@/components/filter-submit-button";
 import { LinkPendingPulse } from "@/components/link-pending";
 import { TABLE_LABELS } from "./audit-log-badges";
+
+const RELATED_LABELS: Record<(typeof RELATED_VALUES)[number], string> = {
+  event: "Social posts for an event",
+  calendar_item: "Social posts for a calendar item",
+  none: "Standalone social posts",
+};
 import {
   ACTION_VALUES,
+  RELATED_VALUES,
   TABLE_VALUES,
   type AuditLogParams,
 } from "./audit-log-params";
@@ -25,6 +32,7 @@ export function AuditLogFilterForm({
   const activeFilterCount = [
     filters.table !== "all",
     filters.action !== "all",
+    filters.related !== "all",
     filters.actor !== "all",
     !!filters.from,
     !!filters.to,
@@ -76,6 +84,28 @@ export function AuditLogFilterForm({
               {ACTION_VALUES.map((value) => (
                 <option key={value} value={value} className="capitalize">
                   {value}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label
+              htmlFor="related"
+              className="app-muted text-xs font-semibold uppercase tracking-[0.1em]"
+            >
+              Related to
+            </label>
+            <select
+              id="related"
+              name="related"
+              defaultValue={filters.related}
+              className={selectClassName}
+            >
+              <option value="all">Anything</option>
+              {RELATED_VALUES.map((value) => (
+                <option key={value} value={value}>
+                  {RELATED_LABELS[value]}
                 </option>
               ))}
             </select>

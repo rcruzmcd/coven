@@ -16,6 +16,8 @@ import {
   type AuditLogRow,
 } from "./audit-log-detail-sheet";
 import type { AuditLogEntry } from "./audit-log-query";
+import type { RelatedRecord } from "./audit-log-related";
+import { RelatedChips } from "../../social/related-chips";
 import type { SortColumn } from "./audit-log-params";
 import { formatDateTime } from "@/lib/format";
 
@@ -32,6 +34,7 @@ export function AuditLogTable({
   dir,
   sortHref,
   actorEmailById,
+  relatedByEntryId,
   page,
   totalPages,
   count,
@@ -45,6 +48,8 @@ export function AuditLogTable({
   dir: "asc" | "desc";
   sortHref: (column: SortColumn) => string;
   actorEmailById: Map<string, string>;
+  /** Social post entries' event and calendar item (#1797). */
+  relatedByEntryId: Map<string, RelatedRecord>;
   page: number;
   totalPages: number;
   perPage: number;
@@ -88,6 +93,10 @@ export function AuditLogTable({
               </TableHeader>
               <TableBody>
                 {entries.map((entry) => {
+                  const related = relatedByEntryId.get(entry.id);
+                  const relatedChips = related ? (
+                    <RelatedChips piece={related} showStandalone />
+                  ) : null;
                   const auditRow: AuditLogRow = {
                     id: entry.id,
                     table_name: entry.table_name,
@@ -100,12 +109,16 @@ export function AuditLogTable({
                     old_data: entry.old_data,
                     new_data: entry.new_data,
                     redacted_at: entry.redacted_at,
+                    related: relatedChips,
                   };
                   return (
                     <TableRow key={entry.id}>
                       <TableCell>{formatDateTime(entry.occurred_at)}</TableCell>
                       <TableCell hideBelow="md">
                         {TABLE_LABELS[entry.table_name] ?? entry.table_name}
+                        {relatedChips ? (
+                          <div className="mt-1">{relatedChips}</div>
+                        ) : null}
                       </TableCell>
                       <TableCell>
                         <ActionBadge action={entry.action} />

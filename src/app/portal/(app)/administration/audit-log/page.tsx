@@ -6,6 +6,7 @@ import { AuditLogFilterForm } from "./audit-log-filter-form";
 import { parseAuditLogParams, type SortColumn } from "./audit-log-params";
 import { AuditLogTable } from "./audit-log-table";
 import { fetchAuditLogEntries } from "./audit-log-query";
+import { fetchRelatedRecords } from "./audit-log-related";
 
 type AuditLogPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -32,9 +33,12 @@ export default async function AuditLogPage({
     filters,
   );
 
+  const relatedByEntryId = await fetchRelatedRecords(supabase, entries ?? []);
+
   const filterParams = new URLSearchParams();
   if (filters.table !== "all") filterParams.set("table", filters.table);
   if (filters.action !== "all") filterParams.set("action", filters.action);
+  if (filters.related !== "all") filterParams.set("related", filters.related);
   if (filters.actor !== "all") filterParams.set("actor", filters.actor);
   if (filters.from) filterParams.set("from", filters.from);
   if (filters.to) filterParams.set("to", filters.to);
@@ -74,6 +78,7 @@ export default async function AuditLogPage({
   const hasActiveFilters =
     filters.table !== "all" ||
     filters.action !== "all" ||
+    filters.related !== "all" ||
     filters.actor !== "all" ||
     !!filters.from ||
     !!filters.to;
@@ -102,6 +107,7 @@ export default async function AuditLogPage({
         dir={filters.dir}
         sortHref={sortHref}
         actorEmailById={actorEmailById}
+        relatedByEntryId={relatedByEntryId}
         page={filters.page}
         totalPages={totalPages}
         count={count}
