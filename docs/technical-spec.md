@@ -138,8 +138,13 @@ Required application configuration:
 - `SUPABASE_SECRET_KEY` for trusted server-only operations, if required
 - Google OAuth credentials configured in Supabase Auth
 - Site URL and OAuth redirect URLs for local, preview, and production environments
+- Optional, for Google Drive uploads (#1627): `NEXT_PUBLIC_GOOGLE_PICKER_API_KEY`, `NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID`, `NEXT_PUBLIC_GOOGLE_APP_ID`. Public by design; unset hides the Drive button
 
 The secret key must never be exposed to browser code. Production and preview environments should use separate Supabase projects or clearly separated configuration and data policies.
+
+### Google Drive as an upload source
+
+Portal upload fields may take files from Google Drive as well as from the device (#1627). Drive is a source only: the browser downloads the picked file and hands it to the same checks, buckets, RLS and records as a local pick, so nothing in §7.5 changes. The app requests only the non-sensitive `https://www.googleapis.com/auth/drive.file` scope and stores no Google token. The Picker runs in a popup on the platform host, which returns the picked files and token to the tenant page by `postMessage`, so a tenant custom domain needs no Google console entry (#1629, Option A, approved 2026-11-11). It is on for every tenant, with no per-tenant setting in v1. Setup and the full flow: [`docs/tenants.md`, "Google Drive uploads"](tenants.md#google-drive-uploads-1627).
 
 ## 4. System Boundaries
 
