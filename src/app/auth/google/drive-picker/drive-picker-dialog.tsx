@@ -39,6 +39,13 @@ export default function DrivePickerDialog({
       onPicked={(event) => onPicked(event.detail.docs ?? [])}
       onCanceled={onCanceled}
     >
+      {/* One view per tab. `enable-drives` turns a view into the Shared
+          drives tab only, so My Drive needs its own view, listed first so
+          it opens by default. */}
+      <DrivePickerDocsView
+        include-folders="true"
+        {...(mimeTypes ? { "mime-types": mimeTypes } : {})}
+      />
       <DrivePickerDocsView
         enable-drives="true"
         include-folders="true"
