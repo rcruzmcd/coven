@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "chattersnow-web",
+      "name": "coven",
       "dependencies": {
         "@base-ui/react": "^1.9.0",
         "@googleworkspace/drive-picker-react": "^0.2.0",
