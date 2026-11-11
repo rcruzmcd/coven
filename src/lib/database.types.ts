@@ -4443,51 +4443,6 @@ export type Database = {
           },
         ];
       };
-      event_start_changes: {
-        Row: {
-          changed_at: string;
-          event_id: string;
-          from_starts_at: string;
-          id: string;
-          posts_shifted_at: string | null;
-          tenant_id: string;
-          to_starts_at: string;
-        };
-        Insert: {
-          changed_at?: string;
-          event_id: string;
-          from_starts_at: string;
-          id?: string;
-          posts_shifted_at?: string | null;
-          tenant_id?: string;
-          to_starts_at: string;
-        };
-        Update: {
-          changed_at?: string;
-          event_id?: string;
-          from_starts_at?: string;
-          id?: string;
-          posts_shifted_at?: string | null;
-          tenant_id?: string;
-          to_starts_at?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "event_start_changes_event_fkey";
-            columns: ["tenant_id", "event_id"];
-            isOneToOne: false;
-            referencedRelation: "events";
-            referencedColumns: ["tenant_id", "id"];
-          },
-          {
-            foreignKeyName: "event_start_changes_tenant_id_fkey";
-            columns: ["tenant_id"];
-            isOneToOne: false;
-            referencedRelation: "tenants";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
       event_staff: {
         Row: {
           created_at: string;
@@ -4556,6 +4511,58 @@ export type Database = {
           },
           {
             foreignKeyName: "event_staff_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      event_start_changes: {
+        Row: {
+          changed_at: string;
+          event_id: string;
+          from_starts_at: string;
+          id: string;
+          posts_shifted_at: string | null;
+          tenant_id: string;
+          to_starts_at: string;
+        };
+        Insert: {
+          changed_at?: string;
+          event_id: string;
+          from_starts_at: string;
+          id?: string;
+          posts_shifted_at?: string | null;
+          tenant_id?: string;
+          to_starts_at: string;
+        };
+        Update: {
+          changed_at?: string;
+          event_id?: string;
+          from_starts_at?: string;
+          id?: string;
+          posts_shifted_at?: string | null;
+          tenant_id?: string;
+          to_starts_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "event_start_changes_event_fkey";
+            columns: ["tenant_id", "event_id"];
+            isOneToOne: false;
+            referencedRelation: "events";
+            referencedColumns: ["tenant_id", "id"];
+          },
+          {
+            foreignKeyName: "event_start_changes_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "public_tenant";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "event_start_changes_tenant_id_fkey";
             columns: ["tenant_id"];
             isOneToOne: false;
             referencedRelation: "tenants";
@@ -11889,7 +11896,7 @@ export type Database = {
           p_from_starts_at: string;
           p_to_starts_at: string;
         };
-        Returns: unknown;
+        Returns: string;
       };
       claim_pending_role_grants: { Args: never; Returns: number };
       complete_my_welcome: {
