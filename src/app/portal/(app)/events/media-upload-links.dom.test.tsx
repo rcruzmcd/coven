@@ -1,6 +1,6 @@
 // #1620: the Media card's upload links -- what the list says about each link,
 // that only a live one can be revoked, and that creating one shows its URL and
-// QR code once.
+// QR code once. #1641: the created link can be emailed from the dialog.
 import { beforeEach, describe, expect, mock, test } from "bun:test";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -27,6 +27,13 @@ const createMock = mock<
     qr: "data:image/svg+xml;charset=utf-8,%3Csvg%3E",
   },
 }));
+let emailResult: { ok: true } | { error: string } = { ok: true };
+const emailMock = mock<
+  (
+    eventId: string,
+    input: { url: string; to: string },
+  ) => Promise<{ ok: true } | { error: string }>
+>(async () => emailResult);
 const revokeMock = mock<(id: string) => Promise<{ ok: true }>>(async () => ({
   ok: true,
 }));
@@ -36,6 +43,7 @@ const revokeMock = mock<(id: string) => Promise<{ ok: true }>>(async () => ({
 mock.module("./media-link-actions", () => ({
   listEventMediaUploadLinksAction: async () => ({ links }),
   createEventMediaUploadLinkAction: createMock,
+  emailEventMediaUploadLinkAction: emailMock,
   revokeEventMediaUploadLinkAction: revokeMock,
 }));
 
@@ -70,7 +78,9 @@ function renderLinks() {
 
 beforeEach(() => {
   createMock.mockClear();
+  emailMock.mockClear();
   revokeMock.mockClear();
+  emailResult = { ok: true };
 });
 
 describe("MediaUploadLinks", () => {
@@ -121,5 +131,64 @@ describe("MediaUploadLinks", () => {
     expect(input.label).toBe("Sam — photographer");
     expect(input.maxGb).toBe(50);
     expect(Number.isNaN(Date.parse(input.expiresAt))).toBe(false);
+  });
+
+  async function createLink(user: ReturnType<typeof userEvent.setup>) {
+    links = [];
+    renderLinks();
+    await user.click(
+      await screen.findByRole("button", { name: "Create upload link" }),
+    );
+    await user.type(screen.getByLabelText(/Who it.s for/), "Sam");
+    await user.click(screen.getByRole("button", { name: "Create link" }));
+    await screen.findByDisplayValue(
+      "https://portal.example.org/portal/media-upload/abc",
+    );
+  }
+
+  test("emails the created link to an address", async () => {
+    const user = userEvent.setup();
+    await createLink(user);
+    await user.type(screen.getByLabelText("Email it to"), "sam@example.com");
+    await user.click(screen.getByRole("button", { name: "Send" }));
+
+    expect((await screen.findByRole("status")).textContent).toBe(
+      "Emailed to sam@example.com.",
+    );
+    expect(emailMock.mock.calls[0]).toEqual([
+      "e1",
+      {
+        url: "https://portal.example.org/portal/media-upload/abc",
+        to: "sam@example.com",
+      },
+    ]);
+  });
+
+  test("a failed send says so and leaves the link to copy", async () => {
+    emailResult = { error: "Couldn't email the link to sam@example.com." };
+    const user = userEvent.setup();
+    await createLink(user);
+    await user.type(screen.getByLabelText("Email it to"), "sam@example.com");
+    await user.click(screen.getByRole("button", { name: "Send" }));
+
+    expect(
+      await screen.findByText("Couldn't email the link to sam@example.com."),
+    ).toBeTruthy();
+    expect(
+      screen.getByDisplayValue(
+        "https://portal.example.org/portal/media-upload/abc",
+      ),
+    ).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Copy" })).toBeTruthy();
+  });
+
+  test("an empty address sends nothing", async () => {
+    const user = userEvent.setup();
+    await createLink(user);
+    await user.click(screen.getByRole("button", { name: "Send" }));
+    expect(
+      await screen.findByText("Enter the address to send it to."),
+    ).toBeTruthy();
+    expect(emailMock).not.toHaveBeenCalled();
   });
 });

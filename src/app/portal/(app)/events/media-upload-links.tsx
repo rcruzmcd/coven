@@ -7,7 +7,7 @@ import {
   useTransition,
   type FormEvent,
 } from "react";
-import { Copy, Link2 } from "lucide-react";
+import { Copy, Link2, Mail } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -30,6 +30,7 @@ import {
 } from "@/lib/event-media-upload-links";
 import {
   createEventMediaUploadLinkAction,
+  emailEventMediaUploadLinkAction,
   listEventMediaUploadLinksAction,
   revokeEventMediaUploadLinkAction,
   type CreatedUploadLink,
@@ -303,6 +304,7 @@ function CreateUploadLinkDialog({
             alt="QR code for the upload link"
             className="size-48 rounded-md bg-white p-2"
           />
+          <EmailUploadLink eventId={eventId} url={created.url} />
         </div>
       ) : (
         <div className="flex flex-col gap-4">
@@ -366,5 +368,85 @@ function CreateUploadLinkDialog({
         </div>
       )}
     </PortalFormSurface>
+  );
+}
+
+/**
+ * Emails the link just created (#1641). Only here, because the raw token
+ * exists only in this dialog. A failed send says so and leaves the link to
+ * copy; a sent one can go to another address too.
+ */
+function EmailUploadLink({ eventId, url }: { eventId: string; url: string }) {
+  const [to, setTo] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [sentTo, setSentTo] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+
+  function handleSend() {
+    setError(null);
+    setSentTo(null);
+    const address = to.trim();
+    if (!address) {
+      setError("Enter the address to send it to.");
+      return;
+    }
+    startTransition(async () => {
+      const result = await emailEventMediaUploadLinkAction(eventId, {
+        url,
+        to: address,
+      });
+      if ("error" in result) {
+        setError(result.error);
+        return;
+      }
+      setSentTo(address);
+      setTo("");
+    });
+  }
+
+  return (
+    <Field className="w-full">
+      <FieldLabel htmlFor="upload-link-email">Email it to</FieldLabel>
+      <div className="flex w-full gap-2">
+        <Input
+          id="upload-link-email"
+          type="email"
+          autoComplete="off"
+          placeholder="sam@example.com"
+          value={to}
+          onChange={(event) => setTo(event.target.value)}
+          onKeyDown={(event) => {
+            // Enter submits the surrounding form, which closes the dialog.
+            if (event.key === "Enter") {
+              event.preventDefault();
+              handleSend();
+            }
+          }}
+        />
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={handleSend}
+          disabled={isPending}
+        >
+          {isPending ? <Spinner /> : <Mail className="size-4" />}
+          Send
+        </Button>
+      </div>
+      <FieldDescription>
+        Optional. The email names the event, who the link is for and when it
+        expires.
+      </FieldDescription>
+      {sentTo && (
+        <p role="status" className="text-sm">
+          Emailed to {sentTo}.
+        </p>
+      )}
+      {error && (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+    </Field>
   );
 }

@@ -40,6 +40,7 @@ const UNREGISTERED_KIND_LABELS: Record<string, string> = {
   sign_in_code: "Sign-in code",
   auto_reply_test: "Automatic reply test send",
   event_access_granted: "Event access given",
+  event_media_upload_link: "Event media upload link",
 };
 
 /**
