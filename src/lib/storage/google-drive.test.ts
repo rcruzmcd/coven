@@ -88,6 +88,23 @@ describe("planDriveDownload", () => {
     expect(plan).toEqual({ error: "Scan.pdf is larger than 10 MB." });
   });
 
+  test("words the size refusal the field's own way when asked", () => {
+    const plan = planDriveDownload(
+      {
+        id: "abc",
+        name: "Scan.pdf",
+        mimeType: "application/pdf",
+        sizeBytes: 11 * MB,
+      },
+      {
+        accept: "application/pdf",
+        maxBytes: 10 * MB,
+        tooLarge: (name) => `${name} is too big. Link it instead.`,
+      },
+    );
+    expect(plan).toEqual({ error: "Scan.pdf is too big. Link it instead." });
+  });
+
   test("refuses a type the field does not accept", () => {
     const plan = planDriveDownload(
       { id: "abc", name: "Notes.txt", mimeType: "text/plain" },

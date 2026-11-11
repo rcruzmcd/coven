@@ -11,6 +11,7 @@ import {
   googleDriveConfig,
   newDrivePickerNonce,
   parseDrivePickerMessage,
+  type TooLargeMessage,
 } from "@/lib/storage/google-drive";
 
 /** Show progress only past this size, so small files don't flicker. */
@@ -22,6 +23,8 @@ type GoogleDriveButtonProps = {
   multiple?: boolean;
   /** Files over this are refused before they are downloaded. */
   maxBytes?: number;
+  /** The field's own wording for that refusal, so Drive and a local pick match. */
+  tooLarge?: TooLargeMessage;
   /** Called with the downloaded files, the same as a local pick. */
   onFiles: (files: File[]) => void;
   disabled?: boolean;
@@ -45,6 +48,7 @@ export function GoogleDriveButton({
   accept,
   multiple = false,
   maxBytes,
+  tooLarge,
   onFiles,
   disabled,
 }: GoogleDriveButtonProps) {
@@ -106,6 +110,7 @@ export function GoogleDriveButton({
         {
           accept,
           maxBytes,
+          tooLarge,
           onProgress: ({ name, loaded, total }) => {
             if (total === null || total < PROGRESS_FROM_BYTES) return;
             const percent = Math.min(100, Math.round((loaded / total) * 100));
