@@ -49,7 +49,7 @@ export function renderEventIcs(
     "VERSION:2.0",
     // Identifies the software, not the organization: a tenant name here would
     // make the same event's file differ per tenant for no reader's benefit.
-    "PRODID:-//Coven//chattersnow-web//EN",
+    "PRODID:-//Coven//Coven//EN",
     "CALSCALE:GREGORIAN",
     "METHOD:PUBLISH",
     "BEGIN:VEVENT",

@@ -327,7 +327,7 @@ function partySizeText(partySize: number): string {
  * Not the registration -- see CalendarEvent.uid in event-ics.ts.
  */
 function calendarUid(eventId: string, siteUrl: string): string {
-  let host = "chattersnow-web";
+  let host = "coven";
   try {
     host = new URL(siteUrl).hostname || host;
   } catch {
