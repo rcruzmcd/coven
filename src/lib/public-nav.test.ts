@@ -160,6 +160,17 @@ describe("visibleGroups", () => {
     expect(labels).toEqual(["Events", "Items", "Get Involved", "Contact"]);
   });
 
+  // #1655: the layout hides `gallery` while it is off or empty.
+  test("shows Gallery under Events only while its slot is live", () => {
+    const eventsLinks = (hidden: string[]) =>
+      visibleGroups(hidden)
+        .find((group) => group.href === "/events")
+        ?.links?.map((link) => link.href);
+    expect(eventsLinks([])).toContain("/gallery");
+    expect(eventsLinks(["gallery"])).not.toContain("/gallery");
+    expect(eventsLinks(["gallery"])).toEqual(["/events", "/events/community"]);
+  });
+
   // The reduced nav still has to reach the section landing pages.
   test("keeps the overview link when a group survives filtering", () => {
     const getInvolved = visibleGroups(HIDDEN).find(
@@ -375,6 +386,7 @@ describe("visibleGroups with a tenant menu (#1726)", () => {
     expect(groups[1].links?.map((link) => link.href)).toEqual([
       "/events",
       "/events/community",
+      "/gallery",
     ]);
   });
 

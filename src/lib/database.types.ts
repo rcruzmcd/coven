@@ -13300,6 +13300,28 @@ export type Database = {
         Returns: undefined;
       };
       public_asks_profile_questions: { Args: never; Returns: boolean };
+      public_event_gallery: {
+        Args: {
+          p_limit: number;
+          p_offset: number;
+          p_tenant_id: string;
+          p_thumbs: number;
+        };
+        Returns: {
+          event_id: string;
+          name: string;
+          photo_count: number;
+          starts_at: string;
+          thumb_paths: string[];
+          timezone: string;
+          total_events: number;
+          video_count: number;
+        }[];
+      };
+      public_event_gallery_has_media: {
+        Args: { p_tenant_id: string };
+        Returns: boolean;
+      };
       public_event_media: {
         Args: { p_event_id: string; p_tenant_id: string };
         Returns: {

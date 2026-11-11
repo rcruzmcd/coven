@@ -32,6 +32,7 @@ import { servesPublicApp, surfaceAtRoot } from "@/lib/pwa/host";
 import { APP_ICONS_METADATA, PUBLIC_MANIFEST_PATH } from "@/lib/pwa/manifest";
 import { serviceWorkerScope } from "@/lib/pwa/service-worker";
 import { SiteNav } from "./site-nav";
+import { publicGalleryHasMedia } from "./gallery/gallery-data";
 import { AccountFooterLink } from "./account-menu";
 import { AccountNavProvider } from "./account-nav-provider";
 
@@ -175,6 +176,12 @@ export default async function PublicLayout({
   }
 
   const hidden = hiddenSlots(visibility);
+  // The Gallery link only while there is something on it (#1655): a menu item
+  // that leads to an empty page or a 404 is worse than none. Asked only when
+  // the board has the page on, so every other tenant pays nothing for it.
+  if (!hidden.includes("gallery") && !(await publicGalleryHasMedia())) {
+    hidden.push("gallery");
+  }
   const nav = resolveNavSettings(storedNav);
   // The same condition the manifest link is emitted on: a worker scoped to an
   // app this host does not advertise would have no page to control (#1171).
