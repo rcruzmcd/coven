@@ -3,13 +3,15 @@
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { parseContentPieceForm, type ContentPieceFormData } from "./piece-form";
-import { CONTENT_STATUSES } from "./pieces";
+import { CONTENT_STATUSES, SOCIAL_POST_MEDIA_BUCKET } from "./pieces";
 import { checkPermission } from "@/lib/auth/permissions";
 import { checkUser } from "@/lib/auth/current-user";
 import { fetchAllPages } from "@/lib/supabase/fetch-all-pages";
 import { getOrgTimeZone } from "@/lib/org-timezone";
 import { planEventPosts, planTitleKey } from "./event-plan";
 import { getDefaultLeadTimeDays, getEventPlanTemplate } from "./queries";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/lib/database.types";
 
 export type ContentPieceActionResult =
   { error: string } | { success: true; warning?: string };
@@ -46,6 +48,8 @@ function pieceColumns(data: ContentPieceFormData) {
     event_id: data.eventId,
     title: data.title,
     content: data.content,
+    post_format: data.postFormat,
+    collaborator_handles: data.collaboratorHandles,
     content_status: data.contentStatus,
     skip_reason: data.skipReason,
     internal_notes: data.internalNotes,
@@ -56,6 +60,28 @@ function pieceColumns(data: ContentPieceFormData) {
     review_due_at: data.reviewDueAt,
     draft_due_at: data.draftDueAt,
   };
+}
+
+/**
+ * Replaces a post's tags (#1826), after its row is saved. A failure here is a
+ * warning rather than an error: the post itself saved.
+ */
+async function saveTags(
+  supabase: SupabaseClient<Database>,
+  postId: string,
+  data: ContentPieceFormData,
+): Promise<string | undefined> {
+  const { error } = await supabase.rpc("set_social_post_tags", {
+    p_post_id: postId,
+    p_tags: data.tags.map((tag) =>
+      "personId" in tag ? { person_id: tag.personId } : { handle: tag.handle },
+    ),
+  });
+  if (error) {
+    console.error("Could not save the social post's tags", error);
+    return "The post saved, but its tags didn't. Open it and save again.";
+  }
+  return undefined;
 }
 
 /**
@@ -84,18 +110,27 @@ export async function createContentPieceAction(
   if ("error" in parsed) return parsed;
   const { data } = parsed;
 
-  const { error } = await supabase.from("content_opportunities").insert({
-    ...pieceColumns(data),
-    status_changed_by: user.id,
-    status_changed_at: new Date().toISOString(),
-  });
+  const { data: created, error } = await supabase
+    .from("content_opportunities")
+    .insert({
+      ...pieceColumns(data),
+      status_changed_by: user.id,
+      status_changed_at: new Date().toISOString(),
+    })
+    .select("id")
+    .single();
 
-  if (error) {
+  if (error || !created) {
     return { error: "Could not add the social post. Please try again." };
   }
 
+  const warning =
+    data.tags.length > 0
+      ? await saveTags(supabase, created.id, data)
+      : undefined;
+
   revalidatePiecePaths([data.eventId]);
-  return { success: true };
+  return warning ? { success: true, warning } : { success: true };
 }
 
 export async function updateContentPieceAction(
@@ -148,9 +183,11 @@ export async function updateContentPieceAction(
     return { error: "Could not update the social post. Please try again." };
   }
 
+  const warning = await saveTags(supabase, id, data);
+
   // The event it was related to loses it as well as the one it moves to.
   revalidatePiecePaths([current.event_id, data.eventId]);
-  return { success: true };
+  return warning ? { success: true, warning } : { success: true };
 }
 
 /**
@@ -222,6 +259,21 @@ export async function deleteContentPieceAction(
     "manage",
   );
   if (permissionError) return permissionError;
+
+  // The media rows cascade with the post; their objects would not, so they
+  // go first. An object that fails to go is orphaned, not shown.
+  const { data: media } = await supabase
+    .from("social_post_media")
+    .select("storage_path")
+    .eq("content_opportunity_id", id);
+  if (media && media.length > 0) {
+    const { error: storageError } = await supabase.storage
+      .from(SOCIAL_POST_MEDIA_BUCKET)
+      .remove(media.map((row) => row.storage_path));
+    if (storageError) {
+      console.error("Could not remove the social post's media", storageError);
+    }
+  }
 
   const { data: deleted, error } = await supabase
     .from("content_opportunities")

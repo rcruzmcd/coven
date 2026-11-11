@@ -172,6 +172,11 @@ export type EventMediaSlot = {
   contentType: EventMediaContentType;
   /** An original photo's thumbnail slot (#1620), at `eventMediaThumbPath(path)`. */
   thumbToken?: string;
+  /**
+   * The bucket the slot was minted in, when it is not `event-media` -- a
+   * social post's media (#1826) goes through the same uploader.
+   */
+  bucket?: string;
 };
 
 /**

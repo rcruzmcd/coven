@@ -1981,6 +1981,7 @@ export type Database = {
       content_opportunities: {
         Row: {
           calendar_item_id: string | null;
+          collaborator_handles: string[];
           content: string | null;
           content_status: string;
           created_at: string;
@@ -1991,6 +1992,7 @@ export type Database = {
           internal_notes: string | null;
           lead_time_days: number;
           owner_id: string | null;
+          post_format: string | null;
           publish_due_at: string | null;
           review_due_at: string | null;
           reviewer_id: string | null;
@@ -2004,6 +2006,7 @@ export type Database = {
         };
         Insert: {
           calendar_item_id?: string | null;
+          collaborator_handles?: string[];
           content?: string | null;
           content_status?: string;
           created_at?: string;
@@ -2014,6 +2017,7 @@ export type Database = {
           internal_notes?: string | null;
           lead_time_days?: number;
           owner_id?: string | null;
+          post_format?: string | null;
           publish_due_at?: string | null;
           review_due_at?: string | null;
           reviewer_id?: string | null;
@@ -2027,6 +2031,7 @@ export type Database = {
         };
         Update: {
           calendar_item_id?: string | null;
+          collaborator_handles?: string[];
           content?: string | null;
           content_status?: string;
           created_at?: string;
@@ -2037,6 +2042,7 @@ export type Database = {
           internal_notes?: string | null;
           lead_time_days?: number;
           owner_id?: string | null;
+          post_format?: string | null;
           publish_due_at?: string | null;
           review_due_at?: string | null;
           reviewer_id?: string | null;
@@ -10166,6 +10172,139 @@ export type Database = {
           },
         ];
       };
+      social_post_media: {
+        Row: {
+          content_opportunity_id: string;
+          content_type: string;
+          id: string;
+          kind: string;
+          original_filename: string;
+          position: number;
+          size_bytes: number;
+          storage_path: string;
+          tenant_id: string;
+          uploaded_at: string;
+          uploaded_by: string | null;
+        };
+        Insert: {
+          content_opportunity_id: string;
+          content_type: string;
+          id?: string;
+          kind?: string;
+          original_filename: string;
+          position: number;
+          size_bytes: number;
+          storage_path: string;
+          tenant_id?: string;
+          uploaded_at?: string;
+          uploaded_by?: string | null;
+        };
+        Update: {
+          content_opportunity_id?: string;
+          content_type?: string;
+          id?: string;
+          kind?: string;
+          original_filename?: string;
+          position?: number;
+          size_bytes?: number;
+          storage_path?: string;
+          tenant_id?: string;
+          uploaded_at?: string;
+          uploaded_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "social_post_media_post_fkey";
+            columns: ["tenant_id", "content_opportunity_id"];
+            isOneToOne: false;
+            referencedRelation: "content_opportunities";
+            referencedColumns: ["tenant_id", "id"];
+          },
+          {
+            foreignKeyName: "social_post_media_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "public_tenant";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "social_post_media_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      social_post_tags: {
+        Row: {
+          content_opportunity_id: string;
+          created_at: string;
+          created_by: string | null;
+          handle: string | null;
+          id: string;
+          person_id: string | null;
+          position: number;
+          tenant_id: string;
+        };
+        Insert: {
+          content_opportunity_id: string;
+          created_at?: string;
+          created_by?: string | null;
+          handle?: string | null;
+          id?: string;
+          person_id?: string | null;
+          position: number;
+          tenant_id?: string;
+        };
+        Update: {
+          content_opportunity_id?: string;
+          created_at?: string;
+          created_by?: string | null;
+          handle?: string | null;
+          id?: string;
+          person_id?: string | null;
+          position?: number;
+          tenant_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "social_post_tags_person_fkey";
+            columns: ["tenant_id", "person_id"];
+            isOneToOne: false;
+            referencedRelation: "people";
+            referencedColumns: ["tenant_id", "id"];
+          },
+          {
+            foreignKeyName: "social_post_tags_person_fkey";
+            columns: ["tenant_id", "person_id"];
+            isOneToOne: false;
+            referencedRelation: "people_with_roles";
+            referencedColumns: ["tenant_id", "id"];
+          },
+          {
+            foreignKeyName: "social_post_tags_post_fkey";
+            columns: ["tenant_id", "content_opportunity_id"];
+            isOneToOne: false;
+            referencedRelation: "content_opportunities";
+            referencedColumns: ["tenant_id", "id"];
+          },
+          {
+            foreignKeyName: "social_post_tags_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "public_tenant";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "social_post_tags_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       tenant_memberships: {
         Row: {
           created_at: string;
@@ -13529,6 +13668,28 @@ export type Database = {
           total: number;
         }[];
       };
+      record_social_post_media: {
+        Args: { p_original_filename: string; p_path: string };
+        Returns: {
+          content_opportunity_id: string;
+          content_type: string;
+          id: string;
+          kind: string;
+          original_filename: string;
+          position: number;
+          size_bytes: number;
+          storage_path: string;
+          tenant_id: string;
+          uploaded_at: string;
+          uploaded_by: string | null;
+        };
+        SetofOptions: {
+          from: "*";
+          to: "social_post_media";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
+      };
       recuse_from_conduct_report: {
         Args: { p_reason: string; p_report_id: string };
         Returns: undefined;
@@ -13770,6 +13931,10 @@ export type Database = {
       reorder_article_categories: {
         Args: { p_ids: string[] };
         Returns: number;
+      };
+      reorder_social_post_media: {
+        Args: { p_media_ids: string[]; p_post_id: string };
+        Returns: undefined;
       };
       request_gear_item: {
         Args: {
@@ -14402,6 +14567,10 @@ export type Database = {
         Args: { p_mode: string; p_policy_key: string };
         Returns: undefined;
       };
+      set_social_post_tags: {
+        Args: { p_post_id: string; p_tags: Json };
+        Returns: undefined;
+      };
       shift_event_social_posts: {
         Args: {
           p_event_id: string;
@@ -14413,6 +14582,20 @@ export type Database = {
       show_limit: { Args: never; Returns: number };
       show_trgm: { Args: { "": string }; Returns: string[] };
       site_content_approver_count: { Args: never; Returns: number };
+      social_post_media_path_post_id: {
+        Args: { p_name: string };
+        Returns: string;
+      };
+      social_post_tag_people: {
+        Args: { p_event_id?: string; p_person_ids?: string[] };
+        Returns: {
+          declined_photo_consent: boolean;
+          instagram_handle: string;
+          name: string;
+          person_id: string;
+          preferred_name: string;
+        }[];
+      };
       stamp_event_reminder: {
         Args: { p_registration_id: string };
         Returns: boolean;
