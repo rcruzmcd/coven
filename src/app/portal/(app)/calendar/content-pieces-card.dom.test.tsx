@@ -13,6 +13,8 @@ function piece(overrides: Partial<ContentPieceRow> = {}): ContentPieceRow {
     event_id: null,
     title: "Instagram carousel",
     content: null,
+    post_format: null,
+    collaborator_handles: [],
     content_status: "draft",
     skip_reason: null,
     internal_notes: null,

@@ -276,6 +276,8 @@ describe("OverviewTab social post shift", () => {
       event_id: "event-1",
       title: "Reminder",
       content: null,
+      post_format: null,
+      collaborator_handles: [],
       content_status: "idea",
       skip_reason: null,
       internal_notes: null,

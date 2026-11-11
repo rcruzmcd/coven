@@ -26,7 +26,7 @@ export type DiscoveredRoute = {
  * is not one, that is a finding.
  */
 const SKIP: Record<string, string> = {
-  "/portal": "redirect shim to /portal/login or /portal/entry",
+  "/portal": "redirect shim to /portal/login or /portal/home",
   "/portal/entry": "redirect shim to /portal/home",
   // The terms, the code of conduct and the accessibility statement are served
   // once a tenant has put them in force, and the seeded tenant this scan runs

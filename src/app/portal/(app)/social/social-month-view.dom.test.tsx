@@ -13,6 +13,8 @@ function piece(id: string): SocialPieceRow {
     event_id: null,
     title: `Post ${id}`,
     content: null,
+    post_format: null,
+    collaborator_handles: [],
     content_status: "draft",
     skip_reason: null,
     internal_notes: null,

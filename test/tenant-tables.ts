@@ -60,6 +60,10 @@
  * seed has none. Their RLS is owner-only on top of the tenant predicate, which
  * `src/lib/inventory-distribution-draft.integration.test.ts` asserts directly.
  *
+ * `social_post_tags` and `social_post_media` (#1826) are absent for the same
+ * reason: the seed gives no post a tag or a file. Their access is asserted
+ * directly in `src/lib/social-content/post-content-actions.integration.test.ts`.
+ *
  * `event_access_grants` (#1686) is absent for the same reason: a grant exists
  * only once an administrator gives a guest access to an event, which the seed
  * never does. Its isolation -- a grant in another tenant reaching nothing --
