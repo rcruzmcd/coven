@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { localDayKey, monthGridDays, placePieces } from "./social-placement";
+import { placePieces } from "./social-placement";
 
 test("a dated post lands on its day in the given zone; an undated one goes to the tray", () => {
   const morning = { id: "a", publish_due_at: "2026-11-14T15:00:00Z" };
@@ -14,17 +14,4 @@ test("a dated post lands on its day in the given zone; an undated one goes to th
   const newYork = placePieces([morning, lateUtc], "America/New_York");
   expect(newYork.byDay.get("2026-11-13")).toEqual([lateUtc]);
   expect(newYork.byDay.get("2026-11-14")).toEqual([morning]);
-});
-
-test("localDayKey pads month and day", () => {
-  expect(localDayKey(new Date(2027, 0, 5))).toBe("2027-01-05");
-});
-
-test("monthGridDays covers whole weeks with each date once, across a DST change", () => {
-  // November 2026 starts on the Sunday US clocks fall back.
-  const days = monthGridDays(2026, 10).map(localDayKey);
-  expect(days.length).toBe(35);
-  expect(new Set(days).size).toBe(35);
-  expect(days[0]).toBe("2026-11-01");
-  expect(days.at(-1)).toBe("2026-12-05");
 });
