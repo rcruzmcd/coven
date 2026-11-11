@@ -213,13 +213,19 @@ export function formatMegabytes(bytes: number): string {
   return `${Number.isInteger(mb) ? mb : mb.toFixed(1)} MB`;
 }
 
+/** The refusal for a file over `maxBytes`, unless the field words its own. */
+export type TooLargeMessage = (name: string, maxBytes: number) => string;
+
+const defaultTooLarge: TooLargeMessage = (name, maxBytes) =>
+  `${name} is larger than ${formatMegabytes(maxBytes)}.`;
+
 /**
  * What to fetch for one picked doc, or why it can't be used. The size is
  * checked here, before anything is downloaded.
  */
 export function planDriveDownload(
   doc: PickedDriveDoc,
-  options: { accept?: string; maxBytes?: number },
+  options: { accept?: string; maxBytes?: number; tooLarge?: TooLargeMessage },
 ): DriveDownloadPlan | { error: string } {
   const name = doc.name || "Untitled";
   const id = encodeURIComponent(doc.id);
@@ -247,7 +253,7 @@ export function planDriveDownload(
     size > options.maxBytes
   ) {
     return {
-      error: `${name} is larger than ${formatMegabytes(options.maxBytes)}.`,
+      error: (options.tooLarge ?? defaultTooLarge)(name, options.maxBytes),
     };
   }
   const params = new URLSearchParams({
@@ -327,6 +333,7 @@ export async function downloadDriveFile(
   accessToken: string,
   options: {
     maxBytes?: number;
+    tooLarge?: TooLargeMessage;
     fetch?: typeof fetch;
     onProgress?: (loaded: number, total: number | null) => void;
   } = {},
@@ -360,7 +367,7 @@ export async function downloadDriveFile(
   // An export has no size until it arrives.
   if (options.maxBytes !== undefined && blob.size > options.maxBytes) {
     return {
-      error: `${plan.name} is larger than ${formatMegabytes(options.maxBytes)}.`,
+      error: (options.tooLarge ?? defaultTooLarge)(plan.name, options.maxBytes),
     };
   }
   return new File([blob], plan.name, { type: plan.type });
@@ -376,6 +383,7 @@ export async function filesFromDrivePick(
   options: {
     accept?: string;
     maxBytes?: number;
+    tooLarge?: TooLargeMessage;
     fetch?: typeof fetch;
     onProgress?: (progress: {
       name: string;
@@ -394,6 +402,7 @@ export async function filesFromDrivePick(
     }
     const result = await downloadDriveFile(plan, accessToken, {
       maxBytes: options.maxBytes,
+      tooLarge: options.tooLarge,
       fetch: options.fetch,
       onProgress: options.onProgress
         ? (loaded, total) =>

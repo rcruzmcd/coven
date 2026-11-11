@@ -40,6 +40,26 @@ mock.module("@/app/portal/(app)/gear-photo-actions", () => ({
   createGearPhotoPathAction: createGearPhotoPathActionMock,
 }));
 
+// Drive itself is covered by google-drive-button.dom.test.tsx; here it only
+// has to hand back a File, as a finished pick does.
+const driveProps: { accept?: string }[] = [];
+mock.module("@/components/portal/google-drive-button", () => ({
+  GoogleDriveButton: (props: {
+    accept?: string;
+    onFiles: (files: File[]) => void;
+  }) => {
+    driveProps.push(props);
+    return (
+      <button
+        type="button"
+        onClick={() => props.onFiles([pngFile("drive.png")])}
+      >
+        From Google Drive
+      </button>
+    );
+  },
+}));
+
 const { PhotoUploadField } = await import("./photo-upload-field");
 
 function pngFile(name = "gear.png") {
@@ -145,6 +165,37 @@ describe("PhotoUploadField", () => {
     await userEvent.click(screen.getByRole("button", { name: "Remove photo" }));
 
     expect(deleteGearPhotoMock).not.toHaveBeenCalled();
+  });
+
+  test("a photo from Google Drive uploads like a local pick", async () => {
+    const onChange = mock<(url: string) => void>(() => {});
+    render(<PhotoUploadField value="" onChange={onChange} idPrefix="item-1" />);
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "From Google Drive" }),
+    );
+
+    await waitFor(() => expect(onChange).toHaveBeenCalledWith(PUBLIC_URL));
+    expect(uploadGearPhotoMock.mock.calls[0][0].name).toBe("drive.png");
+    expect(driveProps.at(-1)?.accept).toBe("image/*");
+  });
+
+  test("a refused Drive photo shows the same message as a local one", async () => {
+    createGearPhotoPathActionMock.mockImplementation(async () => ({
+      error: "You don't have permission to perform this action.",
+    }));
+    render(<PhotoUploadField value="" onChange={() => {}} idPrefix="item-1" />);
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "From Google Drive" }),
+    );
+
+    expect(
+      await screen.findByText(
+        "You don't have permission to perform this action.",
+      ),
+    ).toBeTruthy();
+    expect(uploadGearPhotoMock).not.toHaveBeenCalled();
   });
 
   test("a pasted link is passed straight through", async () => {
