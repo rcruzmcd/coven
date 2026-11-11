@@ -27,6 +27,8 @@ type GoogleDriveButtonProps = {
   /** The field's own wording for that refusal, so Drive and a local pick match. */
   tooLarge?: TooLargeMessage;
   disabled?: boolean;
+  /** A line under the button, hidden with it when Drive is not configured. */
+  hint?: React.ReactNode;
 } & (
   | {
       /** Called with the downloaded files, the same as a local pick. */
@@ -67,6 +69,7 @@ export function GoogleDriveButton({
   onFiles,
   onPick,
   disabled,
+  hint,
 }: GoogleDriveButtonProps) {
   const [state, setState] = useState<State>({ name: "idle" });
   const [errors, setErrors] = useState<string[]>([]);
@@ -181,6 +184,7 @@ export function GoogleDriveButton({
           </span>
         ) : null}
       </div>
+      {hint ? <p className="app-muted text-xs">{hint}</p> : null}
       {errors.length > 0 ? (
         <Alert variant="destructive">
           <AlertDescription>

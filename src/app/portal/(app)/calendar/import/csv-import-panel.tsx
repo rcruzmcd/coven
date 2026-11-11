@@ -18,6 +18,7 @@ import {
 import { bulkImportCalendarItemsAction } from "./actions";
 import { Spinner } from "@/components/ui/spinner";
 import { runAction } from "@/components/portal/action-toast";
+import { GoogleDriveButton } from "@/components/portal/google-drive-button";
 
 export function CsvImportPanel({
   categoryKeys,
@@ -53,7 +54,11 @@ export function CsvImportPanel({
 
   async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
-    if (!file) return;
+    if (file) await loadFile(file);
+  }
+
+  /** A local pick or a Drive one (#1636): the same preview either way. */
+  async function loadFile(file: File) {
     const text = await file.text();
     setCsvText(text);
     setSubmitError(null);
@@ -165,6 +170,11 @@ export function CsvImportPanel({
           type="file"
           accept=".csv,text/csv"
           onChange={handleFileChange}
+        />
+        <GoogleDriveButton
+          accept=".csv,text/csv"
+          hint="A Google Sheet comes in as CSV: its first sheet only."
+          onFiles={([file]) => void loadFile(file)}
         />
       </Field>
 
