@@ -317,13 +317,17 @@ export async function generateEventPlanAction(
 const EVENT_CANCELLED_SKIP_REASON = "Event cancelled";
 
 /**
- * Moves an event's open posts by however far its start moved (#1799): the
- * publish, review and draft dates of every dated post not yet published or
- * skipped, in one statement (`shift_event_social_posts`).
+ * Moves an event's open posts by one saved change of its start, from
+ * `fromStartsAt` to `toStartsAt` (#1799): the publish, review and draft dates
+ * of every dated post not yet published or skipped, in one statement
+ * (`shift_event_social_posts`). The database records each saved change and
+ * lets it be applied once, so two people accepting the same reschedule move
+ * the posts once.
  */
 export async function shiftEventPostsAction(
   eventId: string,
-  shiftMs: number,
+  fromStartsAt: string,
+  toStartsAt: string,
 ): Promise<{ error: string } | { success: true; moved: number }> {
   const supabase = await createSupabaseServerClient();
   const userResult = await checkUser(
@@ -338,16 +342,21 @@ export async function shiftEventPostsAction(
   );
   if (permissionError) return permissionError;
 
-  const shiftSeconds = Math.round(shiftMs / 1000);
-  if (!Number.isFinite(shiftSeconds) || shiftSeconds === 0) {
+  if (Date.parse(fromStartsAt) === Date.parse(toStartsAt)) {
     return { success: true, moved: 0 };
   }
 
   const { data, error } = await supabase.rpc("shift_event_social_posts", {
     p_event_id: eventId,
-    p_shift_seconds: shiftSeconds,
+    p_from_starts_at: fromStartsAt,
+    p_to_starts_at: toStartsAt,
   });
   if (error) {
+    if (error.message.includes("EVENT_START_CHANGE_USED")) {
+      return {
+        error: "These social posts were already moved for this date change.",
+      };
+    }
     return { error: "Could not move the social posts. Please try again." };
   }
 

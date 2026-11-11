@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import {
   activeSocialFilterCount,
+  hasMonthParam,
+  monthInZone,
   parseSocialFilters,
   socialHref,
 } from "./social-filters";
@@ -109,4 +111,20 @@ test("activeSocialFilterCount counts the narrowing filters, not view or overlay"
       parseSocialFilters({ status: "draft", event: EVENT_ID }, NOW),
     ),
   ).toBe(2);
+});
+
+describe("the default month", () => {
+  // 01:00 UTC on 1 Dec is still 30 Nov in New York.
+  const now = new Date("2026-12-01T01:00:00Z");
+
+  test("is the viewer's month, not the server's", () => {
+    expect(monthInZone("America/New_York", now)).toBe("2026-11");
+    expect(monthInZone("UTC", now)).toBe("2026-12");
+  });
+
+  test("only a valid month in the URL counts as named", () => {
+    expect(hasMonthParam({ month: "2026-12" })).toBe(true);
+    expect(hasMonthParam({})).toBe(false);
+    expect(hasMonthParam({ month: "2026-13" })).toBe(false);
+  });
 });

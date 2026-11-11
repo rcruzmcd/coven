@@ -459,13 +459,37 @@ describe("moving and skipping an event's posts (integration, #1799)", () => {
 
   const ms = (iso: string | null) => (iso ? new Date(iso).getTime() : null);
 
+  /** Saves a new start for the event, as the Overview form does. */
+  async function reschedule(eventId: string, byMs: number) {
+    const { data, error } = await adminClient
+      .from("events")
+      .select("starts_at, ends_at")
+      .eq("id", eventId)
+      .single();
+    if (error) throw error;
+    const from = new Date(data.starts_at).toISOString();
+    const to = new Date(Date.parse(data.starts_at) + byMs).toISOString();
+    const { error: updateError } = await adminClient
+      .from("events")
+      .update({
+        starts_at: to,
+        ends_at: data.ends_at
+          ? new Date(Date.parse(data.ends_at) + byMs).toISOString()
+          : null,
+      })
+      .eq("id", eventId);
+    if (updateError) throw updateError;
+    return { from, to };
+  }
+
   test("moving the event 3 days later moves only the unpublished posts", async () => {
     const event = await createPublishedEvent();
     await seedPosts(event.id);
     const before = await postsByTitle(event.id);
+    const { from, to } = await reschedule(event.id, 3 * DAY);
     currentSupabase = await signInAs(SEEDED_USERS.admin);
 
-    expect(await shiftEventPostsAction(event.id, 3 * DAY)).toEqual({
+    expect(await shiftEventPostsAction(event.id, from, to)).toEqual({
       success: true,
       moved: 1,
     });
@@ -498,10 +522,62 @@ describe("moving and skipping an event's posts (integration, #1799)", () => {
     await event.cleanup();
   });
 
+  test("a second accept of the same reschedule moves nothing", async () => {
+    const event = await createPublishedEvent();
+    await seedPosts(event.id);
+    const before = await postsByTitle(event.id);
+    const { from, to } = await reschedule(event.id, 3 * DAY);
+    currentSupabase = await signInAs(SEEDED_USERS.admin);
+
+    // Two managers both saw the event at `from` and saved `to`.
+    const [first, second] = await Promise.all([
+      shiftEventPostsAction(event.id, from, to),
+      shiftEventPostsAction(event.id, from, to),
+    ]);
+    const results = [first, second];
+    expect(results).toContainEqual({ success: true, moved: 1 });
+    expect(results).toContainEqual({
+      error: "These social posts were already moved for this date change.",
+    });
+
+    const after = await postsByTitle(event.id);
+    expect(ms(after.Open.publish_due_at)).toBe(
+      ms(before.Open.publish_due_at)! + 3 * DAY,
+    );
+
+    await adminClient
+      .from("content_opportunities")
+      .delete()
+      .eq("event_id", event.id);
+    await event.cleanup();
+  });
+
+  test("a delta the event never moved by is refused", async () => {
+    const event = await createPublishedEvent();
+    await seedPosts(event.id);
+    const before = await postsByTitle(event.id);
+    const { from } = await reschedule(event.id, DAY);
+    currentSupabase = await signInAs(SEEDED_USERS.admin);
+
+    const forged = new Date(Date.parse(from) + 30 * DAY).toISOString();
+    expect(await shiftEventPostsAction(event.id, from, forged)).toEqual({
+      error: "These social posts were already moved for this date change.",
+    });
+    const after = await postsByTitle(event.id);
+    expect(after.Open.publish_due_at).toBe(before.Open.publish_due_at);
+
+    await adminClient
+      .from("content_opportunities")
+      .delete()
+      .eq("event_id", event.id);
+    await event.cleanup();
+  });
+
   test("view-only roles cannot move posts", async () => {
     const event = await createPublishedEvent();
+    const { from, to } = await reschedule(event.id, DAY);
     currentSupabase = await signInAs(SEEDED_USERS.volunteer);
-    expect(await shiftEventPostsAction(event.id, DAY)).toEqual(DENIED);
+    expect(await shiftEventPostsAction(event.id, from, to)).toEqual(DENIED);
     await event.cleanup();
   });
 
