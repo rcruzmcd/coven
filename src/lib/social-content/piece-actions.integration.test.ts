@@ -384,6 +384,31 @@ describe("generateEventPlanAction (integration, #1798)", () => {
     await event.cleanup();
   });
 
+  test("two runs at once still create each post once", async () => {
+    const event = await createPublishedEvent({
+      startsAt: "2099-07-15T22:00:00.000Z",
+    });
+    currentSupabase = await signInAs(SEEDED_USERS.admin);
+
+    const results = await Promise.all([
+      generateEventPlanAction(event.id, ALL),
+      generateEventPlanAction(event.id, ALL),
+    ]);
+    const created = results.map((result) =>
+      "created" in result ? result.created : -1,
+    );
+    expect(created.sort()).toEqual([0, 5]);
+
+    const { pieces } = await listEventPieces(adminClient, event.id);
+    expect(pieces).toHaveLength(5);
+
+    await adminClient
+      .from("content_opportunities")
+      .delete()
+      .eq("event_id", event.id);
+    await event.cleanup();
+  });
+
   test("view-only roles cannot generate a plan", async () => {
     const event = await createPublishedEvent();
     currentSupabase = await signInAs(SEEDED_USERS.volunteer);

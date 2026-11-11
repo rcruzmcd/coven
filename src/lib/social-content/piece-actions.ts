@@ -254,7 +254,6 @@ export async function generateEventPlanAction(
     "You must be signed in to add social posts.",
   );
   if ("error" in userResult) return userResult;
-  const { user } = userResult;
   const permissionError = await checkPermission(
     supabase,
     "content_calendar",
@@ -272,50 +271,46 @@ export async function generateEventPlanAction(
     return { error: "Set the event's start date before generating a plan." };
   }
 
-  const [template, timeZone, leadTimeDays, existing] = await Promise.all([
+  const [template, timeZone, leadTimeDays] = await Promise.all([
     getEventPlanTemplate(supabase),
     getOrgTimeZone(supabase),
     getDefaultLeadTimeDays(supabase),
-    supabase
-      .from("content_opportunities")
-      .select("title")
-      .eq("event_id", eventId),
   ]);
-  if (existing.error) {
-    return { error: "Could not add the social posts. Please try again." };
-  }
 
+  // Titles the event already has are skipped in SQL, atomically with the
+  // insert (`insert_event_plan_posts`), so neither a concurrent run nor a
+  // row cap on a read here can let a duplicate through.
   const chosen = new Set(titles.map(planTitleKey));
-  const now = new Date().toISOString();
-  const rows = planEventPosts({
+  const posts = planEventPosts({
     template,
     startsAt: event.starts_at,
     timeZone,
     leadTimeDays,
-    existingTitles: (existing.data ?? []).map((row) => row.title),
+    existingTitles: [],
   })
-    .filter((post) => !post.exists && chosen.has(planTitleKey(post.title)))
+    .filter((post) => chosen.has(planTitleKey(post.title)))
     .map((post) => ({
-      event_id: eventId,
       title: post.title,
-      content_status: "idea",
       lead_time_days: leadTimeDays,
       publish_due_at: post.publishDueAt,
       review_due_at: post.reviewDueAt,
       draft_due_at: post.draftDueAt,
-      status_changed_by: user.id,
-      status_changed_at: now,
     }));
 
-  if (rows.length > 0) {
-    const { error } = await supabase.from("content_opportunities").insert(rows);
+  let created = 0;
+  if (posts.length > 0) {
+    const { data, error } = await supabase.rpc("insert_event_plan_posts", {
+      p_event_id: eventId,
+      p_posts: posts,
+    });
     if (error) {
       return { error: "Could not add the social posts. Please try again." };
     }
+    created = data ?? 0;
   }
 
   revalidatePiecePaths([eventId]);
-  return { success: true, created: rows.length };
+  return { success: true, created };
 }
 
 /** What a reason "Skip all" on a cancelled event's posts records (#1799). */

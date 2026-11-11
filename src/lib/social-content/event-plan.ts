@@ -51,6 +51,9 @@ export function addDaysInZone(
   days: number,
   timeZone: string,
 ): string {
+  // The instant itself, not its wall-clock reading rebuilt: in the hour a DST
+  // change repeats, that reading names two instants and may pick the other.
+  if (days === 0) return new Date(iso).toISOString();
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone,
     year: "numeric",

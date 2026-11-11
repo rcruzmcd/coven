@@ -41,6 +41,13 @@ describe("addDaysInZone", () => {
     ).toBe("2027-03-14T22:00:00.000Z");
   });
 
+  test("a zero offset keeps the instant in the hour DST repeats", () => {
+    // 1:30am on 2026-11-01 happens twice in New York; this is the second (EST).
+    expect(
+      addDaysInZone("2026-11-01T06:30:00.000Z", 0, "America/New_York"),
+    ).toBe("2026-11-01T06:30:00.000Z");
+  });
+
   test("counts days in the zone, not in UTC", () => {
     // 8pm Pacific on 1 Dec is 04:00Z on 2 Dec; the day before is 8pm on 30 Nov.
     expect(

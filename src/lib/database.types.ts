@@ -12390,6 +12390,10 @@ export type Database = {
       has_role: { Args: { p_role: string }; Returns: boolean };
       has_tenant_membership: { Args: never; Returns: boolean };
       inventory_actor_name: { Args: { p_user_id: string }; Returns: string };
+      insert_event_plan_posts: {
+        Args: { p_event_id: string; p_posts: Json };
+        Returns: number;
+      };
       inventory_intake_labels: {
         Args: { p_codes: string[]; p_donation_id: string };
         Returns: {
