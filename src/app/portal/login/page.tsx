@@ -5,6 +5,7 @@ import { ArrowLeft } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { getPublicBranding, getPublicTenant } from "@/lib/branding";
 import { BrandLogo } from "@/components/brand-logo";
+import { PlatformAttribution } from "@/components/auth/platform-attribution";
 import { publicSiteLink } from "@/lib/portal/paths";
 import { getRequestHost } from "@/lib/request-origin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -47,7 +48,7 @@ export default async function PortalLoginPage() {
   const demoAvailable = isDemoLoginOffered(tenantResult);
 
   return (
-    <main className="app-shell flex items-center justify-center px-6 py-12 sm:px-10">
+    <main className="app-shell flex flex-col items-center justify-center px-6 py-12 sm:px-10">
       <Card className="w-full max-w-md [--card-spacing:--spacing(8)] sm:[--card-spacing:--spacing(10)]">
         <CardHeader>
           <BrandLogo
@@ -82,6 +83,8 @@ export default async function PortalLoginPage() {
           )}
         </CardContent>
       </Card>
+
+      <PlatformAttribution className="mt-6 text-center" />
     </main>
   );
 }

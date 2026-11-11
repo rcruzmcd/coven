@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { PageShell } from "@/components/page-shell";
+import { PlatformAttribution } from "@/components/auth/platform-attribution";
 import { Skeleton } from "@/components/ui/skeleton";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getPublicSite, publicTitle } from "@/lib/public-site";
@@ -68,6 +69,8 @@ export default async function MySignInPage() {
             </Suspense>
           </CardContent>
         </Card>
+
+        <PlatformAttribution className="-mt-4" />
       </div>
     </PageShell>
   );

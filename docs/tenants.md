@@ -274,6 +274,16 @@ Unset `NEXT_PUBLIC_PLATFORM_AUTH_ORIGIN` and the buttons use the old
 `signInWithOAuth` flow, which is what local dev and previews do. **Onboarding a
 tenant needs no Google step.**
 
+**The sign-in screens say "Powered by Coven" (#1813).** That line goes under the
+card on `/portal/login` and `/my/sign-in` (`PlatformAttribution`). Without it,
+the chooser names a product the person has never seen, right after a page that
+shows only the tenant's brand. It is the only tenant-facing place that names
+Coven, and an exception to the white-label rule (#795 Phase 4) made only
+because the chooser already names Coven. Root metadata, page titles, the PWA
+manifests, the app icon, emails and the public footer still name no product.
+The line names no company either. It shows on every host and plan, with no
+per-tenant opt-out: hiding it would not change what Google shows.
+
 ### Naming the tenant instead of the host (#813 Phase 2)
 
 A request can also say which tenant it is for outright, with an
