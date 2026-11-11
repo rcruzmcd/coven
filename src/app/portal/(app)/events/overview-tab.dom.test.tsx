@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, mock, test } from "bun:test";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { EventRow } from "./event-badges";
 import type { Program } from "../programs/actions";
 import * as EventsActions from "./actions";
 import * as MeetingsActions from "../governance/meetings/actions";
+import * as PieceActions from "@/lib/social-content/piece-actions";
+import type { ContentPieceRow } from "@/lib/social-content/pieces";
 import type { EventMeeting } from "../governance/meetings/actions";
 
 type ActionResult = { error: string } | { success: true };
@@ -27,7 +29,20 @@ mock.module("../governance/meetings/actions", () => ({
   listEventMeetingsAction: listEventMeetingsActionMock,
 }));
 
+const shiftEventPostsActionMock = mock<
+  (
+    eventId: string,
+    shiftMs: number,
+  ) => Promise<{ success: true; moved: number }>
+>(async () => ({ success: true, moved: 1 }));
+
+mock.module("@/lib/social-content/piece-actions", () => ({
+  ...PieceActions,
+  shiftEventPostsAction: shiftEventPostsActionMock,
+}));
+
 const { OverviewTab } = await import("./overview-tab");
+const { EventSocialContentProvider } = await import("./social-content-tab");
 
 function makeEvent(overrides: Partial<EventRow> = {}): EventRow {
   return {
@@ -246,5 +261,112 @@ describe("OverviewTab linked meetings", () => {
       expect(listEventMeetingsActionMock).toHaveBeenCalledTimes(1),
     );
     expect(screen.queryByText("Meetings")).not.toBeInTheDocument();
+  });
+});
+
+// #1799: moving the start offers to move the event's open, dated posts too.
+describe("OverviewTab social post shift", () => {
+  const DAY = 24 * 60 * 60 * 1000;
+
+  function post(overrides: Partial<ContentPieceRow>): ContentPieceRow {
+    return {
+      id: "piece-1",
+      calendar_item_id: null,
+      event_id: "event-1",
+      title: "Reminder",
+      content: null,
+      content_status: "idea",
+      skip_reason: null,
+      internal_notes: null,
+      owner_id: null,
+      reviewer_id: null,
+      lead_time_days: 21,
+      publish_due_at: "2099-01-01T00:00:00.000Z",
+      review_due_at: null,
+      draft_due_at: null,
+      status_changed_by: null,
+      status_changed_at: null,
+      ...overrides,
+    };
+  }
+
+  function renderWithPosts(event: EventRow, pieces: ContentPieceRow[]) {
+    return render(
+      <EventSocialContentProvider
+        value={{
+          pieces,
+          owners: [],
+          defaultLeadTimeDays: 21,
+          planTemplate: [],
+          orgTimeZone: "UTC",
+          canManage: true,
+          error: false,
+        }}
+      >
+        <OverviewTab
+          event={event}
+          programs={PROGRAMS}
+          formId="overview-form"
+          mode="edit"
+          onSaved={() => {}}
+        />
+        <button type="submit" form="overview-form">
+          Save
+        </button>
+      </EventSocialContentProvider>,
+    );
+  }
+
+  function moveStartBy(days: number) {
+    const input = document.getElementById(
+      "details-startsAt",
+    ) as HTMLInputElement;
+    const [date, time] = input.value.split("T");
+    const moved = new Date(`${date}T00:00:00Z`);
+    moved.setUTCDate(moved.getUTCDate() + days);
+    fireEvent.change(input, {
+      target: { value: `${moved.toISOString().slice(0, 10)}T${time}` },
+    });
+  }
+
+  beforeEach(() => {
+    updateEventActionMock.mockClear();
+    updateEventActionMock.mockImplementation(async () => ({ success: true }));
+    shiftEventPostsActionMock.mockClear();
+  });
+
+  test("asks to move only the open, dated posts, by the same amount", async () => {
+    const user = userEvent.setup();
+    renderWithPosts(makeEvent(), [
+      post({ id: "a" }),
+      post({ id: "b", content_status: "published" }),
+      post({ id: "c", content_status: "skipped" }),
+      post({ id: "d", publish_due_at: null }),
+    ]);
+
+    moveStartBy(3);
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(
+      await screen.findByText("Move 1 social post by the same amount?"),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/now starts 3 days later/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Move 1 post" }));
+    await waitFor(() =>
+      expect(shiftEventPostsActionMock).toHaveBeenCalledTimes(1),
+    );
+    const [eventId, shiftMs] = shiftEventPostsActionMock.mock.calls[0];
+    expect(eventId).toBe("event-1");
+    // Within an hour of 3 days: the runner's zone may cross a DST change.
+    expect(Math.abs(shiftMs - 3 * DAY)).toBeLessThanOrEqual(60 * 60 * 1000);
+  });
+
+  test("does not ask when the start did not move", async () => {
+    const user = userEvent.setup();
+    renderWithPosts(makeEvent(), [post({})]);
+
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(updateEventActionMock).toHaveBeenCalledTimes(1));
+    expect(screen.queryByText(/by the same amount\?/)).not.toBeInTheDocument();
   });
 });

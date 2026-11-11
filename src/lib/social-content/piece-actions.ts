@@ -7,6 +7,9 @@ import { CONTENT_STATUSES } from "./pieces";
 import { checkPermission } from "@/lib/auth/permissions";
 import { checkUser } from "@/lib/auth/current-user";
 import { fetchAllPages } from "@/lib/supabase/fetch-all-pages";
+import { getOrgTimeZone } from "@/lib/org-timezone";
+import { planEventPosts, planTitleKey } from "./event-plan";
+import { getDefaultLeadTimeDays, getEventPlanTemplate } from "./queries";
 
 export type ContentPieceActionResult =
   { error: string } | { success: true; warning?: string };
@@ -232,6 +235,174 @@ export async function deleteContentPieceAction(
 
   revalidatePiecePaths((deleted ?? []).map((row) => row.event_id));
   return { success: true };
+}
+
+/**
+ * Creates the chosen posts of an event's starter plan (#1798). The plan is
+ * worked out again here from the event, the tenant's template, time zone and
+ * lead time, rather than taken from the preview, and a title the event already
+ * has a post with is skipped -- so running it twice creates each post once.
+ * `titles` is what the preview left ticked.
+ */
+export async function generateEventPlanAction(
+  eventId: string,
+  titles: string[],
+): Promise<{ error: string } | { success: true; created: number }> {
+  const supabase = await createSupabaseServerClient();
+  const userResult = await checkUser(
+    supabase,
+    "You must be signed in to add social posts.",
+  );
+  if ("error" in userResult) return userResult;
+  const permissionError = await checkPermission(
+    supabase,
+    "content_calendar",
+    "manage",
+  );
+  if (permissionError) return permissionError;
+
+  const { data: event } = await supabase
+    .from("events")
+    .select("id, starts_at")
+    .eq("id", eventId)
+    .maybeSingle();
+  if (!event) return { error: "Could not find the event." };
+  if (!event.starts_at) {
+    return { error: "Set the event's start date before generating a plan." };
+  }
+
+  const [template, timeZone, leadTimeDays] = await Promise.all([
+    getEventPlanTemplate(supabase),
+    getOrgTimeZone(supabase),
+    getDefaultLeadTimeDays(supabase),
+  ]);
+
+  // Titles the event already has are skipped in SQL, atomically with the
+  // insert (`insert_event_plan_posts`), so neither a concurrent run nor a
+  // row cap on a read here can let a duplicate through.
+  const chosen = new Set(titles.map(planTitleKey));
+  const posts = planEventPosts({
+    template,
+    startsAt: event.starts_at,
+    timeZone,
+    leadTimeDays,
+    existingTitles: [],
+  })
+    .filter((post) => chosen.has(planTitleKey(post.title)))
+    .map((post) => ({
+      title: post.title,
+      lead_time_days: leadTimeDays,
+      publish_due_at: post.publishDueAt,
+      review_due_at: post.reviewDueAt,
+      draft_due_at: post.draftDueAt,
+    }));
+
+  let created = 0;
+  if (posts.length > 0) {
+    const { data, error } = await supabase.rpc("insert_event_plan_posts", {
+      p_event_id: eventId,
+      p_posts: posts,
+    });
+    if (error) {
+      return { error: "Could not add the social posts. Please try again." };
+    }
+    created = data ?? 0;
+  }
+
+  revalidatePiecePaths([eventId]);
+  return { success: true, created };
+}
+
+/** What a reason "Skip all" on a cancelled event's posts records (#1799). */
+const EVENT_CANCELLED_SKIP_REASON = "Event cancelled";
+
+/**
+ * Moves an event's open posts by however far its start moved (#1799): the
+ * publish, review and draft dates of every dated post not yet published or
+ * skipped, in one statement (`shift_event_social_posts`).
+ */
+export async function shiftEventPostsAction(
+  eventId: string,
+  shiftMs: number,
+): Promise<{ error: string } | { success: true; moved: number }> {
+  const supabase = await createSupabaseServerClient();
+  const userResult = await checkUser(
+    supabase,
+    "You must be signed in to move social posts.",
+  );
+  if ("error" in userResult) return userResult;
+  const permissionError = await checkPermission(
+    supabase,
+    "content_calendar",
+    "manage",
+  );
+  if (permissionError) return permissionError;
+
+  const shiftSeconds = Math.round(shiftMs / 1000);
+  if (!Number.isFinite(shiftSeconds) || shiftSeconds === 0) {
+    return { success: true, moved: 0 };
+  }
+
+  const { data, error } = await supabase.rpc("shift_event_social_posts", {
+    p_event_id: eventId,
+    p_shift_seconds: shiftSeconds,
+  });
+  if (error) {
+    return { error: "Could not move the social posts. Please try again." };
+  }
+
+  revalidatePiecePaths([eventId]);
+  return { success: true, moved: data ?? 0 };
+}
+
+/**
+ * Skips every post of a cancelled event still open (#1799), recording why.
+ * Published posts, and posts already skipped, keep what they have.
+ */
+export async function skipEventPostsAction(
+  eventId: string,
+): Promise<{ error: string } | { success: true; skipped: number }> {
+  const supabase = await createSupabaseServerClient();
+  const userResult = await checkUser(
+    supabase,
+    "You must be signed in to update social posts.",
+  );
+  if ("error" in userResult) return userResult;
+  const { user } = userResult;
+  const permissionError = await checkPermission(
+    supabase,
+    "content_calendar",
+    "manage",
+  );
+  if (permissionError) return permissionError;
+
+  const { data: event } = await supabase
+    .from("events")
+    .select("status")
+    .eq("id", eventId)
+    .maybeSingle();
+  if (!event) return { error: "Could not find the event." };
+  if (event.status !== "cancelled") {
+    return { error: "Only a cancelled event's posts can be skipped together." };
+  }
+
+  const { data, error } = await supabase
+    .from("content_opportunities")
+    .update({
+      content_status: "skipped",
+      skip_reason: EVENT_CANCELLED_SKIP_REASON,
+      status_changed_by: user.id,
+      status_changed_at: new Date().toISOString(),
+    })
+    .eq("event_id", eventId)
+    .not("content_status", "in", "(published,skipped)")
+    .select("id");
+  if (error) {
+    return { error: "Could not skip the social posts. Please try again." };
+  }
+
+  revalidatePiecePaths([eventId]);
+  return { success: true, skipped: data?.length ?? 0 };
 }
 
 /**

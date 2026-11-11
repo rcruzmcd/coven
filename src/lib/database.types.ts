@@ -12389,6 +12389,10 @@ export type Database = {
       };
       has_role: { Args: { p_role: string }; Returns: boolean };
       has_tenant_membership: { Args: never; Returns: boolean };
+      insert_event_plan_posts: {
+        Args: { p_event_id: string; p_posts: Json };
+        Returns: number;
+      };
       inventory_actor_name: { Args: { p_user_id: string }; Returns: string };
       inventory_intake_labels: {
         Args: { p_codes: string[]; p_donation_id: string };
@@ -14315,6 +14319,10 @@ export type Database = {
       set_retention_policy_mode: {
         Args: { p_mode: string; p_policy_key: string };
         Returns: undefined;
+      };
+      shift_event_social_posts: {
+        Args: { p_event_id: string; p_shift_seconds: number };
+        Returns: number;
       };
       show_limit: { Args: never; Returns: number };
       show_trgm: { Args: { "": string }; Returns: string[] };

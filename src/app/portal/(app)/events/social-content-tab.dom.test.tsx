@@ -3,6 +3,7 @@
 // each post's own page, and adding only with content_calendar: manage.
 import { describe, expect, test } from "bun:test";
 import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import type { ContentPieceRow } from "@/lib/social-content/pieces";
 import type { EventRow } from "./event-badges";
 import {
@@ -41,7 +42,10 @@ function piece(overrides: Partial<ContentPieceRow> = {}): ContentPieceRow {
   };
 }
 
-function renderTab(social: Partial<EventSocialContent> = {}) {
+function renderTab(
+  social: Partial<EventSocialContent> = {},
+  eventRow: EventRow = event,
+) {
   return render(
     <EventSocialContentProvider
       value={{
@@ -56,12 +60,17 @@ function renderTab(social: Partial<EventSocialContent> = {}) {
           },
         ],
         defaultLeadTimeDays: 21,
+        planTemplate: [
+          { title: "Save the date", offset_days: -30 },
+          { title: "Reminder", offset_days: -7 },
+        ],
+        orgTimeZone: "America/New_York",
         canManage: true,
         error: false,
         ...social,
       }}
     >
-      <SocialContentTab event={event} />
+      <SocialContentTab event={eventRow} />
     </EventSocialContentProvider>,
   );
 }
@@ -114,6 +123,48 @@ describe("SocialContentTab", () => {
     expect(
       screen.queryByRole("button", { name: "Add social post" }),
     ).not.toBeInTheDocument();
+  });
+
+  test("Generate plan previews the template and leaves out titles the event has (#1798)", async () => {
+    renderTab({ pieces: [piece()] });
+    await userEvent.click(
+      screen.getByRole("button", { name: "Generate plan" }),
+    );
+
+    const existing = screen.getByRole("checkbox", { name: /Save the date/ });
+    expect(existing).toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByText("Already planned")).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: /Reminder/ })).toBeChecked();
+    expect(
+      screen.getByText("7 days before ·", { exact: false }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add 1 post" })).toBeEnabled();
+  });
+
+  test("a cancelled event lists its open posts with Skip all (#1799)", () => {
+    renderTab(
+      {
+        pieces: [
+          piece(),
+          piece({ id: "p2", title: "Recap", content_status: "published" }),
+        ],
+      },
+      { ...event, status: "cancelled" },
+    );
+    const banner = screen.getByRole("alert");
+    expect(
+      within(banner).getByText(/1 social post is still open/),
+    ).toBeInTheDocument();
+    expect(within(banner).getByText("Save the date")).toBeInTheDocument();
+    expect(within(banner).queryByText("Recap")).not.toBeInTheDocument();
+    expect(
+      within(banner).getByRole("button", { name: "Skip all" }),
+    ).toBeInTheDocument();
+  });
+
+  test("no cancelled banner while the event is on", () => {
+    renderTab({ pieces: [piece()] }, { ...event, status: "published" });
+    expect(screen.queryByRole("button", { name: "Skip all" })).toBeNull();
   });
 
   test("says so when the posts could not be read", () => {

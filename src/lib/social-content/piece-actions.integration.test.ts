@@ -29,6 +29,9 @@ const {
   deleteContentPieceAction,
   listSocialContentLinkOptionsAction,
   updateContentPieceStatusAction,
+  generateEventPlanAction,
+  shiftEventPostsAction,
+  skipEventPostsAction,
 } = await import("./piece-actions");
 const { listEventPieces, listSocialPieces } = await import("./queries");
 const { parseSocialFilters } = await import("./social-filters");
@@ -331,5 +334,208 @@ describe("social post actions (integration)", () => {
   test("a deactivated (former) account cannot add a piece", async () => {
     currentSupabase = await signInAs(SEEDED_USERS.former);
     expect(await createContentPieceAction(pieceForm())).toEqual(DENIED);
+  });
+});
+
+describe("generateEventPlanAction (integration, #1798)", () => {
+  const ALL = [
+    "Announce",
+    "Reminder",
+    "Last call",
+    "Day-of",
+    "Recap / thank-you",
+  ];
+
+  test("creates the ticked posts once, however many times it runs", async () => {
+    const event = await createPublishedEvent({
+      startsAt: "2099-06-15T22:00:00.000Z",
+    });
+    currentSupabase = await signInAs(SEEDED_USERS.admin);
+
+    expect(
+      await generateEventPlanAction(event.id, ["Announce", "Reminder"]),
+    ).toEqual({ success: true, created: 2 });
+    expect(await generateEventPlanAction(event.id, ALL)).toEqual({
+      success: true,
+      created: 3,
+    });
+    expect(await generateEventPlanAction(event.id, ALL)).toEqual({
+      success: true,
+      created: 0,
+    });
+
+    const { pieces } = await listEventPieces(adminClient, event.id);
+    expect(pieces.map((piece) => piece.title).sort()).toEqual([...ALL].sort());
+    const reminder = pieces.find((piece) => piece.title === "Reminder")!;
+    expect(reminder.content_status).toBe("idea");
+    expect(new Date(reminder.publish_due_at!).getTime()).toBe(
+      new Date("2099-06-08T22:00:00.000Z").getTime(),
+    );
+    expect(reminder.review_due_at).not.toBeNull();
+    expect(reminder.draft_due_at).not.toBeNull();
+    expect(revalidatePathMock).toHaveBeenCalledWith(
+      `/portal/events/${event.id}`,
+    );
+
+    await adminClient
+      .from("content_opportunities")
+      .delete()
+      .eq("event_id", event.id);
+    await event.cleanup();
+  });
+
+  test("two runs at once still create each post once", async () => {
+    const event = await createPublishedEvent({
+      startsAt: "2099-07-15T22:00:00.000Z",
+    });
+    currentSupabase = await signInAs(SEEDED_USERS.admin);
+
+    const results = await Promise.all([
+      generateEventPlanAction(event.id, ALL),
+      generateEventPlanAction(event.id, ALL),
+    ]);
+    const created = results.map((result) =>
+      "created" in result ? result.created : -1,
+    );
+    expect(created.sort()).toEqual([0, 5]);
+
+    const { pieces } = await listEventPieces(adminClient, event.id);
+    expect(pieces).toHaveLength(5);
+
+    await adminClient
+      .from("content_opportunities")
+      .delete()
+      .eq("event_id", event.id);
+    await event.cleanup();
+  });
+
+  test("view-only roles cannot generate a plan", async () => {
+    const event = await createPublishedEvent();
+    currentSupabase = await signInAs(SEEDED_USERS.volunteer);
+    expect(await generateEventPlanAction(event.id, ["Announce"])).toEqual(
+      DENIED,
+    );
+    await event.cleanup();
+  });
+});
+
+describe("moving and skipping an event's posts (integration, #1799)", () => {
+  const DAY = 24 * 60 * 60 * 1000;
+
+  async function seedPosts(eventId: string) {
+    const rows = [
+      {
+        title: "Open",
+        content_status: "draft",
+        publish_due_at: "2099-06-01T15:00:00.000Z",
+        review_due_at: "2099-05-25T15:00:00.000Z",
+        draft_due_at: "2099-05-18T15:00:00.000Z",
+      },
+      {
+        title: "Published",
+        content_status: "published",
+        publish_due_at: "2099-06-02T15:00:00.000Z",
+      },
+      {
+        title: "Skipped",
+        content_status: "skipped",
+        skip_reason: "Not needed",
+        publish_due_at: "2099-06-03T15:00:00.000Z",
+      },
+      { title: "Undated", content_status: "idea", publish_due_at: null },
+    ];
+    const { error } = await adminClient
+      .from("content_opportunities")
+      .insert(
+        rows.map((row) => ({ ...row, event_id: eventId, lead_time_days: 21 })),
+      );
+    if (error) throw error;
+  }
+
+  async function postsByTitle(eventId: string) {
+    const { pieces } = await listEventPieces(adminClient, eventId);
+    return Object.fromEntries(pieces.map((piece) => [piece.title, piece]));
+  }
+
+  const ms = (iso: string | null) => (iso ? new Date(iso).getTime() : null);
+
+  test("moving the event 3 days later moves only the unpublished posts", async () => {
+    const event = await createPublishedEvent();
+    await seedPosts(event.id);
+    const before = await postsByTitle(event.id);
+    currentSupabase = await signInAs(SEEDED_USERS.admin);
+
+    expect(await shiftEventPostsAction(event.id, 3 * DAY)).toEqual({
+      success: true,
+      moved: 1,
+    });
+
+    const after = await postsByTitle(event.id);
+    for (const key of [
+      "publish_due_at",
+      "review_due_at",
+      "draft_due_at",
+    ] as const) {
+      expect(ms(after.Open[key])).toBe(ms(before.Open[key])! + 3 * DAY);
+    }
+    for (const title of ["Published", "Skipped", "Undated"]) {
+      expect(after[title].publish_due_at).toBe(before[title].publish_due_at);
+    }
+
+    // Each moved row is in the audit log.
+    const { data: audit } = await adminClient
+      .from("audit_log")
+      .select("record_id, action")
+      .eq("table_name", "content_opportunities")
+      .eq("record_id", before.Open.id)
+      .eq("action", "update");
+    expect(audit?.length).toBeGreaterThan(0);
+
+    await adminClient
+      .from("content_opportunities")
+      .delete()
+      .eq("event_id", event.id);
+    await event.cleanup();
+  });
+
+  test("view-only roles cannot move posts", async () => {
+    const event = await createPublishedEvent();
+    currentSupabase = await signInAs(SEEDED_USERS.volunteer);
+    expect(await shiftEventPostsAction(event.id, DAY)).toEqual(DENIED);
+    await event.cleanup();
+  });
+
+  test("Skip all on a cancelled event sets the reason on each open post", async () => {
+    const event = await createPublishedEvent();
+    await seedPosts(event.id);
+    currentSupabase = await signInAs(SEEDED_USERS.admin);
+
+    // Not while the event is still on.
+    expect(await skipEventPostsAction(event.id)).toEqual({
+      error: "Only a cancelled event's posts can be skipped together.",
+    });
+
+    await adminClient
+      .from("events")
+      .update({ status: "cancelled" })
+      .eq("id", event.id);
+    expect(await skipEventPostsAction(event.id)).toEqual({
+      success: true,
+      skipped: 2,
+    });
+
+    const after = await postsByTitle(event.id);
+    for (const title of ["Open", "Undated"]) {
+      expect(after[title].content_status).toBe("skipped");
+      expect(after[title].skip_reason).toBe("Event cancelled");
+    }
+    expect(after.Published.content_status).toBe("published");
+    expect(after.Skipped.skip_reason).toBe("Not needed");
+
+    await adminClient
+      .from("content_opportunities")
+      .delete()
+      .eq("event_id", event.id);
+    await event.cleanup();
   });
 });

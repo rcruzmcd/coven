@@ -1,6 +1,11 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ContentPieceRow } from "./pieces";
+import {
+  EVENT_PLAN_TEMPLATE_SETTING_KEY,
+  parseEventPlanTemplate,
+  type EventPlanTemplateEntry,
+} from "./event-plan";
 import type { SocialFilters } from "./social-filters";
 import { fetchAllPages } from "@/lib/supabase/fetch-all-pages";
 
@@ -121,4 +126,19 @@ export async function getDefaultLeadTimeDays(
     .eq("key", "content.default_lead_time_days")
     .maybeSingle();
   return typeof data?.value === "number" ? data.value : 21;
+}
+
+/**
+ * The tenant's starter post plan for an event (#1798), or the defaults when
+ * the setting is missing or unreadable.
+ */
+export async function getEventPlanTemplate(
+  supabase: SupabaseClient,
+): Promise<EventPlanTemplateEntry[]> {
+  const { data } = await supabase
+    .from("app_settings")
+    .select("value")
+    .eq("key", EVENT_PLAN_TEMPLATE_SETTING_KEY)
+    .maybeSingle();
+  return parseEventPlanTemplate(data?.value);
 }

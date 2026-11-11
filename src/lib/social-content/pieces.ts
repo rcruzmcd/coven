@@ -49,6 +49,11 @@ export type ContentPieceRow = {
 /** Statuses a piece needs no more work in. */
 const TERMINAL_STATUSES = new Set(["published", "skipped"]);
 
+/** Whether a piece still needs work: neither published nor skipped. */
+export function isOpenPiece(piece: Pick<ContentPieceRow, "content_status">) {
+  return !TERMINAL_STATUSES.has(piece.content_status);
+}
+
 const STATUS_ORDER: readonly string[] = CONTENT_STATUSES.map(
   (option) => option.value,
 );
