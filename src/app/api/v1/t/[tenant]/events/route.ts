@@ -13,7 +13,7 @@ const route = publicRead(async ({ supabase }) => {
     supabase
       .from("public_events")
       .select(
-        "id, name, location, starts_at, ends_at, timezone, description, capacity, registration_enabled, registration_deadline, flier_url, adults_only, minimum_age",
+        "id, name, location, starts_at, ends_at, timezone, description, capacity, registration_enabled, registration_deadline, flier_url, minimum_age",
       )
       .order("starts_at", { ascending: true }),
     supabase
@@ -28,6 +28,8 @@ const route = publicRead(async ({ supabase }) => {
   return {
     events: (unwrap(events) ?? []).map((event) => ({
       ...event,
+      // Deprecated in favour of minimum_age; kept as public API contract (#1784).
+      adults_only: event.minimum_age !== null,
       sponsors: sponsorRows
         .filter((row) => row.event_id === event.id)
         .map(({ event_id: _event_id, ...sponsor }) => sponsor),

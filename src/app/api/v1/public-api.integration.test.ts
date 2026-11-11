@@ -301,6 +301,8 @@ describe("reads answer what the contract says they answer", () => {
     const parsed = eventResponse.parse(await response.json());
     expect(parsed.event.id).toBe(eventId);
     expect(parsed.event.name).toContain("Public API Event");
+    // Deprecated, derived from minimum_age since the column went (#1784).
+    expect(parsed.event.adults_only).toBe(parsed.event.minimum_age !== null);
   });
 
   test("the gear filters run in Postgres", async () => {
