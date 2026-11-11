@@ -7,9 +7,7 @@ import {
   publicEventPhotosPath,
   publicEventPath,
 } from "@/app/(public)/events/event-path";
-import { publicSiteHref } from "@/lib/portal/paths";
-import { currentTenant, getTenantContext } from "@/lib/portal/tenants";
-import { getRequestHost } from "@/lib/request-origin";
+import { publicGalleryHref } from "./public-gallery-url";
 import {
   checkPermission,
   getCurrentUserPermissions,
@@ -117,8 +115,6 @@ export async function getEventMediaAction(
     eventExpiresAt,
     galleryEnabled,
     event,
-    tenantContext,
-    requestHost,
   ] = await Promise.all([
     supabase.rpc("event_media_uploads_enabled"),
     supabase.rpc("can_upload_event_media", { p_event_id: eventId }),
@@ -139,8 +135,6 @@ export async function getEventMediaAction(
       .select("visibility, status")
       .eq("id", eventId)
       .maybeSingle(),
-    getTenantContext(supabase),
-    getRequestHost(),
   ]);
 
   if (rows.error) {
@@ -177,11 +171,7 @@ export async function getEventMediaAction(
     event.data?.status === "published" &&
     stored.some((row) => row.is_public);
   const publicGalleryUrl = galleryServed
-    ? publicSiteHref(
-        requestHost,
-        currentTenant(tenantContext)?.custom_domain ?? null,
-        publicEventPhotosPath(eventId),
-      )
+    ? await publicGalleryHref(supabase, eventId)
     : null;
 
   return {

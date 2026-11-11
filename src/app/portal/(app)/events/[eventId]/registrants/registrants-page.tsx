@@ -227,7 +227,9 @@ export function RegistrantsPage({
   );
   // The More menu's two composers, opened from a menu item rather than a
   // button of their own, and mounted only while open so each opens fresh.
-  const [composer, setComposer] = useState<"announce" | "ask" | null>(null);
+  const [composer, setComposer] = useState<
+    "announce" | "photos" | "ask" | null
+  >(null);
 
   // The search box answers each keystroke from local state, and the URL
   // follows; a URL change from elsewhere (Back, a link) re-seeds the box.
@@ -568,6 +570,13 @@ export function RegistrantsPage({
     messaging && !messaging.orgEmailEnabled
       ? "Outbound email is switched off for this organization."
       : null;
+  // #1555. Send photos links the public gallery, so it waits for one.
+  const photosUrl = messaging?.photos.url ?? null;
+  const photosUnavailable =
+    orgEmailOff ??
+    (photosUrl
+      ? null
+      : "Opens once this event's photos are on the public site: the event is public and published, the Public event gallery setting is on, and a photo on the Media tab is public.");
 
   let actions: ReactNode = null;
   if (canManage) {
@@ -595,6 +604,21 @@ export function RegistrantsPage({
                   Message registrants
                   {orgEmailOff && (
                     <span className="app-muted text-xs">{orgEmailOff}</span>
+                  )}
+                </span>
+              </DropdownMenuItem>
+            )}
+            {messaging && (
+              <DropdownMenuItem
+                disabled={Boolean(photosUnavailable)}
+                onClick={() => setComposer("photos")}
+              >
+                <span className="flex flex-col">
+                  Send photos
+                  {photosUnavailable && (
+                    <span className="app-muted text-xs">
+                      {photosUnavailable}
+                    </span>
                   )}
                 </span>
               </DropdownMenuItem>
@@ -1114,6 +1138,21 @@ export function RegistrantsPage({
           eventName={eventName}
           registrations={list}
           replyTo={messaging.replyTo}
+          onSent={refreshAll}
+          open
+          withTrigger={false}
+          onOpenChange={(open) => {
+            if (!open) setComposer(null);
+          }}
+        />
+      )}
+      {composer === "photos" && messaging && photosUrl && (
+        <AnnounceToRegistrantsDialog
+          eventId={eventId}
+          eventName={eventName}
+          registrations={list}
+          replyTo={messaging.replyTo}
+          photos={{ url: photosUrl, body: messaging.photos.body }}
           onSent={refreshAll}
           open
           withTrigger={false}

@@ -118,7 +118,12 @@ const registrants = [
   registrant("reg-3", "Jamie Abbott", { phone: "555-0199" }),
 ];
 
-const manager = { orgName: "Chatter", replyTo: null, orgEmailEnabled: true };
+const manager = {
+  orgName: "Chatter",
+  replyTo: null,
+  orgEmailEnabled: true,
+  photos: { url: null, body: [] },
+};
 
 function payload(
   overrides: Partial<EventRegistrantsData> = {},

@@ -66,3 +66,17 @@ export function registrantMessageSubject(
 export function announcementSubject(eventName: string): string {
   return eventName.trim() || "An update about your registration";
 }
+
+/** What Send photos' subject starts as (#1555). */
+export function photosSubject(eventName: string): string {
+  return eventName.trim() ? `Photos from ${eventName.trim()}` : "Event photos";
+}
+
+/**
+ * What Send photos' message starts as (#1555): the tenant's own words, then
+ * the gallery link on a line of its own, so it is never lost inside an edit.
+ */
+export function photosMessage(body: readonly string[], url: string): string {
+  const words = body.map((paragraph) => paragraph.trim()).filter(Boolean);
+  return [...words, url].join("\n\n");
+}
