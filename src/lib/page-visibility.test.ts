@@ -553,6 +553,7 @@ describe("hiddenSlots", () => {
     expect(hiddenSlots(visibility).sort()).toEqual([
       "audiences",
       "brand",
+      "gallery",
       "gears-sizing",
       "links",
       "modules",

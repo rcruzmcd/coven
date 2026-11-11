@@ -132,6 +132,20 @@ export const PUBLIC_PAGE_SLOTS: PublicPageSlot[] = [
     defaultVisible: true,
     module: "events",
   },
+  // Every event's public photos on one page (#1655). Its own slot rather than
+  // part of `events`, because a tenant can run events without wanting a photo
+  // page in its menu. Off by default like every new section. Even when on, the
+  // public layout keeps it out of the menu while the Public event gallery
+  // (Events > Media) is off or nothing is public yet, and the page 404s then.
+  {
+    key: "gallery",
+    label: "Gallery",
+    description:
+      "The page at /gallery, every event's public photos in one place, linked from the Events menu. Shown only while the public event gallery is on and some photo is public.",
+    defaultVisible: false,
+    gate: "(public)/gallery/layout.tsx",
+    module: "events",
+  },
   {
     key: "gears",
     label: "{item_plural}",
