@@ -108,6 +108,10 @@ export const NAV_GROUPS: readonly NavGroup[] = [
     links: [
       { label: "All Events", href: "/events" },
       { label: "Community Calendar", href: "/events/community" },
+      // A child rather than a group of its own (#1655): the header's width
+      // budget (see `site-nav.tsx`) has no room for another top-level item.
+      // The public layout also hides it while there is nothing to show.
+      { label: "Gallery", href: "/gallery", slot: "gallery" },
     ],
   },
   // A tenant's periodic publication (#1471), after Events because it is the

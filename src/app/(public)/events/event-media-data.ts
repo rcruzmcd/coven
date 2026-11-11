@@ -24,7 +24,7 @@ import {
  * `public_event_media()` just returned reach here, so the cache never decides
  * what is public. A failed signing is not cached.
  */
-const signPublicEventMedia = unstable_cache(
+export const signPublicEventMedia = unstable_cache(
   async (paths: string[], bucket: number): Promise<[string, string][]> => {
     void bucket;
     const { data, error } = await createSupabaseAdminClient()

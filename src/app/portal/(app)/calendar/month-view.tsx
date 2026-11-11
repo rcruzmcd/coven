@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
-import { addDays } from "@/lib/time";
+import { localDayKey, monthGridDays } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import {
   Tooltip,
@@ -22,10 +22,6 @@ function parseMonthParam(month: string): Date {
   return new Date(year || new Date().getFullYear(), (monthNum || 1) - 1, 1);
 }
 
-function ymd(date: Date): string {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-}
-
 export function MonthView({
   month,
   entries,
@@ -36,29 +32,23 @@ export function MonthView({
   monthHref: (month: string) => string;
 }) {
   const monthStart = parseMonthParam(month);
-  const monthEnd = new Date(
-    monthStart.getFullYear(),
-    monthStart.getMonth() + 1,
-    0,
-  );
-  const gridStart = addDays(monthStart, -monthStart.getDay());
-  const gridEnd = addDays(monthEnd, 6 - monthEnd.getDay());
-
-  const days: Date[] = [];
-  for (let day = new Date(gridStart); day <= gridEnd; day = addDays(day, 1)) {
-    days.push(new Date(day));
-  }
+  const year = monthStart.getFullYear();
+  const monthIndex = monthStart.getMonth();
+  // Calendar-day arithmetic, not `addDays`: stepping 24 hours repeats a date
+  // across a daylight-saving fall-back and skips one in spring (#1803).
+  const days = monthGridDays(year, monthIndex);
 
   const entriesByDay = new Map<string, CalendarEntry[]>();
   for (const entry of entries) {
-    const key = ymd(new Date(entry.starts_at));
+    // The day in the viewer's own zone, which is what the grid's cells are.
+    const key = localDayKey(new Date(entry.starts_at));
     const list = entriesByDay.get(key);
     if (list) list.push(entry);
     else entriesByDay.set(key, [entry]);
   }
 
-  const prevMonth = ymd(addDays(monthStart, -1)).slice(0, 7);
-  const nextMonth = ymd(addDays(monthEnd, 1)).slice(0, 7);
+  const prevMonth = localDayKey(new Date(year, monthIndex - 1, 1)).slice(0, 7);
+  const nextMonth = localDayKey(new Date(year, monthIndex + 1, 1)).slice(0, 7);
   const monthLabel = monthStart.toLocaleDateString("en-US", {
     month: "long",
     year: "numeric",
@@ -119,9 +109,9 @@ export function MonthView({
             </div>
           ))}
           {days.map((day) => {
-            const key = ymd(day);
+            const key = localDayKey(day);
             const dayEntries = entriesByDay.get(key) ?? [];
-            const inMonth = day.getMonth() === monthStart.getMonth();
+            const inMonth = day.getMonth() === monthIndex;
             return (
               <div
                 key={key}
