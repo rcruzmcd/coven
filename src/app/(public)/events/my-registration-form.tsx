@@ -97,6 +97,7 @@ export function MyEventRegistrationForm({
   minorAccompaniment = [],
   photoConsent = [],
   carpoolCostNotice = [],
+  photosNotice = "",
   registrationOptions = null,
   registrationQuestions = [],
   profileQuestions = [],
@@ -156,6 +157,8 @@ export function MyEventRegistrationForm({
    * carpools -- renders nothing. Notice only: no box, nothing sent back.
    */
   carpoolCostNotice?: string[];
+  /** `events.photos_notice` (#1555), under the address it is about. */
+  photosNotice?: string;
   /**
    * The event's registration question (#1407). Null for an event that asks
    * none, which leaves this form exactly as it was.
@@ -358,6 +361,9 @@ export function MyEventRegistrationForm({
               Not you, or out of date?
             </Link>
           </p>
+          {person.email && photosNotice.trim() && (
+            <p className="app-muted text-sm">{photosNotice}</p>
+          )}
 
           <Field orientation="responsive">
             <Field>

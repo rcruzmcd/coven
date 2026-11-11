@@ -12,10 +12,14 @@ import {
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
+import { GoogleDriveButton } from "@/components/portal/google-drive-button";
 import { formatFileSize } from "@/lib/publications";
 import {
   checkDocumentFile,
   deleteDocument,
+  DOCUMENT_ACCEPT,
+  DOCUMENT_MAX_BYTES,
+  documentTooLargeMessage,
   documentNameFromPath,
   isImageDocument,
   uploadDocument,
@@ -196,12 +200,14 @@ export function DocumentField({
     }
   }
 
-  async function handleFile(event: React.ChangeEvent<HTMLInputElement>) {
+  function handleFile(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     // So picking the same file twice in a row still fires a change event.
     event.target.value = "";
-    if (!file) return;
+    if (file) void uploadFile(file);
+  }
 
+  async function uploadFile(file: File) {
     setError(null);
     const checked = checkDocumentFile(file);
     if ("error" in checked) {
@@ -320,7 +326,7 @@ export function DocumentField({
           ref={fileInput}
           id={fileId}
           type="file"
-          accept="application/pdf,image/*"
+          accept={DOCUMENT_ACCEPT}
           disabled={disabled || uploading}
           onChange={handleFile}
           aria-describedby={`${idPrefix}-document-help`}
@@ -328,6 +334,14 @@ export function DocumentField({
         />
         {uploading && !value.path && <Spinner aria-label="Uploading file" />}
       </div>
+
+      <GoogleDriveButton
+        accept={DOCUMENT_ACCEPT}
+        maxBytes={DOCUMENT_MAX_BYTES}
+        tooLarge={documentTooLargeMessage}
+        disabled={disabled || uploading}
+        onFiles={([file]) => void uploadFile(file)}
+      />
 
       <FieldDescription id={`${idPrefix}-document-help`}>
         {description}

@@ -1,6 +1,6 @@
-import { beforeEach, describe, expect, mock, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { useState } from "react";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 const TENANT = "11111111-2222-4333-8444-555555555555";
@@ -39,6 +39,7 @@ URL.createObjectURL = () => "blob:local-preview";
 URL.revokeObjectURL = () => {};
 
 const { DocumentField, DocumentPreview } = await import("./document-field");
+const { DRIVE_PICKER_MESSAGE } = await import("@/lib/storage/google-drive");
 type DocumentValue = { link: string; path: string };
 
 function pdf(name = "Bylaws 2024.pdf") {
@@ -195,5 +196,114 @@ describe("DocumentField", () => {
     await userEvent.click(screen.getByRole("button", { name: "Remove" }));
 
     await waitFor(() => expect(removeMock).toHaveBeenCalledWith([MINTED]));
+  });
+});
+
+// The real GoogleDriveButton, with the popup and the Drive API faked: what the
+// field passes it (accept, the cap, its own refusal) is what's under test.
+describe("DocumentField from Google Drive", () => {
+  const ENV = {
+    NEXT_PUBLIC_GOOGLE_PICKER_API_KEY: "key",
+    NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID: "client",
+    NEXT_PUBLIC_GOOGLE_APP_ID: "123",
+    NEXT_PUBLIC_PLATFORM_AUTH_ORIGIN: "https://coven.rcmlabs.dev",
+  };
+  const saved = Object.fromEntries(
+    Object.keys(ENV).map((key) => [key, process.env[key]]),
+  );
+  const realOpen = window.open;
+  const realFetch = globalThis.fetch;
+  const popup = { closed: false };
+  let openedUrl = "";
+  const driveFetch = mock<(url: string) => Promise<Response>>(
+    async () => new Response(new Uint8Array([37, 80, 68, 70])),
+  );
+
+  beforeEach(() => {
+    Object.assign(process.env, ENV);
+    window.open = ((url: string) => {
+      openedUrl = url;
+      return popup as unknown as Window;
+    }) as typeof window.open;
+    driveFetch.mockClear();
+    globalThis.fetch = driveFetch as unknown as typeof fetch;
+    uploadMock.mockClear();
+    createPathMock.mockClear();
+    createPathMock.mockImplementation(async () => ({ path: MINTED }));
+  });
+
+  afterEach(() => {
+    for (const [key, value] of Object.entries(saved)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+    window.open = realOpen;
+    globalThis.fetch = realFetch;
+  });
+
+  async function pickFromDrive(doc: Record<string, unknown>) {
+    await userEvent.click(
+      screen.getByRole("button", { name: "From Google Drive" }),
+    );
+    const url = new URL(openedUrl);
+    expect(url.searchParams.get("accept")).toBe("application/pdf,image/*");
+    act(() => {
+      window.dispatchEvent(
+        new MessageEvent("message", {
+          origin: ENV.NEXT_PUBLIC_PLATFORM_AUTH_ORIGIN,
+          source: popup as unknown as Window,
+          data: {
+            type: DRIVE_PICKER_MESSAGE,
+            nonce: url.searchParams.get("nonce"),
+            status: "picked",
+            accessToken: "t",
+            docs: [doc],
+          },
+        }),
+      );
+    });
+  }
+
+  test("a Google Doc is exported to PDF and attached like a local file", async () => {
+    const onChange = mock<(value: DocumentValue) => void>(() => {});
+    render(<Harness onChange={onChange} />);
+
+    await pickFromDrive({
+      id: "doc1",
+      name: "Bylaws 2024",
+      mimeType: "application/vnd.google-apps.document",
+    });
+
+    await waitFor(() =>
+      expect(onChange).toHaveBeenCalledWith({ link: "", path: MINTED }),
+    );
+    expect(driveFetch.mock.calls[0][0]).toContain(
+      "/files/doc1/export?mimeType=application%2Fpdf",
+    );
+    expect(createPathMock).toHaveBeenCalledWith(
+      "governance",
+      "Bylaws 2024.pdf",
+      "pdf",
+    );
+    expect(uploadMock).toHaveBeenCalledTimes(1);
+  });
+
+  test("a file over 10 MB is refused before download, in the local wording", async () => {
+    render(<Harness />);
+
+    await pickFromDrive({
+      id: "big",
+      name: "Scan.pdf",
+      mimeType: "application/pdf",
+      sizeBytes: 11 * 1024 * 1024,
+    });
+
+    expect(
+      await screen.findByText(
+        "Scan.pdf is larger than 10 MB. Link it instead.",
+      ),
+    ).toBeInTheDocument();
+    expect(driveFetch).not.toHaveBeenCalled();
+    expect(createPathMock).not.toHaveBeenCalled();
   });
 });

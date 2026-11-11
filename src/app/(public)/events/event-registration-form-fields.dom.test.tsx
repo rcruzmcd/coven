@@ -1103,3 +1103,19 @@ describe("EventRegistrationForm and profile questions (#1744)", () => {
     ).toBeTruthy();
   });
 });
+
+describe("EventRegistrationForm's photos notice (#1555)", () => {
+  const NOTICE = "We'll also use this email to send you the event's photos.";
+
+  test("says it under the email field, which it describes", () => {
+    render(<EventRegistrationForm eventId="event-1" photosNotice={NOTICE} />);
+    expect(screen.getByLabelText(/Email/)).toHaveAccessibleDescription(NOTICE);
+    expect(screen.queryAllByRole("checkbox", { hidden: true })).toHaveLength(0);
+  });
+
+  test("renders nothing when the slot is blank", () => {
+    render(<EventRegistrationForm eventId="event-1" photosNotice="  " />);
+    expect(screen.getByLabelText(/Email/)).not.toHaveAccessibleDescription();
+    expect(screen.queryByText(/photos/i)).toBeNull();
+  });
+});

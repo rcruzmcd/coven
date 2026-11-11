@@ -5,6 +5,7 @@ import {
   tenantMailContext,
   type TenantMailContext,
 } from "@/lib/email/identity";
+import { activeTenantIds } from "@/lib/notifications/active-tenants";
 import { isOrgEmailEnabled } from "@/lib/notifications/settings";
 import { renderTaskDigest } from "@/lib/notifications/task-digest-email";
 import {
@@ -42,7 +43,10 @@ export type DigestRunSummary = {
   /** Recipients with qualifying items, before the gates. */
   considered: number;
   sent: number;
-  /** Muted by the org switch, opted out, or already recorded for today. */
+  /**
+   * Tenant not active, muted by the org switch, opted out, or already
+   * recorded for today.
+   */
   skipped: number;
   failed: number;
 };
@@ -89,8 +93,12 @@ export async function runTaskDigest(
   }
   summary.tenants = byTenant.size;
 
+  // Once per run, not per tenant (#1674). A suspended or archived tenant's
+  // portal is unreachable, so its digest would link nowhere.
+  const active = await activeTenantIds(admin, "[task-digest]");
+
   for (const [tenantId, tenantRecipients] of byTenant) {
-    if (!(await isOrgEmailEnabled(admin, tenantId))) {
+    if (!active.has(tenantId) || !(await isOrgEmailEnabled(admin, tenantId))) {
       summary.skipped += tenantRecipients.length;
       continue;
     }

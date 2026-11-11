@@ -24,6 +24,14 @@ export const DOCUMENT_IMAGE_MAX_EDGE = 2000;
 
 const PDF = "application/pdf";
 
+/** What a picked document field accepts, from the device or from Drive. */
+export const DOCUMENT_ACCEPT = `${PDF},image/*`;
+
+/** The refusal for a file over `DOCUMENT_MAX_BYTES`, wherever it came from. */
+export function documentTooLargeMessage(name: string): string {
+  return `${name} is larger than 10 MB. Link it instead.`;
+}
+
 export type DocumentKind = "pdf" | "image";
 
 /**
@@ -38,7 +46,7 @@ export function checkDocumentFile(
 ): { kind: DocumentKind } | { error: string } {
   if (file.type === PDF) {
     if (file.size > DOCUMENT_MAX_BYTES) {
-      return { error: `${file.name} is larger than 10 MB. Link it instead.` };
+      return { error: documentTooLargeMessage(file.name) };
     }
     return { kind: "pdf" };
   }

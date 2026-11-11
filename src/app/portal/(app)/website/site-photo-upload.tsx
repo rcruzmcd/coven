@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { Spinner } from "@/components/ui/spinner";
+import { GoogleDriveButton } from "@/components/portal/google-drive-button";
 import { parseImageCrop, withTypedSrc } from "@/lib/image-crop";
 import {
   deleteSitePhoto,
@@ -52,13 +53,7 @@ export function useSitePhotoUpload({
     }
   }
 
-  async function handleFile(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    // Clear the input straight away so picking the same file twice in a row
-    // still fires a change event.
-    event.target.value = "";
-    if (!file) return;
-
+  async function uploadFile(file: File) {
     setError(null);
     setUploading(true);
     try {
@@ -90,11 +85,12 @@ export function useSitePhotoUpload({
     }
   }
 
-  return { uploading, error, setError, handleFile };
+  return { uploading, error, setError, uploadFile };
 }
 
 /**
- * The file picker the upload hook drives.
+ * The file picker the upload hook drives: the device, or **From Google Drive**
+ * (#1633), both handing one `File` to `onFile` (the hook's `uploadFile`).
  *
  * A visible native file input rather than a Button over a hidden one: one tab
  * stop, a real <label> (the field's own, which points here), a native focus
@@ -105,13 +101,13 @@ export function SitePhotoFileInput({
   id,
   describedBy,
   uploading,
-  onChange,
+  onFile,
   accept = "image/*",
 }: {
   id: string;
   describedBy?: string;
   uploading: boolean;
-  onChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  onFile: (file: File) => void;
   /** Narrowed for a logo, which may not be an SVG (`SitePictureKind`). */
   accept?: string;
 }) {
@@ -122,11 +118,22 @@ export function SitePhotoFileInput({
         type="file"
         accept={accept}
         disabled={uploading}
-        onChange={onChange}
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          // Cleared straight away so picking the same file twice in a row
+          // still fires a change event.
+          event.target.value = "";
+          if (file) onFile(file);
+        }}
         aria-describedby={describedBy}
         className="text-sm text-muted-foreground file:mr-3 file:cursor-pointer file:rounded-md file:border file:border-border file:bg-secondary file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-secondary-foreground disabled:cursor-not-allowed disabled:opacity-50"
       />
       {uploading && <Spinner aria-label="Uploading photo" />}
+      <GoogleDriveButton
+        accept={accept}
+        disabled={uploading}
+        onFiles={([file]) => onFile(file)}
+      />
     </div>
   );
 }

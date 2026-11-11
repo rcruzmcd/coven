@@ -4,7 +4,19 @@ import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { checkUser } from "@/lib/auth/current-user";
 import { checkEventAccess } from "@/lib/auth/event-access";
-import { mintConfirmationToken } from "@/lib/notifications/notification-email-token";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { isEmailAddress, tenantMailContext } from "@/lib/email/identity";
+import { deliverEmail } from "@/lib/notifications/deliver";
+import {
+  hashConfirmationToken,
+  isConfirmationToken,
+  mintConfirmationToken,
+} from "@/lib/notifications/notification-email-token";
+import { isOrgEmailEnabled } from "@/lib/notifications/settings";
+import {
+  renderUploadLinkEmail,
+  UPLOAD_LINK_EMAIL_KIND,
+} from "@/lib/notifications/upload-link-email";
 import { qrCodeDataUri } from "@/lib/inventory-label-codes";
 import { getRequestOrigin } from "@/lib/request-origin";
 import {
@@ -138,6 +150,107 @@ export async function createEventMediaUploadLinkAction(
   const url = `${await getRequestOrigin()}${uploadLinkPath(token)}`;
   revalidatePath("/portal/events");
   return { link: { url, qr: qrCodeDataUri(url) } };
+}
+
+const UPLOAD_LINK_URL = /\/portal\/media-upload\/([^/?#]+)$/;
+
+/**
+ * Emails a just-created upload link to the photographer it is for (#1641).
+ *
+ * Takes the URL the create dialog was handed, because the raw token exists
+ * nowhere else; the token's hash must name a live link of this event, so the
+ * action mails only a link this coordinator could already see, never any URL
+ * the client chooses, and the link it mails is rebuilt here.
+ *
+ * Addressed to a bare address with no `people` row behind it (personId null,
+ * as the event access email), under the tenant's org-email switch, and deduped
+ * per link and address so a retried click mails once.
+ */
+export async function emailEventMediaUploadLinkAction(
+  eventId: string,
+  input: { url: string; to: string },
+): Promise<{ ok: true } | { error: string }> {
+  const supabase = await createSupabaseServerClient();
+  const userResult = await checkUser(
+    supabase,
+    "You must be signed in to email upload links.",
+  );
+  if ("error" in userResult) return userResult;
+  const permissionError = await checkEventAccess(
+    supabase,
+    { table: "event_media_upload_links", level: "manage", eventId },
+    "You don't have permission to email upload links for this event.",
+  );
+  if (permissionError) return permissionError;
+
+  const to = String(input?.to ?? "")
+    .trim()
+    .toLowerCase();
+  if (!isEmailAddress(to)) return { error: "Enter a valid email address." };
+  const token = UPLOAD_LINK_URL.exec(String(input?.url ?? ""))?.[1] ?? "";
+  if (!isConfirmationToken(token)) {
+    return { error: "This link can't be emailed. Copy it instead." };
+  }
+
+  const admin = createSupabaseAdminClient();
+  const { data: link } = await admin
+    .from("event_media_upload_links")
+    .select("id, tenant_id, label, expires_at, revoked_at")
+    .eq("token_hash", hashConfirmationToken(token))
+    .eq("event_id", String(eventId))
+    .maybeSingle();
+  if (
+    !link ||
+    link.revoked_at ||
+    new Date(link.expires_at).getTime() <= Date.now()
+  ) {
+    return { error: "This link is no longer active." };
+  }
+  if (!(await isOrgEmailEnabled(admin, link.tenant_id))) {
+    return {
+      error:
+        "Email is turned off for this organization. Copy the link and send it yourself.",
+    };
+  }
+
+  const { data: event } = await admin
+    .from("events")
+    .select("name, timezone")
+    .eq("id", String(eventId))
+    .maybeSingle();
+  const origin = await getRequestOrigin();
+  const mail = await tenantMailContext(admin, link.tenant_id, {
+    fallbackOrigin: origin,
+  });
+  const outcome = await deliverEmail(admin, {
+    tenantId: link.tenant_id,
+    personId: null,
+    identity: mail.identity,
+    kind: UPLOAD_LINK_EMAIL_KIND,
+    dedupeKey: `${UPLOAD_LINK_EMAIL_KIND}:${link.id}:${to}`,
+    to,
+    render: () =>
+      renderUploadLinkEmail({
+        orgName: mail.displayName,
+        eventName: event?.name ?? "",
+        label: link.label,
+        expiresAt: link.expires_at,
+        timeZone: event?.timezone ?? "UTC",
+        url: `${origin}${uploadLinkPath(token)}`,
+        siteUrl: mail.origin,
+        branding: mail.branding,
+      }),
+    logPrefix: "[upload-link-email]",
+  });
+  if (outcome === "failed") {
+    return {
+      error: `Couldn't email the link to ${to}. Copy it and send it yourself.`,
+    };
+  }
+  if (outcome === "skipped") {
+    return { error: `The link was already emailed to ${to}.` };
+  }
+  return { ok: true };
 }
 
 /** Revokes an upload link (#1620): no new uploads; what was uploaded stays. */

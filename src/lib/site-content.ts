@@ -2075,6 +2075,33 @@ export const SITE_CONTENT_SLOTS: readonly ContentSlot[] = [
     ],
   },
   {
+    key: "events.photos_notice",
+    page: "events",
+    section: "events:registration",
+    label: "Photos by email",
+    description:
+      "One sentence under the registration form's email field telling registrants you will also use their address to send them the event's photos afterward, from Registrants > More > Send photos. Leave it blank if you don't send photos, and nothing is shown.",
+    type: "text",
+    // Blank (#1555): whether an organization mails its photos out is its own
+    // practice, not a fact about the software. Notice, not consent (#1318):
+    // nothing is collected against it.
+    default: "",
+  },
+  {
+    key: "events.photos_email_body",
+    page: "events",
+    section: "events:registration",
+    label: "Send photos message",
+    description:
+      "The message Send photos starts from on an event's Registrants page. The link to the event's public photos is added after it on its own line, and whoever sends it can still edit both before it goes.",
+    type: "paragraphs",
+    // A default the platform can write (#1555): it promises nothing beyond
+    // what the send does, and the composer is edited before every send.
+    default: [
+      "Thank you for coming! The photos from the event are up now. Have a look, and share them with anyone who was there.",
+    ],
+  },
+  {
     key: "events.media_upload_rights",
     page: "events",
     section: "events:media_uploads",

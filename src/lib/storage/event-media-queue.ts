@@ -19,12 +19,13 @@ import type {
  */
 
 export type EventMediaItemStatus =
-  "queued" | "uploading" | "paused" | "failed" | "done";
+  "queued" | "downloading" | "uploading" | "paused" | "failed" | "done";
 
 export type EventMediaItem = {
   id: string;
   name: string;
-  size: number;
+  /** Null until known: a file still to be fetched may not say. */
+  size: number | null;
   kind: EventMediaKind | null;
   status: EventMediaItemStatus;
   /** 0-1, or null before the first measurement. */
@@ -37,6 +38,25 @@ export type EventMediaItem = {
 };
 
 export type FileDescription = { name: string; type: string; size: number };
+
+/**
+ * A file that has to be fetched before it can upload -- one picked in Google
+ * Drive (#1634). Its bytes are fetched only when the queue is ready for it, so
+ * a large pick never holds every file in memory at once. `error` is a refusal
+ * made before anything is fetched (too large, wrong type).
+ */
+export type RemoteFile = {
+  name: string;
+  size: number | null;
+  kind: EventMediaKind | null;
+} & (
+  | {
+      fetch: (
+        onProgress: (fraction: number | null) => void,
+      ) => Promise<File | { error: string }>;
+    }
+  | { error: string }
+);
 
 export type EventMediaQueueDeps = {
   /** How many files upload at once. */
@@ -69,7 +89,9 @@ export type EventMediaQueueDeps = {
 
 type Entry = {
   item: EventMediaItem;
-  file: File;
+  /** Null while a remote file waits to be fetched, and once it is recorded. */
+  file: File | null;
+  fetch: Extract<RemoteFile, { fetch: unknown }>["fetch"] | null;
   slot: EventMediaSlot | null;
   video: VideoUploadHandle | null;
   ref: string | null;
@@ -79,6 +101,12 @@ export type EventMediaQueue = ReturnType<typeof createEventMediaQueue>;
 
 export function createEventMediaQueue(deps: EventMediaQueueDeps) {
   const concurrency = deps.concurrency ?? 2;
+  /**
+   * Remote files fetched but not yet uploading, plus those being fetched, are
+   * held to this many -- enough to keep the uploads fed, few enough that a
+   * 100-file Drive pick holds two files in memory rather than 100.
+   */
+  const fetchAhead = deps.concurrency ?? 2;
   const entries = new Map<string, Entry>();
   let snapshot: EventMediaItem[] = [];
   const listeners = new Set<() => void>();
@@ -103,12 +131,14 @@ export function createEventMediaQueue(deps: EventMediaQueueDeps) {
   async function finish(id: string) {
     const entry = entries.get(id);
     if (!entry?.slot) return;
-    const recorded = await deps.record(entry.slot, entry.file.name);
+    const recorded = await deps.record(entry.slot, entry.item.name);
     if ("error" in recorded) {
       fail(id, recorded.error);
       return;
     }
     entry.ref = recorded.ref ?? null;
+    // A fetched file lives only in memory; nothing needs it once recorded.
+    if (entry.fetch) entry.file = null;
     update(id, {
       status: "done",
       progress: 1,
@@ -120,13 +150,13 @@ export function createEventMediaQueue(deps: EventMediaQueueDeps) {
 
   function start(entry: Entry) {
     const { id } = entry.item;
-    const slot = entry.slot;
-    if (!slot) return;
+    const { slot, file } = entry;
+    if (!slot || !file) return;
     update(id, { status: "uploading", error: null });
 
     if (slot.kind === "photo") {
       void deps
-        .uploadPhoto(entry.file, slot, (progress) => update(id, { progress }))
+        .uploadPhoto(file, slot, (progress) => update(id, { progress }))
         .then((result) => {
           if ("error" in result) fail(id, result.error);
           else void finish(id);
@@ -134,7 +164,7 @@ export function createEventMediaQueue(deps: EventMediaQueueDeps) {
       return;
     }
 
-    entry.video ??= deps.createVideoUpload(entry.file, slot, {
+    entry.video ??= deps.createVideoUpload(file, slot, {
       onProgress: (progress) => {
         // A pause aborts the request, but a progress tick already in flight
         // must not flip it back to uploading.
@@ -159,12 +189,55 @@ export function createEventMediaQueue(deps: EventMediaQueueDeps) {
         start(entry);
       }
     }
+    pumpFetches();
+  }
+
+  function pumpFetches() {
+    let ahead = [...entries.values()].filter(
+      (entry) =>
+        entry.item.status === "downloading" ||
+        (entry.item.status === "queued" && entry.file),
+    ).length;
+    for (const entry of entries.values()) {
+      if (ahead >= fetchAhead) break;
+      if (entry.item.status === "queued" && !entry.file && entry.fetch) {
+        ahead += 1;
+        void fetchRemote(entry, entry.fetch);
+      }
+    }
+  }
+
+  async function fetchRemote(entry: Entry, fetch: NonNullable<Entry["fetch"]>) {
+    const { id } = entry.item;
+    update(id, { status: "downloading", progress: null, error: null });
+    const result = await fetch((progress) => {
+      if (entries.get(id)?.item.status === "downloading") {
+        update(id, { progress });
+      }
+    });
+    if (!(result instanceof File)) return fail(id, result.error);
+
+    const plan = planEventMediaFile(result, {
+      keepOriginals: deps.keepOriginals,
+    });
+    if ("error" in plan) {
+      update(id, { retryable: false });
+      return fail(id, plan.error);
+    }
+    entry.file = result;
+    update(id, {
+      status: "queued",
+      kind: plan.kind,
+      size: result.size,
+      progress: null,
+    });
+    await mintFor([id]);
   }
 
   async function mintFor(ids: string[]) {
     const pending = ids
       .map((id) => entries.get(id))
-      .filter((entry): entry is Entry => !!entry);
+      .filter((entry): entry is Entry & { file: File } => !!entry?.file);
     if (pending.length === 0) return;
 
     const result = await deps.mintSlots(
@@ -202,6 +275,7 @@ export function createEventMediaQueue(deps: EventMediaQueueDeps) {
         const failed = "error" in plan;
         entries.set(id, {
           file,
+          fetch: null,
           slot: null,
           video: null,
           ref: null,
@@ -223,6 +297,37 @@ export function createEventMediaQueue(deps: EventMediaQueueDeps) {
       return mintFor(toMint);
     },
 
+    /**
+     * Queues files still to be fetched. They download a couple at a time,
+     * ahead of the uploads, then mint and upload like a local pick.
+     */
+    addRemote(files: RemoteFile[]) {
+      for (const remote of files) {
+        const id = crypto.randomUUID();
+        const refused = "error" in remote;
+        entries.set(id, {
+          file: null,
+          fetch: refused ? null : remote.fetch,
+          slot: null,
+          video: null,
+          ref: null,
+          item: {
+            id,
+            name: remote.name,
+            size: remote.size,
+            kind: remote.kind,
+            status: refused ? "failed" : "queued",
+            progress: null,
+            error: refused ? remote.error : null,
+            retryable: !refused,
+            removable: false,
+          },
+        });
+      }
+      emit();
+      pumpFetches();
+    },
+
     /** Videos only: a photo is one short request with nothing to resume. */
     pause(id: string) {
       const entry = entries.get(id);
@@ -241,13 +346,15 @@ export function createEventMediaQueue(deps: EventMediaQueueDeps) {
 
     /**
      * A video carries on from where it stopped; a photo or a file that never
-     * got a slot starts over.
+     * got a slot starts over, and a remote file that never arrived is fetched
+     * again.
      */
     retry(id: string) {
       const entry = entries.get(id);
       if (entry?.item.status !== "failed" || !entry.item.retryable) return;
       update(id, { status: "queued", error: null });
-      if (entry.slot) pump();
+      if (!entry.file) pumpFetches();
+      else if (entry.slot) pump();
       else void mintFor([id]);
     },
 

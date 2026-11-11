@@ -222,7 +222,7 @@ export function ListPhotoField({
           <SitePhotoFileInput
             id={`${id}-file`}
             uploading={upload.uploading}
-            onChange={upload.handleFile}
+            onFile={upload.uploadFile}
           />
           <FieldLabel htmlFor={`${id}-url`} className="font-normal">
             Or paste a link

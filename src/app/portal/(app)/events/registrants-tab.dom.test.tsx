@@ -551,6 +551,7 @@ describe("cancelled registrations (#1418)", () => {
     orgName: "Chatter",
     replyTo: null,
     orgEmailEnabled: true,
+    photos: { url: null, body: [] },
   };
 
   function managerSlices(overrides: Partial<EventRegistrantsData> = {}) {
@@ -689,6 +690,7 @@ describe("RegistrantsTab registration questions", () => {
     orgName: "Chatter Snow",
     replyTo: null,
     orgEmailEnabled: true,
+    photos: { url: null, body: [] },
   };
 
   test("a column per question, blank where unanswered", async () => {

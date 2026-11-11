@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
+import { GoogleDriveButton } from "@/components/portal/google-drive-button";
 import { isRenderableImageSrc, resolveImageUrl } from "@/lib/inventory";
 import {
   deleteGearPhoto,
@@ -26,6 +27,8 @@ type PhotoUploadFieldProps = {
   disabled?: boolean;
 };
 
+const PHOTO_ACCEPT = "image/*";
+
 /**
  * Attach one photo to a gear item, from the device it's being recorded on
  * (#781). Shared by donation intake and the inventory item editor.
@@ -39,6 +42,9 @@ type PhotoUploadFieldProps = {
  * The link box below stays on purpose: it's how a legacy Google Drive URL is
  * still editable, and the escape hatch when a device produces an image this
  * browser can't decode.
+ *
+ * **From Google Drive** (#1631) hands its `File` to the same upload as the
+ * native input. The public artwork form has its own field and no Drive.
  */
 export function PhotoUploadField({
   value,
@@ -73,13 +79,15 @@ export function PhotoUploadField({
     }
   }
 
-  async function handleFile(event: React.ChangeEvent<HTMLInputElement>) {
+  function handleFile(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     // Clear the input straight away so picking the same file twice in a row
     // still fires a change event.
     event.target.value = "";
-    if (!file) return;
+    if (file) void uploadFile(file);
+  }
 
+  async function uploadFile(file: File) {
     setError(null);
     setUploading(true);
     try {
@@ -142,7 +150,7 @@ export function PhotoUploadField({
           ref={inputRef}
           id={`${idPrefix}-photo`}
           type="file"
-          accept="image/*"
+          accept={PHOTO_ACCEPT}
           disabled={disabled || uploading}
           onChange={handleFile}
           aria-describedby={`${idPrefix}-photo-help`}
@@ -161,6 +169,12 @@ export function PhotoUploadField({
           </Button>
         )}
       </div>
+
+      <GoogleDriveButton
+        accept={PHOTO_ACCEPT}
+        disabled={disabled || uploading}
+        onFiles={([file]) => void uploadFile(file)}
+      />
 
       <FieldDescription id={`${idPrefix}-photo-help`}>
         {description}

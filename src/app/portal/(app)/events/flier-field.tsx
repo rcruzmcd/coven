@@ -80,7 +80,7 @@ export function FlierField({
         id={id}
         describedBy={`${id}-help`}
         uploading={upload.uploading}
-        onChange={upload.handleFile}
+        onFile={upload.uploadFile}
       />
       <FieldLabel htmlFor={`${id}-url`}>Flier image URL</FieldLabel>
       <Input

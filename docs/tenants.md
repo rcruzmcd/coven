@@ -274,6 +274,85 @@ Unset `NEXT_PUBLIC_PLATFORM_AUTH_ORIGIN` and the buttons use the old
 `signInWithOAuth` flow, which is what local dev and previews do. **Onboarding a
 tenant needs no Google step.**
 
+**The sign-in screens say "Powered by Coven" (#1813).** That line goes under the
+card on `/portal/login` and `/my/sign-in` (`PlatformAttribution`). Without it,
+the chooser names a product the person has never seen, right after a page that
+shows only the tenant's brand. It is the only tenant-facing place that names
+Coven, and an exception to the white-label rule (#795 Phase 4) made only
+because the chooser already names Coven. Root metadata, page titles, the PWA
+manifests, the app icon, emails and the public footer still name no product.
+The line names no company either. It shows on every host and plan, with no
+per-tenant opt-out: hiding it would not change what Google shows.
+
+### Google Drive uploads (#1627)
+
+Every portal upload field is meant to offer **From Google Drive** next to the
+local picker. Drive is a _source_, not a new upload path: the Google Picker
+returns the picked files' IDs and a short-lived access token, the browser
+downloads each file from `googleapis.com` and wraps it in a `File`, and that
+`File` goes through the same checks, compression, signed upload slots and
+records as a local pick. Nothing Drive-related is stored: the token lives in
+memory for the picker session only, with no refresh token and no column.
+
+**One scope, `drive.file`.** The app can open only the files a person picks,
+and Google classes the scope as non-sensitive, so there is no security
+assessment or restricted-scope audit. Broader scopes (`drive.readonly`) are out.
+This is separate from Google sign-in: the sign-in flow keeps no Drive token.
+
+**The Picker runs on the platform host (#1629, Option A, approved
+2026-11-11).** Google only issues a Picker token to a page whose origin is an
+**Authorized JavaScript origin** of the OAuth client, and every tenant custom
+domain would otherwise need its own console entry, easy to forget, with Drive
+broken silently until it was made. Instead:
+
+1. **From Google Drive** on a tenant page opens a small popup at
+   `https://coven.rcmlabs.dev/drive-picker`, the platform origin, with a nonce
+   the opener generated.
+2. The popup proceeds only if the opener's origin is a known tenant host (the
+   same allowlist the sign-in return check uses, `isAllowedReturnHost`), runs
+   the Picker, and `postMessage`s `{ docs, accessToken, nonce }` to the
+   opener's exact origin.
+3. The opener accepts the message only from the platform origin and with its
+   own nonce, then downloads from `googleapis.com` itself. The Drive API takes
+   a bearer token over CORS from any origin; only issuing the token needs a
+   listed one.
+
+So **onboarding a tenant needs no Google step** here either. Drive uploads are
+on for every tenant once configured, with no per-tenant setting in v1; one is
+added only when a tenant asks to turn it off.
+
+The rejected alternative (Option B) was listing every tenant domain in the
+OAuth client and running the Picker inline. It is simpler code, but each
+custom domain becomes a manual Google console step whose list lives outside
+the repo.
+
+**Setup, once (done 2026-11-11, #1628):** in the same Google Cloud project
+"Coven" as sign-in, so the consent screen already names Coven and is
+brand-verified:
+
+- Enable the **Google Picker API** and the **Google Drive API**.
+- An **API key** restricted to the Picker API only (downloads use the user's
+  token, not the key) and to the HTTP referrers `https://coven.rcmlabs.dev/*`,
+  `https://uat.chattersnow.org/*` and `http://localhost:3000/*`.
+- A **dedicated Web OAuth client**, not the sign-in one, so Drive consent and
+  sign-in can change independently. Authorized JavaScript origins:
+  `https://coven.rcmlabs.dev`, `https://uat.chattersnow.org` (so the
+  `development` preview can host its own picker page before the route is on
+  production) and `http://localhost:3000`. No redirect URIs: the token comes
+  from Google's popup flow.
+- **Data Access**: add `https://www.googleapis.com/auth/drive.file`, and
+  nothing else. If the Verification Center asks for a new brand review after
+  the change, submit it (free, a few days).
+- The **App ID** the Picker needs for `drive.file` is the Cloud project
+  **number**, not its ID.
+- In Vercel, on **Production and Preview**: `NEXT_PUBLIC_GOOGLE_PICKER_API_KEY`,
+  `NEXT_PUBLIC_GOOGLE_OAUTH_CLIENT_ID` and `NEXT_PUBLIC_GOOGLE_APP_ID`. All
+  three are public by design: the key is referrer-restricted and a client ID is
+  not a secret. They are inlined at build time, so a change needs a redeploy.
+
+Unset any of the three (local dev without them, CI, other previews) and the
+Drive button is hidden; every upload field still works from the device.
+
 ### Naming the tenant instead of the host (#813 Phase 2)
 
 A request can also say which tenant it is for outright, with an
@@ -970,7 +1049,12 @@ it off the air takes that page down with it, and there is no second door. The
 CLI can still do it.
 
 Archiving takes the tenant off its hosts and out of every member's switcher
-immediately and is reversible (`status = 'active'` again). Deletion is not:
+immediately and is reversible (`status = 'active'` again). Suspending or
+archiving also stops the scheduled email -- the task digest, the ops report
+and event reminders all skip a tenant that is not `active` (#1674), since every
+link in that mail would land on the NoTenant page. Due event reminders are
+left unclaimed rather than dropped, so they still go if the tenant is
+reactivated before the event starts. Deletion is not:
 `delete_tenant()` refuses any tenant that is not archived, then deletes
 every row of every tenant table by `tenant_id` -- retrying tables whose rows
 are still referenced until their children are gone, since every foreign key

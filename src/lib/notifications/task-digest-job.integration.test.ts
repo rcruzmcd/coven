@@ -23,6 +23,7 @@ import {
   adminClient,
   createPerson,
   createPublishedEvent,
+  createSuspendedTenant,
   serviceRoleClient,
   signInAs,
 } from "../../../test/integration-setup";
@@ -678,39 +679,27 @@ describe("runTaskDigest event tasks (#1666)", () => {
   });
 });
 
-describe("runTaskDigest tenant boundary (#1666)", () => {
+describe("runTaskDigest tenant status and boundary (#1666, #1674)", () => {
   /**
    * The same account with a people row in a second tenant, owning an event
-   * task there: two digests, each holding only its own tenant's work. Tenant B
-   * is suspended rather than active, so it changes no host resolution for
-   * anything running beside this (#795) -- and the job reads tasks regardless
-   * of tenant status, so it is still in scope.
+   * task there. Tenant B is provisioned suspended, so it changes no host
+   * resolution for anything running beside this (#795), and a suspended
+   * tenant's digest is exactly what #1674 stops. The boundary case activates
+   * it only for the length of that one run.
    */
   const tag = crypto.randomUUID().slice(0, 8);
   const B_TITLE = `IT tenant B checklist ${tag}`;
   const B_ADDRESS = `it-digest-b-${tag}@example.test`;
-  let tenantB: string;
+  let tenantB: Awaited<ReturnType<typeof createSuspendedTenant>>;
   let bPersonId: string;
-  let bEventId: string;
 
   beforeAll(async () => {
-    const { data: tenant, error: tenantError } = await service
-      .from("tenants")
-      .insert({
-        name: "Digest Boundary Org",
-        slug: `digest-boundary-${tag}`,
-        plan: "white_label",
-        status: "suspended",
-      })
-      .select("id")
-      .single();
-    if (tenantError) throw tenantError;
-    tenantB = tenant.id as string;
+    tenantB = await createSuspendedTenant(`digest-${tag}`);
 
     const { data: bPerson, error: personError } = await service
       .from("people")
       .insert({
-        tenant_id: tenantB,
+        tenant_id: tenantB.id,
         name: "Volunteer In B",
         source_type: "individual",
         email: SEEDED_USERS.volunteer,
@@ -725,7 +714,7 @@ describe("runTaskDigest tenant boundary (#1666)", () => {
     const { data: bEvent, error: eventError } = await service
       .from("events")
       .insert({
-        tenant_id: tenantB,
+        tenant_id: tenantB.id,
         name: `IT B Event ${tag}`,
         starts_at: "2026-03-20T18:00:00Z",
         timezone: "America/Denver",
@@ -736,13 +725,12 @@ describe("runTaskDigest tenant boundary (#1666)", () => {
       .select("id")
       .single();
     if (eventError) throw eventError;
-    bEventId = bEvent.id as string;
 
     const { error: itemError } = await service
       .from("event_checklist_items")
       .insert({
-        tenant_id: tenantB,
-        event_id: bEventId,
+        tenant_id: tenantB.id,
+        event_id: bEvent.id as string,
         title: B_TITLE,
         owner_person_id: bPersonId,
         due_date: DUE_SOON,
@@ -752,7 +740,7 @@ describe("runTaskDigest tenant boundary (#1666)", () => {
     const { error: prefError } = await service
       .from("person_notification_preferences")
       .insert({
-        tenant_id: tenantB,
+        tenant_id: tenantB.id,
         person_id: bPersonId,
         kind: TASK_DIGEST_KIND,
         enabled: true,
@@ -761,44 +749,67 @@ describe("runTaskDigest tenant boundary (#1666)", () => {
   });
 
   afterAll(async () => {
-    // Every foreign key to tenants is `no action`, so B's rows go first, in
-    // dependency order.
-    for (const table of [
-      // Created with the tenant, and referencing it.
-      "retention_policies",
+    await tenantB.cleanup([
       "notification_deliveries",
       "person_notification_preferences",
       "event_checklist_items",
       "events",
       "people",
-      "tenant_modules",
-      "calendar_categories",
-      "volunteer_role_types",
-      "site_content",
-      "app_settings",
-      "roles",
-    ]) {
-      const { error } = await service
-        .from(table)
-        .delete()
-        .eq("tenant_id", tenantB);
-      if (error) throw error;
-    }
-    const { error } = await service.from("tenants").delete().eq("id", tenantB);
-    if (error) throw error;
+    ]);
   });
 
-  afterEach(() => {
+  afterEach(async () => {
+    await service
+      .from("notification_deliveries")
+      .delete()
+      .eq("person_id", bPersonId);
     sent.length = 0;
   });
+
+  async function bDeliveries() {
+    const { data, error } = await service
+      .from("notification_deliveries")
+      .select("tenant_id, person_id")
+      .eq("person_id", bPersonId);
+    if (error) throw error;
+    return data;
+  }
+
+  for (const status of ["suspended", "archived"] as const) {
+    test(`sends nothing for a tenant that is ${status}, and records nothing`, async () => {
+      await optIn(true);
+      await tenantB.setStatus(status);
+      try {
+        const summary = await runTaskDigest(service, {
+          now: WEDNESDAY,
+          siteUrl: SITE_URL,
+        });
+        expect(summary.failed).toBe(0);
+        expect(sent.filter((m) => m.to === B_ADDRESS)).toHaveLength(0);
+        expect(await bDeliveries()).toEqual([]);
+        // Active tenants are unaffected.
+        expect(mine()).toHaveLength(1);
+      } finally {
+        await tenantB.setStatus("suspended");
+      }
+    });
+  }
 
   test("sends each tenant's tasks in that tenant's digest only", async () => {
     await optIn(true);
 
-    const summary = await runTaskDigest(service, {
-      now: WEDNESDAY,
-      siteUrl: SITE_URL,
-    });
+    // Active only for this run: a second active tenant changes host
+    // resolution for anything running beside it (#795).
+    await tenantB.setStatus("active");
+    let summary;
+    try {
+      summary = await runTaskDigest(service, {
+        now: WEDNESDAY,
+        siteUrl: SITE_URL,
+      });
+    } finally {
+      await tenantB.setStatus("suspended");
+    }
     expect(summary.failed).toBe(0);
 
     const toB = sent.filter((message) => message.to === B_ADDRESS);
@@ -811,11 +822,8 @@ describe("runTaskDigest tenant boundary (#1666)", () => {
     expect(toA[0].text).toContain("Send the insurance certificate");
     expect(toA[0].text).not.toContain(B_TITLE);
 
-    const { data, error } = await service
-      .from("notification_deliveries")
-      .select("tenant_id, person_id")
-      .eq("person_id", bPersonId);
-    if (error) throw error;
-    expect(data).toEqual([{ tenant_id: tenantB, person_id: bPersonId }]);
+    expect(await bDeliveries()).toEqual([
+      { tenant_id: tenantB.id, person_id: bPersonId },
+    ]);
   });
 });

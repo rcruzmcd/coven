@@ -36,7 +36,11 @@ import {
   type AudienceRegistration,
 } from "@/lib/event-announcements";
 import { sendEventAnnouncementAction } from "./registrants-actions";
-import { announcementSubject } from "./registrant-messaging";
+import {
+  announcementSubject,
+  photosMessage,
+  photosSubject,
+} from "./registrant-messaging";
 
 /**
  * One notice, to everybody registered for this event (#1317).
@@ -60,6 +64,7 @@ export function AnnounceToRegistrantsDialog({
   registrations,
   replyTo,
   disabledReason,
+  photos,
   onSent,
   open: controlledOpen,
   onOpenChange,
@@ -72,6 +77,14 @@ export function AnnounceToRegistrantsDialog({
   replyTo: string | null;
   /** Set when nothing can be sent: org email is switched off. */
   disabledReason?: string;
+  /**
+   * Send photos (#1555): the same composer, started from the tenant's message
+   * and the event's public gallery link. Everyone registered by default, not
+   * only those checked in -- check-in is often skipped on the day -- and a
+   * photo objection (#1376) is about being photographed, so it excludes
+   * nobody.
+   */
+  photos?: { url: string; body: readonly string[] };
   onSent?: () => void;
 }) {
   const fieldId = useId();
@@ -86,8 +99,13 @@ export function AnnounceToRegistrantsDialog({
    */
   const [batchId, setBatchId] = useState(() => crypto.randomUUID());
   const [audience, setAudience] = useState<AnnouncementAudience>("everyone");
-  const [subject, setSubject] = useState(() => announcementSubject(eventName));
-  const [body, setBody] = useState("");
+  const initialSubject = () =>
+    photos ? photosSubject(eventName) : announcementSubject(eventName);
+  const initialBody = () =>
+    photos ? photosMessage(photos.body, photos.url) : "";
+  const [subject, setSubject] = useState(initialSubject);
+  const [body, setBody] = useState(initialBody);
+  const label = photos ? "Send photos" : "Message registrants";
 
   const resolved = useMemo(
     () => resolveAnnouncementAudience(registrations, audience),
@@ -101,8 +119,8 @@ export function AnnounceToRegistrantsDialog({
       setError(null);
       setBatchId(crypto.randomUUID());
       setAudience("everyone");
-      setSubject(announcementSubject(eventName));
-      setBody("");
+      setSubject(initialSubject());
+      setBody(initialBody());
     }
   }
 
@@ -142,7 +160,7 @@ export function AnnounceToRegistrantsDialog({
     return (
       <div className="flex flex-col gap-1">
         <Button type="button" variant="secondary" size="sm" disabled>
-          Message registrants
+          {label}
         </Button>
         <p className="app-muted text-xs">{disabledReason}</p>
       </div>
@@ -163,10 +181,14 @@ export function AnnounceToRegistrantsDialog({
       withTrigger={withTrigger}
       trigger={
         <Button type="button" variant="secondary" size="sm">
-          Message registrants
+          {label}
         </Button>
       }
-      title={`Message everyone registered for ${eventName}`}
+      title={
+        photos
+          ? `Send the photos from ${eventName}`
+          : `Message everyone registered for ${eventName}`
+      }
       description="One email each, from your organization's own address."
       onSubmit={handleSubmit}
       footer={
@@ -178,7 +200,7 @@ export function AnnounceToRegistrantsDialog({
           </PortalFormSurfaceClose>
           <Button type="submit" disabled={isPending || !canSend}>
             {isPending ? <Spinner /> : null}
-            Send announcement
+            {photos ? "Send photos" : "Send announcement"}
           </Button>
         </>
       }
