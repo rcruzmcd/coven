@@ -181,13 +181,17 @@ function RelatedToSelect({
         value={value || NONE}
         onValueChange={(next) => onChange(!next || next === NONE ? "" : next)}
       >
-        <SelectTrigger id={id} className="w-full">
-          <SelectValue placeholder={noneLabel}>
-            {(selected: string) =>
-              selected === NONE
-                ? noneLabel
-                : linkedLabel(options, selected, unknownLabel)
-            }
+        <SelectTrigger id={id} className="w-full min-w-0">
+          {/* A long event name plus its date truncates rather than widening
+              the trigger past the sheet (#1825); the open list shows it whole. */}
+          <SelectValue placeholder={noneLabel} className="min-w-0">
+            {(selected: string) => (
+              <span className="truncate">
+                {selected === NONE
+                  ? noneLabel
+                  : linkedLabel(options, selected, unknownLabel)}
+              </span>
+            )}
           </SelectValue>
         </SelectTrigger>
         <SelectContent>
@@ -530,28 +534,26 @@ function SocialPostSheetBody({
                 />
               </Field>
 
-              <fieldset className="flex flex-col gap-2">
+              <fieldset className="flex min-w-0 flex-col gap-2">
                 <legend className="mb-2 text-sm font-medium">Related to</legend>
-                <Field orientation="responsive">
-                  <RelatedToSelect
-                    id="piece-eventId"
-                    label="Event"
-                    noneLabel="No event"
-                    unknownLabel="An event"
-                    options={linkOptions?.events}
-                    value={form.eventId}
-                    onChange={(next) => update("eventId", next)}
-                  />
-                  <RelatedToSelect
-                    id="piece-calendarItemId"
-                    label="Community date"
-                    noneLabel="No community date"
-                    unknownLabel="A community date"
-                    options={linkOptions?.calendarItems}
-                    value={form.calendarItemId}
-                    onChange={(next) => update("calendarItemId", next)}
-                  />
-                </Field>
+                <RelatedToSelect
+                  id="piece-eventId"
+                  label="Event"
+                  noneLabel="No event"
+                  unknownLabel="An event"
+                  options={linkOptions?.events}
+                  value={form.eventId}
+                  onChange={(next) => update("eventId", next)}
+                />
+                <RelatedToSelect
+                  id="piece-calendarItemId"
+                  label="Community date"
+                  noneLabel="No community date"
+                  unknownLabel="A community date"
+                  options={linkOptions?.calendarItems}
+                  value={form.calendarItemId}
+                  onChange={(next) => update("calendarItemId", next)}
+                />
                 <FieldDescription>
                   An event, a community date, both, or neither.
                 </FieldDescription>
