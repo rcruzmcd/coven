@@ -13,7 +13,7 @@ export const TABLE_LABELS: Record<string, string> = {
   user_roles: "User roles",
   app_settings: "App settings",
   calendar_items: "Calendar items",
-  content_opportunities: "Content pieces",
+  content_opportunities: "Social posts",
   services: "Services",
   assets: "Assets",
   access_grants: "Access grants",

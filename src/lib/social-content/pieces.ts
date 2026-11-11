@@ -13,15 +13,24 @@ export const CONTENT_STATUSES = [
 ] as const;
 
 /**
- * One post or story planned for a calendar item (#1231) -- several per item.
+ * The social content module shared by the calendar, events and `/portal/social`
+ * (#1793): status vocabulary, the row shape and the date helpers. The form
+ * parser is `./piece-form`, the Server Actions `./piece-actions`.
+ */
+
+/**
+ * One social post or story (#1231). Since #1792 a piece stands on its own and
+ * may be related to a calendar item (a community date), an event, both or
+ * neither -- deleting either clears the link and keeps the piece.
  *
  * Stored in `content_opportunities`, which kept its name through the reshape
  * so its audit history and RLS policies carried over; everything a person
- * reads calls these content pieces.
+ * reads calls these social posts.
  */
 export type ContentPieceRow = {
   id: string;
-  calendar_item_id: string;
+  calendar_item_id: string | null;
+  event_id: string | null;
   title: string;
   content: string | null;
   content_status: string;
@@ -39,6 +48,11 @@ export type ContentPieceRow = {
 
 /** Statuses a piece needs no more work in. */
 const TERMINAL_STATUSES = new Set(["published", "skipped"]);
+
+/** Whether a piece still needs work: neither published nor skipped. */
+export function isOpenPiece(piece: Pick<ContentPieceRow, "content_status">) {
+  return !TERMINAL_STATUSES.has(piece.content_status);
+}
 
 const STATUS_ORDER: readonly string[] = CONTENT_STATUSES.map(
   (option) => option.value,
@@ -95,6 +109,9 @@ export function nextDueAt(
 }
 
 /**
+ * Only meaningful once a piece has a publish date: a piece with none sits
+ * unscheduled, and there is nothing to count back from.
+ *
  * 21-day lead time -> draft T-14, review T-7 (the issue's worked example):
  * the draft period is the first two-thirds of the lead time, the review
  * period is the last third.
@@ -107,4 +124,67 @@ export function leadTimeSchedule(
     draftDueAt: addDays(publishDueAt, -Math.round((leadTimeDays * 2) / 3)),
     reviewDueAt: addDays(publishDueAt, -Math.round(leadTimeDays / 3)),
   };
+}
+
+export type OverdueStage = "draft" | "review" | "publish";
+
+/** Statuses still short of each deadline: the work that date was for is not done. */
+const SHORT_OF: Record<OverdueStage, ReadonlySet<string>> = {
+  draft: new Set(["not_planned", "idea", "draft"]),
+  review: new Set([
+    "not_planned",
+    "idea",
+    "draft",
+    "in_review",
+    "changes_requested",
+  ]),
+  publish: new Set(
+    STATUS_ORDER.filter((status) => !TERMINAL_STATUSES.has(status)),
+  ),
+};
+
+/**
+ * The furthest deadline a piece has missed, or null when it is on time (#1795).
+ * A deadline counts as missed once it has passed and the piece is still short
+ * of the stage it was for: a draft date passed with the piece already in
+ * review is not overdue. Published and skipped pieces owe nothing.
+ */
+export function overdueStage(
+  piece: Pick<
+    ContentPieceRow,
+    "content_status" | "draft_due_at" | "review_due_at" | "publish_due_at"
+  >,
+  now: Date = new Date(),
+): OverdueStage | null {
+  const missed = (stage: OverdueStage, due: string | null) =>
+    due !== null &&
+    new Date(due) < now &&
+    SHORT_OF[stage].has(piece.content_status);
+  if (missed("publish", piece.publish_due_at)) return "publish";
+  if (missed("review", piece.review_due_at)) return "review";
+  if (missed("draft", piece.draft_due_at)) return "draft";
+  return null;
+}
+
+export const OVERDUE_STAGE_LABELS: Record<OverdueStage, string> = {
+  draft: "Draft overdue",
+  review: "Review overdue",
+  publish: "Publish overdue",
+};
+
+/**
+ * One outstanding-task label per overdue piece, for the event rail's badge on
+ * its Social content section (#1795).
+ */
+export function overduePieceTaskLabels(
+  pieces: (Parameters<typeof overdueStage>[0] &
+    Pick<ContentPieceRow, "title">)[],
+  now: Date = new Date(),
+): string[] {
+  return pieces.flatMap((piece) => {
+    const stage = overdueStage(piece, now);
+    return stage
+      ? [`${piece.title}: ${OVERDUE_STAGE_LABELS[stage].toLowerCase()}`]
+      : [];
+  });
 }

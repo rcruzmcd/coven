@@ -15,6 +15,14 @@ import {
   utcIsoToDatetimeLocalInBrowser,
 } from "@/lib/time";
 import { updateEventAction } from "./actions";
+import {
+  movableEventPieces,
+  useEventSocialContent,
+} from "./social-content-tab";
+import {
+  ShiftSocialPostsDialog,
+  type SocialPostShift,
+} from "./shift-social-posts-dialog";
 import { FlierField, FlierPreview } from "./flier-field";
 import type { Program } from "../programs/actions";
 import type { EventRow } from "./event-badges";
@@ -120,6 +128,9 @@ export function OverviewTab({
   const [form, setForm] = useState(() => formStateFor(event));
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const social = useEventSocialContent();
+  // #1799: set after a save that moved the start, to offer moving the posts.
+  const [postShift, setPostShift] = useState<SocialPostShift | null>(null);
 
   useEffect(() => {
     onPendingChange?.(isPending);
@@ -151,10 +162,8 @@ export function OverviewTab({
     // Converted here, in the browser, from the typist's own clock:
     // `parseEventForm` expects instants, and on the server a naive
     // wall-clock string would be read as UTC.
-    formData.set(
-      "startsAt",
-      datetimeLocalToUtcIsoInBrowser(form.startsAt) ?? "",
-    );
+    const startsAt = datetimeLocalToUtcIsoInBrowser(form.startsAt);
+    formData.set("startsAt", startsAt ?? "");
     formData.set("endsAt", datetimeLocalToUtcIsoInBrowser(form.endsAt) ?? "");
     formData.set("timezone", form.timezone);
     formData.set("visibility", form.visibility);
@@ -171,6 +180,20 @@ export function OverviewTab({
         onSuccess: () => {
           router.refresh();
           onSaved();
+          // Asked only after the save lands, so declining or failing to move
+          // the posts never undoes the new date.
+          const shiftMs = startsAt
+            ? Date.parse(startsAt) - Date.parse(event.starts_at)
+            : 0;
+          const count = movableEventPieces(social).length;
+          if (startsAt && shiftMs !== 0 && count > 0) {
+            setPostShift({
+              fromStartsAt: event.starts_at,
+              toStartsAt: startsAt,
+              shiftMs,
+              count,
+            });
+          }
         },
       });
     });
@@ -192,249 +215,269 @@ export function OverviewTab({
 
   if (mode === "view" || locked) {
     return (
-      <FieldGroup>
-        <Field orientation="responsive">
-          <Field>
-            <FieldLabel htmlFor="details-visibility">Visibility</FieldLabel>
-            <div id="details-visibility">
-              <VisibilityBadge visibility={form.visibility} />
-            </div>
+      <>
+        <FieldGroup>
+          <Field orientation="responsive">
+            <Field>
+              <FieldLabel htmlFor="details-visibility">Visibility</FieldLabel>
+              <div id="details-visibility">
+                <VisibilityBadge visibility={form.visibility} />
+              </div>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="details-status">Status</FieldLabel>
+              <div id="details-status">
+                <StatusBadge status={form.status} />
+              </div>
+            </Field>
           </Field>
-          <Field>
-            <FieldLabel htmlFor="details-status">Status</FieldLabel>
-            <div id="details-status">
-              <StatusBadge status={form.status} />
-            </div>
+
+          <ReadOnlyField label="Programs" htmlFor="details-programIds">
+            {programNames.length > 0 ? programNames.join(", ") : "—"}
+          </ReadOnlyField>
+
+          <LinkedMeetings eventId={event.id} />
+
+          <ReadOnlyField label="Location" htmlFor="details-location">
+            {form.location || "—"}
+          </ReadOnlyField>
+
+          <Field orientation="responsive">
+            <ReadOnlyField label="Starts" htmlFor="details-startsAt">
+              <ViewerTime iso={event.starts_at} fallbackZone={event.timezone} />
+            </ReadOnlyField>
+            <ReadOnlyField label="Ends" htmlFor="details-endsAt">
+              {event.ends_at ? (
+                <ViewerTime iso={event.ends_at} fallbackZone={event.timezone} />
+              ) : (
+                "—"
+              )}
+            </ReadOnlyField>
           </Field>
-        </Field>
 
-        <ReadOnlyField label="Programs" htmlFor="details-programIds">
-          {programNames.length > 0 ? programNames.join(", ") : "—"}
-        </ReadOnlyField>
-
-        <LinkedMeetings eventId={event.id} />
-
-        <ReadOnlyField label="Location" htmlFor="details-location">
-          {form.location || "—"}
-        </ReadOnlyField>
-
-        <Field orientation="responsive">
-          <ReadOnlyField label="Starts" htmlFor="details-startsAt">
-            <ViewerTime iso={event.starts_at} fallbackZone={event.timezone} />
+          <ReadOnlyField label="Timezone" htmlFor="details-timezone">
+            {form.timezone}
           </ReadOnlyField>
-          <ReadOnlyField label="Ends" htmlFor="details-endsAt">
-            {event.ends_at ? (
-              <ViewerTime iso={event.ends_at} fallbackZone={event.timezone} />
-            ) : (
-              "—"
-            )}
+
+          <ReadOnlyField label="Event name" htmlFor="details-name">
+            {form.name}
           </ReadOnlyField>
-        </Field>
 
-        <ReadOnlyField label="Timezone" htmlFor="details-timezone">
-          {form.timezone}
-        </ReadOnlyField>
+          <ReadOnlyField label="Description" htmlFor="details-description">
+            <span className="whitespace-pre-line">
+              {form.description || "—"}
+            </span>
+          </ReadOnlyField>
 
-        <ReadOnlyField label="Event name" htmlFor="details-name">
-          {form.name}
-        </ReadOnlyField>
-
-        <ReadOnlyField label="Description" htmlFor="details-description">
-          <span className="whitespace-pre-line">{form.description || "—"}</span>
-        </ReadOnlyField>
-
-        <ReadOnlyField label="Flier" htmlFor="details-flier">
-          <FlierPreview url={form.flierUrl} />
-        </ReadOnlyField>
-      </FieldGroup>
+          <ReadOnlyField label="Flier" htmlFor="details-flier">
+            <FlierPreview url={form.flierUrl} />
+          </ReadOnlyField>
+        </FieldGroup>
+        <ShiftSocialPostsDialog
+          eventId={event.id}
+          shift={postShift}
+          onClose={() => setPostShift(null)}
+        />
+      </>
     );
   }
 
   return (
-    <form id={formId} onSubmit={handleSubmit}>
-      <FieldGroup>
-        <RequiredFieldsNote />
-        <Field orientation="responsive">
+    <>
+      <form id={formId} onSubmit={handleSubmit}>
+        <FieldGroup>
+          <RequiredFieldsNote />
+          <Field orientation="responsive">
+            <Field>
+              <FieldLabel htmlFor="details-visibility">Visibility</FieldLabel>
+              <Select
+                value={form.visibility}
+                onValueChange={(value) =>
+                  update("visibility", value ?? "private")
+                }
+              >
+                <SelectTrigger id="details-visibility" className="w-full">
+                  <SelectValue placeholder="Select visibility">
+                    {(value: string) =>
+                      VISIBILITIES.find((option) => option.value === value)
+                        ?.label ?? "Select visibility"
+                    }
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {VISIBILITIES.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="details-status">Status</FieldLabel>
+              <Select
+                value={form.status}
+                onValueChange={(value) => update("status", value ?? "draft")}
+              >
+                <SelectTrigger id="details-status" className="w-full">
+                  <SelectValue placeholder="Select status">
+                    {(value: string) =>
+                      STATUSES.find((option) => option.value === value)
+                        ?.label ?? "Select status"
+                    }
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {STATUSES.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+          </Field>
+
           <Field>
-            <FieldLabel htmlFor="details-visibility">Visibility</FieldLabel>
-            <Select
-              value={form.visibility}
-              onValueChange={(value) =>
-                update("visibility", value ?? "private")
+            <FieldLabel>Programs</FieldLabel>
+            <div id="details-programIds" className="flex flex-col gap-2">
+              {programs.length === 0 ? (
+                <p className="app-muted text-sm">No programs to choose from.</p>
+              ) : (
+                programs.map((program) => (
+                  <label
+                    key={program.id}
+                    className="flex items-center gap-2 text-sm"
+                  >
+                    <Checkbox
+                      checked={form.programIds.includes(program.id)}
+                      onCheckedChange={() => toggleProgram(program.id)}
+                    />
+                    {program.name}
+                  </label>
+                ))
+              )}
+            </div>
+            <FieldDescription>
+              An event can count toward more than one program; every one you
+              pick includes it in that program&apos;s impact report.
+            </FieldDescription>
+          </Field>
+
+          <Field>
+            <FieldLabel htmlFor="details-location">Location</FieldLabel>
+            <Input
+              id="details-location"
+              value={form.location}
+              onChange={(changeEvent) =>
+                update("location", changeEvent.target.value)
               }
-            >
-              <SelectTrigger id="details-visibility" className="w-full">
-                <SelectValue placeholder="Select visibility">
-                  {(value: string) =>
-                    VISIBILITIES.find((option) => option.value === value)
-                      ?.label ?? "Select visibility"
-                  }
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {VISIBILITIES.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            />
           </Field>
+
+          <Field orientation="responsive">
+            <Field>
+              <FieldLabel htmlFor="details-startsAt" required>
+                Starts
+              </FieldLabel>
+              <Input
+                id="details-startsAt"
+                required
+                type="datetime-local"
+                value={form.startsAt}
+                onChange={(changeEvent) =>
+                  update("startsAt", changeEvent.target.value)
+                }
+              />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="details-endsAt">Ends</FieldLabel>
+              <Input
+                id="details-endsAt"
+                type="datetime-local"
+                value={form.endsAt}
+                onChange={(changeEvent) =>
+                  update("endsAt", changeEvent.target.value)
+                }
+              />
+            </Field>
+          </Field>
+
           <Field>
-            <FieldLabel htmlFor="details-status">Status</FieldLabel>
+            <FieldLabel htmlFor="details-timezone">Timezone</FieldLabel>
             <Select
-              value={form.status}
-              onValueChange={(value) => update("status", value ?? "draft")}
+              value={form.timezone}
+              onValueChange={(value) => update("timezone", value ?? "")}
             >
-              <SelectTrigger id="details-status" className="w-full">
-                <SelectValue placeholder="Select status">
+              <SelectTrigger id="details-timezone" className="w-full">
+                <SelectValue placeholder="Select timezone">
                   {(value: string) =>
-                    STATUSES.find((option) => option.value === value)?.label ??
-                    "Select status"
+                    TIMEZONE_OPTIONS.find((option) => option.value === value)
+                      ?.label ?? value
                   }
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                {STATUSES.map((option) => (
+                {TIMEZONE_OPTIONS.map((option) => (
                   <SelectItem key={option.value} value={option.value}>
                     {option.label}
                   </SelectItem>
                 ))}
+                {form.timezone &&
+                  !TIMEZONE_OPTIONS.some(
+                    (option) => option.value === form.timezone,
+                  ) && (
+                    <SelectItem value={form.timezone}>
+                      {form.timezone}
+                    </SelectItem>
+                  )}
               </SelectContent>
             </Select>
           </Field>
-        </Field>
 
-        <Field>
-          <FieldLabel>Programs</FieldLabel>
-          <div id="details-programIds" className="flex flex-col gap-2">
-            {programs.length === 0 ? (
-              <p className="app-muted text-sm">No programs to choose from.</p>
-            ) : (
-              programs.map((program) => (
-                <label
-                  key={program.id}
-                  className="flex items-center gap-2 text-sm"
-                >
-                  <Checkbox
-                    checked={form.programIds.includes(program.id)}
-                    onCheckedChange={() => toggleProgram(program.id)}
-                  />
-                  {program.name}
-                </label>
-              ))
-            )}
-          </div>
-          <FieldDescription>
-            An event can count toward more than one program; every one you pick
-            includes it in that program&apos;s impact report.
-          </FieldDescription>
-        </Field>
-
-        <Field>
-          <FieldLabel htmlFor="details-location">Location</FieldLabel>
-          <Input
-            id="details-location"
-            value={form.location}
-            onChange={(changeEvent) =>
-              update("location", changeEvent.target.value)
-            }
-          />
-        </Field>
-
-        <Field orientation="responsive">
           <Field>
-            <FieldLabel htmlFor="details-startsAt" required>
-              Starts
+            <FieldLabel htmlFor="details-name" required>
+              Event name
             </FieldLabel>
             <Input
-              id="details-startsAt"
+              id="details-name"
               required
-              type="datetime-local"
-              value={form.startsAt}
+              value={form.name}
               onChange={(changeEvent) =>
-                update("startsAt", changeEvent.target.value)
+                update("name", changeEvent.target.value)
               }
             />
           </Field>
+
           <Field>
-            <FieldLabel htmlFor="details-endsAt">Ends</FieldLabel>
-            <Input
-              id="details-endsAt"
-              type="datetime-local"
-              value={form.endsAt}
+            <FieldLabel htmlFor="details-description">Description</FieldLabel>
+            <Textarea
+              id="details-description"
+              value={form.description}
               onChange={(changeEvent) =>
-                update("endsAt", changeEvent.target.value)
+                update("description", changeEvent.target.value)
               }
             />
           </Field>
-        </Field>
 
-        <Field>
-          <FieldLabel htmlFor="details-timezone">Timezone</FieldLabel>
-          <Select
-            value={form.timezone}
-            onValueChange={(value) => update("timezone", value ?? "")}
-          >
-            <SelectTrigger id="details-timezone" className="w-full">
-              <SelectValue placeholder="Select timezone">
-                {(value: string) =>
-                  TIMEZONE_OPTIONS.find((option) => option.value === value)
-                    ?.label ?? value
-                }
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              {TIMEZONE_OPTIONS.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-              {form.timezone &&
-                !TIMEZONE_OPTIONS.some(
-                  (option) => option.value === form.timezone,
-                ) && (
-                  <SelectItem value={form.timezone}>{form.timezone}</SelectItem>
-                )}
-            </SelectContent>
-          </Select>
-        </Field>
-
-        <Field>
-          <FieldLabel htmlFor="details-name" required>
-            Event name
-          </FieldLabel>
-          <Input
-            id="details-name"
-            required
-            value={form.name}
-            onChange={(changeEvent) => update("name", changeEvent.target.value)}
+          <FlierField
+            id="details-flier"
+            value={form.flierUrl}
+            onChange={(value) => update("flierUrl", value)}
           />
-        </Field>
 
-        <Field>
-          <FieldLabel htmlFor="details-description">Description</FieldLabel>
-          <Textarea
-            id="details-description"
-            value={form.description}
-            onChange={(changeEvent) =>
-              update("description", changeEvent.target.value)
-            }
-          />
-        </Field>
-
-        <FlierField
-          id="details-flier"
-          value={form.flierUrl}
-          onChange={(value) => update("flierUrl", value)}
-        />
-
-        {error && (
-          <Alert variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
-      </FieldGroup>
-    </form>
+          {error && (
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+        </FieldGroup>
+      </form>
+      <ShiftSocialPostsDialog
+        eventId={event.id}
+        shift={postShift}
+        onClose={() => setPostShift(null)}
+      />
+    </>
   );
 }

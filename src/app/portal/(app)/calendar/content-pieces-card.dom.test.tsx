@@ -4,12 +4,13 @@
 import { describe, expect, test } from "bun:test";
 import { render, screen } from "@testing-library/react";
 import { ContentPiecesCard } from "./content-pieces-card";
-import type { ContentPieceRow } from "./content-opportunity-shared";
+import type { ContentPieceRow } from "@/lib/social-content/pieces";
 
 function piece(overrides: Partial<ContentPieceRow> = {}): ContentPieceRow {
   return {
     id: "piece-1",
     calendar_item_id: "item-1",
+    event_id: null,
     title: "Instagram carousel",
     content: null,
     content_status: "draft",
@@ -63,16 +64,20 @@ describe("ContentPiecesCard", () => {
     expect(
       screen.getByRole("button", { name: "View Instagram carousel" }),
     ).toBeInTheDocument();
+    // Each post links to its own page (#1796).
+    expect(
+      screen.getByRole("link", { name: "Instagram carousel" }),
+    ).toHaveAttribute("href", "/portal/social/piece-1");
   });
 
   test("offers to add a piece when the item has none", () => {
     renderCard([]);
 
     expect(
-      screen.getByText("No content planned for this item yet"),
+      screen.getByText("No social posts planned for this item yet"),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Add content" }),
+      screen.getByRole("button", { name: "Add social post" }),
     ).toBeInTheDocument();
   });
 
@@ -81,7 +86,7 @@ describe("ContentPiecesCard", () => {
 
     expect(screen.getByText("Instagram carousel")).toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: "Add content" }),
+      screen.queryByRole("button", { name: "Add social post" }),
     ).not.toBeInTheDocument();
   });
 

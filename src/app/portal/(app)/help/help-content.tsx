@@ -371,7 +371,7 @@ export const helpContent: Record<string, HelpEntry> = {
   },
   "/portal/calendar": {
     title: "How calendar items work",
-    description: "Priority tiers, sensitive topics, and content pieces.",
+    description: "Priority tiers, sensitive topics, and social content.",
     body: (
       <>
         <HowToSection heading="Steps">
@@ -386,14 +386,17 @@ export const helpContent: Record<string, HelpEntry> = {
             <li>
               <strong className="text-foreground">Sensitive topic</strong> —
               flagging an item this way surfaces its tone guidance on the
-              item&apos;s Content card, so whoever writes the content sees it.
+              item&apos;s Social content card, so whoever writes the content
+              sees it.
             </li>
             <li>
-              <strong className="text-foreground">Content pieces</strong> — one
-              item usually produces several posts or stories. Each piece is
-              added on the item&apos;s Content card and moves through its own
-              draft/review/publish stages, with due dates set from that
-              piece&apos;s lead time.
+              <strong className="text-foreground">Social content</strong> — one
+              item usually produces several posts or stories. Each social post
+              is added on the item&apos;s Social content card and moves through
+              its own draft/review/publish stages. A post can also be related to
+              an event, and planned from that event&apos;s own Social content
+              section, or to nothing, and its publish date is optional; once it
+              has one, its draft and review dates can be set from its lead time.
             </li>
           </ol>
         </HowToSection>
@@ -1674,7 +1677,7 @@ export const helpContent: Record<string, HelpEntry> = {
             <li>
               Most write-heavy portal records are logged automatically:
               donations, inventory, event expenses, user roles, app settings,
-              calendar items, content pieces, and access management&apos;s
+              calendar items, social posts, and access management&apos;s
               services, assets, and grants, among others.
             </li>
             <li>

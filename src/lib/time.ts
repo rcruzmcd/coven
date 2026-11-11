@@ -80,9 +80,59 @@ export function addDays(date: Date, days: number): Date {
   return new Date(date.getTime() + days * 24 * 60 * 60 * 1000);
 }
 
+/**
+ * `YYYY-MM-DD` of a `Date` read with local getters: for a grid cell built from
+ * calendar parts, its own date; for an instant, its day in the process's zone.
+ * Where the zone must be explicit, so server and browser agree, use
+ * `utcIsoToDateInZone` instead, as `placePieces` does.
+ */
+export function localDayKey(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+/**
+ * The days a month grid shows: whole Sunday-to-Saturday weeks covering the
+ * month (`monthIndex` 0-11). Calendar-day arithmetic rather than `addDays`,
+ * which steps 24 hours and so lands on the same date twice across a
+ * daylight-saving fall-back.
+ */
+export function monthGridDays(year: number, monthIndex: number): Date[] {
+  const leading = new Date(year, monthIndex, 1).getDay();
+  const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
+  const cellCount = Math.ceil((leading + daysInMonth) / 7) * 7;
+  return Array.from(
+    { length: cellCount },
+    (_, index) => new Date(year, monthIndex, 1 - leading + index),
+  );
+}
+
 /** Number of days in `month` (1-12) of `year`, leap-year-aware. */
 export function daysInMonth(year: number, month: number): number {
   return new Date(Date.UTC(year, month, 0)).getUTCDate();
+}
+
+/** `instantMs`'s wall-clock reading in `timeZone`, as if that reading were UTC. */
+function wallClockAsUtcMs(instantMs: number, timeZone: string): number {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(instantMs));
+  const get = (type: string) =>
+    Number(parts.find((part) => part.type === type)?.value ?? 0);
+  return Date.UTC(
+    get("year"),
+    get("month") - 1,
+    get("day"),
+    get("hour"),
+    get("minute"),
+    get("second"),
+  );
 }
 
 /**
@@ -93,8 +143,12 @@ export function daysInMonth(year: number, month: number): number {
  * wall-clock values as UTC, then correct the guess by however far off that
  * guess's wall-clock reading in `timeZone` turns out to be. One correction
  * pass is enough except right at a DST transition, where a second pass
- * converges -- callers here only ever pass midnight/end-of-day anchors, not
- * a literal 2am transition instant.
+ * converges.
+ *
+ * A wall time a spring-forward change skips (00:30 on the night Santiago
+ * jumps from midnight to 1am) does not exist; it resolves forward through the
+ * gap, by the offset in force before it, to the same day's 01:30 -- never
+ * back onto the previous date.
  */
 export function zonedWallTimeToUtcIso(
   year: number,
@@ -109,29 +163,18 @@ export function zonedWallTimeToUtcIso(
   let guessMs = wallTimeAsUtcMs;
 
   for (let i = 0; i < 2; i++) {
-    const parts = new Intl.DateTimeFormat("en-CA", {
-      timeZone,
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      hourCycle: "h23",
-    }).formatToParts(new Date(guessMs));
-    const get = (type: string) =>
-      Number(parts.find((part) => part.type === type)?.value ?? 0);
-    const observedMs = Date.UTC(
-      get("year"),
-      get("month") - 1,
-      get("day"),
-      get("hour"),
-      get("minute"),
-      get("second"),
-    );
-    const deltaMs = wallTimeAsUtcMs - observedMs;
+    const deltaMs = wallTimeAsUtcMs - wallClockAsUtcMs(guessMs, timeZone);
     if (deltaMs === 0) break;
     guessMs += deltaMs;
+  }
+
+  if (wallClockAsUtcMs(guessMs, timeZone) !== wallTimeAsUtcMs) {
+    // In a gap: read the wall time with the offset from before the change.
+    const DAY = 24 * 60 * 60 * 1000;
+    const offsetBeforeMs =
+      wallClockAsUtcMs(wallTimeAsUtcMs - DAY, timeZone) -
+      (wallTimeAsUtcMs - DAY);
+    guessMs = wallTimeAsUtcMs - offsetBeforeMs;
   }
 
   return new Date(guessMs).toISOString();

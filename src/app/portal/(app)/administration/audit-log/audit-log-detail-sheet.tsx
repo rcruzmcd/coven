@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -31,6 +32,8 @@ export type AuditLogRow = {
   old_data: Record<string, unknown> | null;
   new_data: Record<string, unknown> | null;
   redacted_at: string | null;
+  /** For a social post, what it was related to (#1797). */
+  related?: ReactNode;
 };
 
 function formatValue(value: unknown): string {
@@ -80,6 +83,12 @@ export function AuditLogDetailSheet({ row }: { row: AuditLogRow }) {
         </SheetHeader>
 
         <div className="flex-1 overflow-y-auto px-4 pb-4">
+          {row.related ? (
+            <div className="mb-3 flex flex-wrap items-center gap-2 text-sm">
+              <span className="app-muted">Related to</span>
+              {row.related}
+            </div>
+          ) : null}
           {/* #720. Without this, a scrubbed field and a field that was empty at
               the time read identically, and a reader would draw the wrong
               conclusion from the same em dash. */}

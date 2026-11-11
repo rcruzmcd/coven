@@ -42,6 +42,10 @@ import { useUrlTabState } from "@/components/portal/use-url-tab-state";
 import { DeleteEventButton } from "./delete-event-button";
 import type { DeviceClass } from "@/proxy";
 import { EventSectionRail } from "./event-section-rail";
+import {
+  EventSocialContentProvider,
+  type EventSocialContent,
+} from "../social-content-tab";
 
 const NOOP_CALLBACKS: FormTabCallbacks = {
   onPendingChange: () => {},
@@ -287,12 +291,17 @@ export function EventDetailView(props: {
   /** The card to open, already resolved against `groups` on the server. */
   initialCard: TabValue;
   cardTasks?: Partial<Record<TabValue, string[]>>;
+  /** The Social content section's posts (#1795); null when it is not shown. */
+  social?: EventSocialContent | null;
   /** The render's instant, for the Upcoming/Today/Past badge (#1609). */
   nowIso: string;
 }) {
+  const { social = null, ...rest } = props;
   return (
     <TabRefreshProvider>
-      <EventDetailContent {...props} />
+      <EventSocialContentProvider value={social}>
+        <EventDetailContent {...rest} />
+      </EventSocialContentProvider>
     </TabRefreshProvider>
   );
 }

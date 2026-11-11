@@ -22,7 +22,7 @@ const SECTION_TITLES = [
   "Schedule & details",
   "Planning & decision",
   "Sensitive topic",
-  "Content",
+  "Social content",
 ];
 
 test.describe("portal calendar item detail page", () => {
@@ -44,8 +44,11 @@ test.describe("portal calendar item detail page", () => {
     ).toBeVisible();
 
     // Every section is a flat, always-visible card -- no tabs anywhere.
+    // Scoped to the page body: the sidebar has its own "Social content" entry
+    // under Calendar (#1794).
+    const main = page.getByRole("main");
     for (const title of SECTION_TITLES) {
-      await expect(page.getByText(title, { exact: true })).toBeVisible();
+      await expect(main.getByText(title, { exact: true })).toBeVisible();
     }
     await expect(page.getByRole("tab")).toHaveCount(0);
 
@@ -58,7 +61,7 @@ test.describe("portal calendar item detail page", () => {
     ).toBeVisible();
     await expect(page.getByText("Not flagged")).toBeVisible();
 
-    // The Content card lists every piece planned for the item (#1231), not one
+    // The Social content card lists every post planned for the item (#1231), not one
     // brief. The seed gives this one three, at three different statuses.
     for (const piece of [
       "Instagram carousel: how the gear swap works",

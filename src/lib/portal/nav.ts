@@ -134,6 +134,16 @@ export const NAV_ITEMS: readonly NavItem[] = [
         access: [{ resource: "content_calendar", level: "view" }],
       },
       {
+        // Lives at its own path, not under /portal/calendar (#1794): a post
+        // need not be related to a calendar item at all (#1792). Filed here
+        // because it is the same module and the same grant; the sub-item
+        // match in activeSectionFor files the route under Calendar.
+        value: "social",
+        label: "Social content",
+        href: "/portal/social",
+        access: [{ resource: "content_calendar", level: "view" }],
+      },
+      {
         value: "categories",
         label: "Categories",
         href: "/portal/calendar/categories",

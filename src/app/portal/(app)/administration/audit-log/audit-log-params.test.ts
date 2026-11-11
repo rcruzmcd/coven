@@ -7,6 +7,7 @@ const defaults = {
   dir: "desc",
   table: "all",
   action: "all",
+  related: "all",
   actor: "all",
   from: "",
   to: "",
@@ -26,6 +27,7 @@ describe("parseAuditLogParams", () => {
         dir: "asc",
         table: "donations",
         action: "delete",
+        related: "event",
         actor: "person-1",
         from: "2026-01-01",
         to: "2026-01-31",
@@ -37,6 +39,7 @@ describe("parseAuditLogParams", () => {
       dir: "asc",
       table: "donations",
       action: "delete",
+      related: "event",
       actor: "person-1",
       from: "2026-01-01",
       to: "2026-01-31",
@@ -64,13 +67,15 @@ describe("parseAuditLogParams", () => {
     expect(parseAuditLogParams({ dir: "sideways" }).dir).toBe("desc");
   });
 
-  test("drops an unknown table or action filter", () => {
+  test("drops an unknown table, action or related filter", () => {
     const parsed = parseAuditLogParams({
       table: "secrets",
       action: "truncate",
+      related: "donor",
     });
     expect(parsed.table).toBe("all");
     expect(parsed.action).toBe("all");
+    expect(parsed.related).toBe("all");
   });
 
   test("clamps a nonsensical page back to the first one", () => {

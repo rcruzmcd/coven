@@ -503,27 +503,36 @@ export async function createCalendarItem(
 
   return {
     id,
+    // Since #1792 deleting an item keeps its content pieces (the link is
+    // cleared), so they are removed here first or they would outlive the
+    // fixture and drift test/seed-shape.integration.test.ts's counts.
     async cleanup() {
+      await adminClient
+        .from("content_opportunities")
+        .delete()
+        .eq("calendar_item_id", id);
       await adminClient.from("calendar_items").delete().eq("id", id);
     },
   };
 }
 
-// A content piece on an existing calendar item -- several per item since
-// #1231. Rows cascade from the calendar item, so callers that created the
-// item usually only need its cleanup.
+// A content piece, on a calendar item or standalone (null) -- several per
+// item since #1231. Pieces outlive their item since #1792; a calendar item
+// fixture's cleanup removes its own pieces, a standalone piece needs its own.
 export async function createContentPiece(
-  calendarItemId: string,
+  calendarItemId: string | null,
   overrides: {
     title?: string;
     contentStatus?: string;
     publishDueAt?: string | null;
+    eventId?: string | null;
   } = {},
 ) {
   const { data, error } = await adminClient
     .from("content_opportunities")
     .insert({
       calendar_item_id: calendarItemId,
+      event_id: overrides.eventId ?? null,
       title: overrides.title ?? `Integration test piece ${crypto.randomUUID()}`,
       content_status: overrides.contentStatus ?? "idea",
       publish_due_at: overrides.publishDueAt ?? null,

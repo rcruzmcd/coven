@@ -199,6 +199,11 @@ export const DYNAMIC_ROUTE_SOURCES: Record<string, DynamicRouteSource> = {
     listPath: "/portal/calendar",
     linkPattern: /^\/portal\/calendar\/[0-9a-f-]{36}$/,
   },
+  // The list view links every scheduled post; the seed plans some (#1794).
+  "/portal/social/[pieceId]": {
+    listPath: "/portal/social?view=list",
+    linkPattern: /^\/portal\/social\/[0-9a-f-]{36}$/,
+  },
   "/portal/governance/meetings/[meetingId]": {
     listPath: "/portal/governance/meetings",
     linkPattern: /^\/portal\/governance\/meetings\/[0-9a-f-]{36}$/,

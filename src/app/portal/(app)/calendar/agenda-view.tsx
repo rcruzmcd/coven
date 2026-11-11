@@ -24,7 +24,7 @@ import {
   needsDecision,
   ITEM_TYPES,
 } from "./calendar-shared";
-import { ContentPiecesBadge } from "./content-opportunity-badges";
+import { ContentPiecesBadge } from "@/components/portal/social-content/content-status-badge";
 import { EVENT_ITEM_TYPE } from "@/lib/calendar-vocabulary";
 import type { CalendarEntry } from "./calendar-entries";
 

@@ -1980,12 +1980,13 @@ export type Database = {
       };
       content_opportunities: {
         Row: {
-          calendar_item_id: string;
+          calendar_item_id: string | null;
           content: string | null;
           content_status: string;
           created_at: string;
           created_by: string;
           draft_due_at: string | null;
+          event_id: string | null;
           id: string;
           internal_notes: string | null;
           lead_time_days: number;
@@ -2002,12 +2003,13 @@ export type Database = {
           updated_by: string | null;
         };
         Insert: {
-          calendar_item_id: string;
+          calendar_item_id?: string | null;
           content?: string | null;
           content_status?: string;
           created_at?: string;
           created_by?: string;
           draft_due_at?: string | null;
+          event_id?: string | null;
           id?: string;
           internal_notes?: string | null;
           lead_time_days?: number;
@@ -2024,12 +2026,13 @@ export type Database = {
           updated_by?: string | null;
         };
         Update: {
-          calendar_item_id?: string;
+          calendar_item_id?: string | null;
           content?: string | null;
           content_status?: string;
           created_at?: string;
           created_by?: string;
           draft_due_at?: string | null;
+          event_id?: string | null;
           id?: string;
           internal_notes?: string | null;
           lead_time_days?: number;
@@ -2051,6 +2054,13 @@ export type Database = {
             columns: ["tenant_id", "calendar_item_id"];
             isOneToOne: false;
             referencedRelation: "calendar_items";
+            referencedColumns: ["tenant_id", "id"];
+          },
+          {
+            foreignKeyName: "content_opportunities_event_id_fkey";
+            columns: ["tenant_id", "event_id"];
+            isOneToOne: false;
+            referencedRelation: "events";
             referencedColumns: ["tenant_id", "id"];
           },
           {
@@ -4501,6 +4511,58 @@ export type Database = {
           },
           {
             foreignKeyName: "event_staff_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      event_start_changes: {
+        Row: {
+          changed_at: string;
+          event_id: string;
+          from_starts_at: string;
+          id: string;
+          posts_shifted_at: string | null;
+          tenant_id: string;
+          to_starts_at: string;
+        };
+        Insert: {
+          changed_at?: string;
+          event_id: string;
+          from_starts_at: string;
+          id?: string;
+          posts_shifted_at?: string | null;
+          tenant_id?: string;
+          to_starts_at: string;
+        };
+        Update: {
+          changed_at?: string;
+          event_id?: string;
+          from_starts_at?: string;
+          id?: string;
+          posts_shifted_at?: string | null;
+          tenant_id?: string;
+          to_starts_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "event_start_changes_event_fkey";
+            columns: ["tenant_id", "event_id"];
+            isOneToOne: false;
+            referencedRelation: "events";
+            referencedColumns: ["tenant_id", "id"];
+          },
+          {
+            foreignKeyName: "event_start_changes_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "public_tenant";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "event_start_changes_tenant_id_fkey";
             columns: ["tenant_id"];
             isOneToOne: false;
             referencedRelation: "tenants";
@@ -11828,6 +11890,14 @@ export type Database = {
         Args: { p_limit: number; p_tenant_id: string };
         Returns: string[];
       };
+      claim_event_start_change: {
+        Args: {
+          p_event_id: string;
+          p_from_starts_at: string;
+          p_to_starts_at: string;
+        };
+        Returns: string;
+      };
       claim_pending_role_grants: { Args: never; Returns: number };
       complete_my_welcome: {
         Args: { p_current_release?: string };
@@ -12379,6 +12449,10 @@ export type Database = {
       };
       has_role: { Args: { p_role: string }; Returns: boolean };
       has_tenant_membership: { Args: never; Returns: boolean };
+      insert_event_plan_posts: {
+        Args: { p_event_id: string; p_posts: Json };
+        Returns: number;
+      };
       inventory_actor_name: { Args: { p_user_id: string }; Returns: string };
       inventory_intake_labels: {
         Args: { p_codes: string[]; p_donation_id: string };
@@ -13233,6 +13307,28 @@ export type Database = {
         Returns: undefined;
       };
       public_asks_profile_questions: { Args: never; Returns: boolean };
+      public_event_gallery: {
+        Args: {
+          p_limit: number;
+          p_offset: number;
+          p_tenant_id: string;
+          p_thumbs: number;
+        };
+        Returns: {
+          event_id: string;
+          name: string;
+          photo_count: number;
+          starts_at: string;
+          thumb_paths: string[];
+          timezone: string;
+          total_events: number;
+          video_count: number;
+        }[];
+      };
+      public_event_gallery_has_media: {
+        Args: { p_tenant_id: string };
+        Returns: boolean;
+      };
       public_event_media: {
         Args: { p_event_id: string; p_tenant_id: string };
         Returns: {
@@ -14305,6 +14401,14 @@ export type Database = {
       set_retention_policy_mode: {
         Args: { p_mode: string; p_policy_key: string };
         Returns: undefined;
+      };
+      shift_event_social_posts: {
+        Args: {
+          p_event_id: string;
+          p_from_starts_at: string;
+          p_to_starts_at: string;
+        };
+        Returns: number;
       };
       show_limit: { Args: never; Returns: number };
       show_trgm: { Args: { "": string }; Returns: string[] };

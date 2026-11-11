@@ -1,9 +1,11 @@
-import { describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import {
   daysInMonth,
   eventTiming,
   formatDueRelative,
   isEventActiveToday,
+  localDayKey,
+  monthGridDays,
   todayInZone,
   utcDateFromIsoDay,
   zonedWallTimeToUtcIso,
@@ -191,6 +193,19 @@ describe("zonedWallTimeToUtcIso", () => {
       "2027-01-01T00:00:00.000Z",
     );
   });
+
+  // Santiago springs forward at midnight on 6 Sep 2026: 00:00-00:59 is skipped.
+  test("resolves a wall time in a midnight DST gap forward, on the same date", () => {
+    expect(
+      zonedWallTimeToUtcIso(2026, 9, 6, 0, 30, 0, "America/Santiago"),
+    ).toBe("2026-09-06T04:30:00.000Z"); // 01:30 -03
+  });
+
+  test("resolves a wall time in a 2am DST gap forward", () => {
+    expect(
+      zonedWallTimeToUtcIso(2027, 3, 14, 2, 30, 0, "America/New_York"),
+    ).toBe("2027-03-14T07:30:00.000Z"); // 03:30 EDT
+  });
 });
 
 describe("todayInZone", () => {
@@ -230,5 +245,47 @@ describe("utcDateFromIsoDay", () => {
     expect(utcDateFromIsoDay(day).toISOString().slice(0, 10)).toBe(
       "2026-02-28",
     );
+  });
+});
+
+describe("localDayKey", () => {
+  test("pads month and day", () => {
+    expect(localDayKey(new Date(2027, 0, 5))).toBe("2027-01-05");
+  });
+});
+
+describe("monthGridDays", () => {
+  // The bug (#1803) only shows in a zone with daylight saving, so pin one
+  // rather than depend on the zone the suite happens to run in.
+  const originalTz = process.env.TZ;
+  beforeAll(() => {
+    process.env.TZ = "America/New_York";
+  });
+  afterAll(() => {
+    process.env.TZ = originalTz;
+  });
+
+  test("shows each date of a fall-back month once", () => {
+    // November 2026 starts on the Sunday US clocks fall back.
+    const days = monthGridDays(2026, 10).map(localDayKey);
+    expect(days.length).toBe(35);
+    expect(new Set(days).size).toBe(35);
+    expect(days[0]).toBe("2026-11-01");
+    expect(days[1]).toBe("2026-11-02");
+    expect(days.at(-1)).toBe("2026-12-05");
+  });
+
+  test("shows each date of a spring-forward month once, skipping none", () => {
+    // US clocks spring forward on Sunday 14 March 2027.
+    const days = monthGridDays(2027, 2).map(localDayKey);
+    expect(days.length).toBe(35);
+    expect(new Set(days).size).toBe(35);
+    expect(days[0]).toBe("2027-02-28");
+    expect(days.slice(14, 17)).toEqual([
+      "2027-03-14",
+      "2027-03-15",
+      "2027-03-16",
+    ]);
+    expect(days.at(-1)).toBe("2027-04-03");
   });
 });
