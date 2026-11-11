@@ -37,12 +37,31 @@ describe("resolvePortalRoute on the portal host", () => {
 
   // #1467: answered here rather than by rendering the portal index page, whose
   // only job was to redirect -- after the whole layout tree had run.
-  test("redirects the root straight to the unprefixed entry path", () => {
+  test("redirects the root straight to the unprefixed home path", () => {
     expect(resolvePortalRoute(PORTAL, "/")).toEqual({
       kind: "redirect",
       host: PORTAL,
-      pathname: "/entry",
+      pathname: "/home",
       status: 307,
+    });
+  });
+
+  // #1822: the old index, in either spelling, skips its redirect-only page.
+  test("redirects the legacy entry path straight to home", () => {
+    for (const path of ["/entry", "/portal/entry"]) {
+      expect(resolvePortalRoute(PORTAL, path)).toEqual({
+        kind: "redirect",
+        host: PORTAL,
+        pathname: "/home",
+        status: 307,
+      });
+    }
+  });
+
+  test("rewrites an RSC fetch of the legacy entry path to its fallback page", () => {
+    expect(resolvePortalRoute(PORTAL, "/entry", true)).toEqual({
+      kind: "rewrite",
+      pathname: "/portal/entry",
     });
   });
 
@@ -200,7 +219,7 @@ describe("the index redirects", () => {
 
   // A preview, a local run and the demo tenant (`demo.rcmlabs.dev/portal`)
   // serve the portal as a path, so `/portal` is its index there.
-  test("sends /portal to the portal entry where the portal is a path", () => {
+  test("sends /portal to the portal home where the portal is a path", () => {
     for (const host of [
       "localhost:3000",
       "chattersnow-web-git-development-x.vercel.app",
@@ -209,7 +228,13 @@ describe("the index redirects", () => {
       expect(resolvePortalRoute(host, "/portal")).toEqual({
         kind: "redirect",
         host,
-        pathname: "/portal/entry",
+        pathname: "/portal/home",
+        status: 307,
+      });
+      expect(resolvePortalRoute(host, "/portal/entry")).toEqual({
+        kind: "redirect",
+        host,
+        pathname: "/portal/home",
         status: 307,
       });
       expect(resolvePortalRoute(host, "/")).toEqual({
@@ -240,9 +265,12 @@ describe("the index redirects", () => {
   });
 
   test("does not redirect deeper portal paths on a path-served host", () => {
-    expect(resolvePortalRoute("localhost:3000", "/portal/entry")).toEqual({
+    expect(resolvePortalRoute("localhost:3000", "/portal/home")).toEqual({
       kind: "pass",
     });
+    expect(resolvePortalRoute("localhost:3000", "/portal/entry", true)).toEqual(
+      { kind: "pass" },
+    );
   });
 });
 

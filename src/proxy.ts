@@ -68,8 +68,9 @@ const PORTAL_CACHED_EVENT_PATH = /^\/events\/e\/([0-9a-fA-F-]{36})\/?$/;
 
 /**
  * Where the two index paths go (#1467): the public site's `/` is `/home`, and
- * the portal's own index is `/portal/entry`, which picks the signed-in
- * landing page.
+ * the portal's own is `/portal/home`, straight -- not through `/portal/entry`,
+ * a redirect-only page that once picked the landing page and now cost a full
+ * extra portal-layout render on every arrival (#1822).
  *
  * Both used to be `page.tsx` files that did nothing but `redirect()`. That
  * throws during render, but only after every layout above the page has run --
@@ -86,7 +87,14 @@ const PORTAL_CACHED_EVENT_PATH = /^\/events\/e\/([0-9a-fA-F-]{36})\/?$/;
  * Server Action, which a redirect here would double or break.
  */
 const PUBLIC_INDEX_TARGET = "/home";
-const PORTAL_INDEX_TARGET = "/portal/entry";
+const PORTAL_INDEX_TARGET = "/portal/home";
+
+/**
+ * The old portal index (#1822). Bookmarks, and browsers that cached the 307s
+ * above, still ask for it; answered here, it skips the layout render its page
+ * would pay before redirecting. The page stays as the RSC fallback.
+ */
+const PORTAL_LEGACY_ENTRY = "/portal/entry";
 
 /**
  * Header carrying the portal path the browser actually asked for.
@@ -187,6 +195,14 @@ export function resolvePortalRoute(
     // hostname, and strand the session cookie on a domain the visitor never
     // asked for.
     if (isPortalPath) {
+      if (pathname === PORTAL_LEGACY_ENTRY && !isNonDocumentRequest) {
+        return {
+          kind: "redirect",
+          host: hostname,
+          pathname: stripPortalPrefix(PORTAL_INDEX_TARGET),
+          status: 307,
+        };
+      }
       return isNonDocumentRequest
         ? { kind: "pass" }
         : {
@@ -197,10 +213,14 @@ export function resolvePortalRoute(
           };
     }
 
-    // The portal's index, visible here as the bare root. Straight to the
-    // unprefixed entry path, rather than through the rewrite below to a page
-    // whose only job is to redirect.
-    if (pathname === "/" && !isNonDocumentRequest) {
+    // The portal's index, visible here as the bare root, and the old index
+    // it used to go through. Straight to the unprefixed home path, rather
+    // than through the rewrite below to a page whose only job is to redirect.
+    if (
+      (pathname === "/" ||
+        pathname === stripPortalPrefix(PORTAL_LEGACY_ENTRY)) &&
+      !isNonDocumentRequest
+    ) {
       return {
         kind: "redirect",
         host: hostname,
@@ -245,7 +265,7 @@ export function resolvePortalRoute(
         status: 307,
       };
     }
-    if (pathname === PORTAL_PATH_PREFIX) {
+    if (pathname === PORTAL_PATH_PREFIX || pathname === PORTAL_LEGACY_ENTRY) {
       return {
         kind: "redirect",
         host: hostname,
