@@ -168,7 +168,10 @@ To put a tenant on its domain:
    back to the tenant's own origin (`getRequestOrigin()` in
    `src/lib/request-origin.ts`), and GoTrue refuses an origin it has not
    been told about. The auth/API hostname itself stays the shared Supabase
-   one; a Supabase custom domain is Pro-only and not needed.
+   one; a Supabase custom domain is Pro-only and not needed for routing.
+   (It is Supabase's documented fix for the Google consent screen naming
+   `<ref>.supabase.co`, which is solved for free instead -- see "Google
+   sign-in names the platform" below. Nothing per-tenant is needed for it.)
 
 4. **Add the apex to `NEXT_PUBLIC_PORTAL_REDIRECT_HOSTS`** (Vercel → Settings →
    Environment Variables), a comma-separated list of apex domains:
@@ -215,6 +218,61 @@ This used to be two literals in `src/lib/portal/paths.ts`, `PORTAL_HOST =
 "portal.chattersnow.org"` and `PUBLIC_HOSTS = {chattersnow.org,
 www.chattersnow.org}`, which made one tenant's DNS the platform's routing
 table and sent _every_ public host to that tenant's subdomain (#795 Phase 2).
+
+### Google sign-in names the platform (#1249)
+
+`signInWithOAuth({ provider: "google" })` redirects through
+`<ref>.supabase.co/auth/v1/callback`, and Google's account chooser names the
+redirect URI's domain unless the client has passed brand verification -- which
+needs every authorized domain verified in Search Console, and `supabase.co`
+never can be. So the chooser read "to continue to `<ref>.supabase.co`" on every
+tenant.
+
+The Google leg now runs on the platform host instead, under one OAuth client
+whose only authorized domain is `rcmlabs.dev`, so the chooser names **Coven**:
+
+1. `GET /auth/google` on the tenant host stores a nonce and state in a
+   short-lived `SameSite=None` cookie and redirects to the platform.
+2. `GET /auth/google/start` on `coven.rcmlabs.dev` checks the return origin
+   and redirects to Google (`response_type=id_token`, `form_post`).
+3. `POST /auth/google/callback` on the platform receives the ID token and
+   re-posts it to the tenant's `/auth/google/complete`. No session is made on
+   the platform host.
+4. `POST /auth/google/complete` on the tenant host checks the state,
+   `signInWithIdToken`s with the raw nonce (the session cookie is written for
+   that host, as before) and runs `claim_pending_role_grants`.
+
+**The return-origin check is the security boundary** (`isAllowedReturnHost`,
+`src/lib/auth/platform-google.ts`): whatever origin it accepts receives a live
+ID token. It accepts the platform's own origin, `https://` exactly
+`<custom_domain>`, `www.<custom_domain>` or `portal.<custom_domain>` of an
+active tenant, and hosts listed in `GOOGLE_SIGNIN_EXTRA_HOSTS` -- never "any
+subdomain", which a customer's DNS could point elsewhere.
+
+Rejected: per-tenant Google clients on each tenant's own domain (a Google
+Cloud project and Search Console verification per tenant, of domains we do
+not own), and the Supabase custom-domain add-on ($10/mo on Pro, and it names
+the platform anyway).
+
+**Setup, once:** Google Cloud project "Coven" → OAuth consent screen (app name
+Coven, logo, privacy/terms URLs on `coven.rcmlabs.dev`, authorized domain
+`rcmlabs.dev`) → verify `rcmlabs.dev` in Search Console → publish and submit
+brand verification → a **Web** client with redirect URI
+`https://coven.rcmlabs.dev/auth/google/callback` → append its client ID to the
+Supabase dashboard's Google provider "Client IDs" (comma-separated; the
+existing client stays for the fallback) → in Vercel set
+`NEXT_PUBLIC_PLATFORM_AUTH_ORIGIN=https://coven.rcmlabs.dev` on Production
+and on the `development` branch's Preview only (build-time, so redeploy; other
+previews are `*.vercel.app` hosts the allowlist refuses), and
+`GOOGLE_SIGNIN_CLIENT_ID` plus
+`GOOGLE_SIGNIN_EXTRA_HOSTS=uat.chattersnow.org` on Production -- steps 2 and 3
+always run on the production platform host, whichever deployment started the
+sign-in. **Rollout order:** those routes must be live on production before
+`uat` is pointed at them.
+
+Unset `NEXT_PUBLIC_PLATFORM_AUTH_ORIGIN` and the buttons use the old
+`signInWithOAuth` flow, which is what local dev and previews do. **Onboarding a
+tenant needs no Google step.**
 
 ### Naming the tenant instead of the host (#813 Phase 2)
 

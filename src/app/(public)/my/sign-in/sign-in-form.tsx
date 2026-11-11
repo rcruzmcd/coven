@@ -11,6 +11,7 @@ import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { safeMyDestination } from "@/lib/constituent/paths";
+import { platformGoogleStartPath } from "@/lib/auth/platform-google";
 import { navigateAfterSessionChange } from "@/lib/constituent/session-navigation";
 import { trackForm, useFormStarted } from "@/lib/analytics/form-events";
 import { EmailCodeForm } from "./email-code-form";
@@ -136,6 +137,13 @@ export function SignInForm() {
     // Completion happens at Google and the auth callback, out of sight of
     // this page, so this method's funnel ends at the submit.
     trackForm("my_sign_in", "form_submitted", { method: "google" });
+
+    // Through the platform host when configured (#1249).
+    const platformPath = platformGoogleStartPath(destination);
+    if (platformPath) {
+      window.location.assign(platformPath);
+      return;
+    }
 
     const supabase = createSupabaseBrowserClient();
     const { error: signInError } = await supabase.auth.signInWithOAuth({
