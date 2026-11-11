@@ -158,6 +158,7 @@ const ALL_ENTRIES: AuditLogParams = {
   dir: "desc",
   table: "app_settings",
   action: "all",
+  related: "all",
   actor: "all",
   from: "",
   to: "",
@@ -204,5 +205,50 @@ describe("fetchAuditLogEntries for unprivileged actors (integration)", () => {
     }
 
     await serviceRoleClient.from("app_settings").delete().eq("id", id);
+  });
+});
+
+describe("fetchAuditLogEntries Related to filter (#1797)", () => {
+  const SEEDED_EVENT_ID = "cccccccc-0000-4000-8000-000000000001";
+
+  async function recordIdsFor(related: AuditLogParams["related"]) {
+    const { entries, error } = await fetchAuditLogEntries(
+      adminClient as unknown as Parameters<typeof fetchAuditLogEntries>[0],
+      { ...ALL_ENTRIES, table: "all", related, perPage: 100 },
+    );
+    expect(error).toBeNull();
+    return entries ?? [];
+  }
+
+  test("narrows social post entries by what they were related to", async () => {
+    const { data: inserted, error } = await adminClient
+      .from("content_opportunities")
+      .insert({ title: `it-audit-related-${crypto.randomUUID()}` })
+      .select("id")
+      .single();
+    expect(error).toBeNull();
+    const id = inserted!.id as string;
+
+    // Standalone, then related to the event, then deleted while related.
+    await adminClient
+      .from("content_opportunities")
+      .update({ event_id: SEEDED_EVENT_ID })
+      .eq("id", id);
+    await adminClient.from("content_opportunities").delete().eq("id", id);
+
+    const actions = async (related: AuditLogParams["related"]) =>
+      (await recordIdsFor(related))
+        .filter((entry) => entry.record_id === id)
+        .map((entry) => entry.action)
+        .sort();
+
+    expect(await actions("none")).toEqual(["insert"]);
+    expect(await actions("event")).toEqual(["delete", "update"]);
+    expect(await actions("calendar_item")).toEqual([]);
+
+    const tables = new Set(
+      (await recordIdsFor("event")).map((entry) => entry.table_name),
+    );
+    expect([...tables]).toEqual(["content_opportunities"]);
   });
 });

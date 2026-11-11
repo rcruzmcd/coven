@@ -62,6 +62,35 @@ async function firstEventHref(page: Page): Promise<string | null> {
   return hrefs.find((href) => EVENT_DETAIL_HREF.test(href)) ?? null;
 }
 
+/** An event's detail page in the portal, not one of its sub-pages. */
+const PORTAL_EVENT_DETAIL_PATH = /^\/portal\/events\/[0-9a-f-]{36}$/;
+
+/**
+ * Moves an event's detail page to its Social content section (#1795). Same
+ * path, so the scan files the result under this route; false when the page is
+ * not an event's or the section is not offered to this role.
+ */
+async function openEventSocialSection(page: Page): Promise<boolean> {
+  const url = new URL(page.url());
+  if (!PORTAL_EVENT_DETAIL_PATH.test(url.pathname)) return false;
+  url.searchParams.set("tab", "social");
+  await page
+    .goto(url.toString(), { waitUntil: "networkidle", timeout: 30_000 })
+    .catch(() => {});
+  // The section's title is not a heading, so wait for what only the section
+  // renders: its empty state, or the Unscheduled sub-list beside its posts.
+  const main = page.getByRole("main");
+  return await main
+    .getByText("No social posts planned for this event yet")
+    .or(main.getByRole("heading", { name: /^Unscheduled/ }))
+    .first()
+    .waitFor({ state: "visible", timeout: 10_000 })
+    .then(
+      () => true,
+      () => false,
+    );
+}
+
 /**
  * Clicks a control if it's there, and reports whether the surface opened.
  *
@@ -360,6 +389,42 @@ export const SURFACES: Surface[] = [
       await pressEscape(page);
       await pressEscape(page);
     },
+    mutates: true,
+  },
+  // An event's Social content section (#1795) and the two overlays it opens
+  // (#1797). A rail section is not a tab, so the tab-panel openers never reach
+  // it, and the primary-dialog opener only sees the default section.
+  {
+    name: "event-social-section",
+    routes: ["/portal/events/"],
+    open: (page) => openEventSocialSection(page),
+    close: async () => {},
+    mutates: true,
+  },
+  {
+    name: "event-social-post-sheet",
+    routes: ["/portal/events/"],
+    open: async (page) =>
+      (await openEventSocialSection(page)) &&
+      clickIfPresent(
+        page,
+        () => page.getByRole("button", { name: "Add social post" }),
+        () => modal(page).first().waitFor({ state: "visible", timeout: 5_000 }),
+      ),
+    close: pressEscape,
+    mutates: true,
+  },
+  {
+    name: "event-social-plan-dialog",
+    routes: ["/portal/events/"],
+    open: async (page) =>
+      (await openEventSocialSection(page)) &&
+      clickIfPresent(
+        page,
+        () => page.getByRole("button", { name: "Generate plan" }),
+        () => modal(page).first().waitFor({ state: "visible", timeout: 5_000 }),
+      ),
+    close: pressEscape,
     mutates: true,
   },
   // Inactive tab panels. #436 found a violation on a TabsTrigger; the panels
