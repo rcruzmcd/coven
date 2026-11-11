@@ -67,7 +67,7 @@ export function LogoField({
         id={id}
         describedBy={`${id}-help`}
         uploading={upload.uploading}
-        onChange={upload.handleFile}
+        onFile={upload.uploadFile}
         accept={SITE_LOGO_ACCEPT}
       />
       <FieldLabel htmlFor={`${id}-url`}>{label}</FieldLabel>

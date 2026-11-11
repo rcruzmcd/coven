@@ -336,7 +336,7 @@ export function PublicTeamCard({
                   id={`${formId}-photo`}
                   describedBy={`${formId}-photo-help`}
                   uploading={upload.uploading}
-                  onChange={upload.handleFile}
+                  onFile={upload.uploadFile}
                 />
                 <FieldLabel
                   htmlFor={`${formId}-photo-url`}

@@ -57,7 +57,7 @@ export function ImageSlotField({
   onChange: (value: string | null) => void;
 }) {
   const preview = useImagePreview(value);
-  const { uploading, error, setError, handleFile } = useSitePhotoUpload({
+  const { uploading, error, setError, uploadFile } = useSitePhotoUpload({
     value,
     onChange: (next) => onChange(next || null),
   });
@@ -78,7 +78,7 @@ export function ImageSlotField({
         id={id}
         describedBy={describedBy}
         uploading={uploading}
-        onChange={handleFile}
+        onFile={uploadFile}
       />
 
       <FieldLabel htmlFor={`${id}-url`} className="font-normal">
