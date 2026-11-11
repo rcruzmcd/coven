@@ -10,6 +10,7 @@ import {
   ImagePlus,
 } from "lucide-react";
 import { ConfirmDeleteButton } from "@/components/portal/confirm-delete-button";
+import { GoogleDriveButton } from "@/components/portal/google-drive-button";
 import { TooltipIconButton } from "@/components/portal/tooltip-icon-button";
 import { Button } from "@/components/ui/button";
 import { Field, FieldLabel } from "@/components/ui/field";
@@ -87,6 +88,12 @@ export function PageList({
             {uploading ? <Spinner /> : <ImagePlus />}
             Add pages
           </Button>
+          <GoogleDriveButton
+            accept="image/jpeg,image/png"
+            multiple
+            disabled={uploading !== null}
+            onFiles={onAddFiles}
+          />
           <span className="app-muted text-xs" aria-live="polite">
             {uploading ??
               "JPEG or PNG scans, several at once. They are added in filename order and resized for the web before they upload."}

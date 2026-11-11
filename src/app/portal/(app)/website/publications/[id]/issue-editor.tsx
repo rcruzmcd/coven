@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { PortalBreadcrumbs } from "@/components/portal/breadcrumbs";
 import { ConfirmDeleteButton } from "@/components/portal/confirm-delete-button";
+import { GoogleDriveButton } from "@/components/portal/google-drive-button";
 import { StatusBadge } from "@/components/portal/status-badge";
 import { useActionToast } from "@/components/portal/action-toast";
 import {
@@ -36,6 +37,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
 import { formatDateTime } from "@/lib/format";
 import {
+  PUBLICATION_PDF_MAX_BYTES,
   PUBLICATION_SLUG_MAX,
   byFileName,
   formatFileSize,
@@ -436,6 +438,11 @@ export function IssueEditor({
                       <ImagePlus />
                       {details.cover ? "Replace cover" : "Upload cover"}
                     </Button>
+                    <GoogleDriveButton
+                      accept="image/jpeg,image/png"
+                      disabled={busy}
+                      onFiles={([picked]) => void replaceCover(picked)}
+                    />
                     {pages[0] &&
                       details.cover?.path !== pages[0].image.path && (
                         <Button
@@ -639,6 +646,13 @@ function PdfField({
               <Upload />
               {file ? "Replace" : "Upload"}
             </Button>
+            {/* A Google Doc or Slides deck comes back exported as a PDF. */}
+            <GoogleDriveButton
+              accept="application/pdf"
+              maxBytes={PUBLICATION_PDF_MAX_BYTES}
+              disabled={busy}
+              onFiles={([picked]) => onPick(picked)}
+            />
             {file && (
               <Button
                 type="button"

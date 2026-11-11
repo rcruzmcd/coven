@@ -122,6 +122,35 @@ describe("GoogleDriveButton", () => {
     expect(onFiles).not.toHaveBeenCalled();
   });
 
+  test("with onPick, hands back the docs and token without downloading (#1634)", async () => {
+    configure();
+    globalThis.fetch = mock(
+      async () => new Response(""),
+    ) as unknown as typeof fetch;
+    const onPick = mock(() => {});
+    render(<GoogleDriveButton accept="image/*" multiple onPick={onPick} />);
+    await userEvent.click(
+      screen.getByRole("button", { name: "From Google Drive" }),
+    );
+    const nonce = new URL(openedUrl).searchParams.get("nonce")!;
+    const docs = [{ id: "p1", name: "Photo.jpg", mimeType: "image/jpeg" }];
+
+    post({
+      type: DRIVE_PICKER_MESSAGE,
+      nonce,
+      status: "picked",
+      accessToken: "t",
+      docs,
+    });
+    await waitFor(() =>
+      expect(onPick).toHaveBeenCalledWith({ docs, accessToken: "t" }),
+    );
+    expect(globalThis.fetch).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("button", { name: "From Google Drive" }),
+    ).not.toBeDisabled();
+  });
+
   test("asks for pop-ups when the browser blocks the window", async () => {
     configure();
     window.open = (() => null) as typeof window.open;

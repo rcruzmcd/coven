@@ -25,6 +25,7 @@ import {
 } from "@/components/portal/data-table";
 import { Spinner } from "@/components/ui/spinner";
 import { runAction } from "@/components/portal/action-toast";
+import { GoogleDriveButton } from "@/components/portal/google-drive-button";
 import { formatCalendarDate, formatCurrency } from "@/lib/format";
 import {
   guessMapping,
@@ -109,7 +110,11 @@ export function DonationImportPanel({
 
   async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
-    if (!file) return;
+    if (file) await loadFile(file);
+  }
+
+  /** A local pick or a Drive one (#1636): the same columns step either way. */
+  async function loadFile(file: File) {
     const text = await file.text();
     setCsvText(text);
     readHeaders(text);
@@ -230,6 +235,11 @@ export function DonationImportPanel({
           type="file"
           accept=".csv,text/csv"
           onChange={handleFileChange}
+        />
+        <GoogleDriveButton
+          accept=".csv,text/csv"
+          hint="A Google Sheet comes in as CSV: its first sheet only."
+          onFiles={([file]) => void loadFile(file)}
         />
       </Field>
 

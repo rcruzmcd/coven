@@ -4,6 +4,7 @@ import type { VideoUploadHandlers } from "./event-media";
 import {
   createEventMediaQueue,
   type EventMediaQueueDeps,
+  type RemoteFile,
 } from "./event-media-queue";
 
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
@@ -245,5 +246,111 @@ describe("upload link options (#1620)", () => {
     photoResolvers[0]({ ok: true });
     await tick();
     expect(queue.getSnapshot()[0].removable).toBe(false);
+  });
+
+  describe("remote files (#1634)", () => {
+    /** A remote file whose fetch the test resolves. */
+    function remote(name: string) {
+      let resolve!: (file: File | { error: string }) => void;
+      let progress!: (fraction: number | null) => void;
+      const calls = { count: 0 };
+      const file: RemoteFile = {
+        name,
+        size: 10,
+        kind: name.endsWith(".mp4") ? "video" : "photo",
+        fetch: (onProgress) => {
+          calls.count += 1;
+          progress = onProgress;
+          return new Promise((r) => (resolve = r));
+        },
+      };
+      return {
+        file,
+        calls,
+        arrive: (body = name.endsWith(".mp4") ? video(name) : photo(name)) =>
+          resolve(body),
+        failWith: (error: string) => resolve({ error }),
+        progress: (fraction: number) => progress(fraction),
+      };
+    }
+
+    test("fetches two ahead, not the whole pick", async () => {
+      const { queue, statuses } = setup();
+      const files = ["a.jpg", "b.jpg", "c.jpg", "d.jpg"].map(remote);
+      queue.addRemote(files.map((f) => f.file));
+      expect(statuses()).toEqual([
+        "downloading",
+        "downloading",
+        "queued",
+        "queued",
+      ]);
+      expect(files.map((f) => f.calls.count)).toEqual([1, 1, 0, 0]);
+    });
+
+    test("a fetched file shows progress, then uploads and is recorded", async () => {
+      const { queue, photoResolvers, recorded, statuses } = setup();
+      const a = remote("a.jpg");
+      queue.addRemote([a.file]);
+      a.progress(0.25);
+      expect(queue.getSnapshot()[0].progress).toBe(0.25);
+
+      a.arrive();
+      await tick();
+      expect(statuses()).toEqual(["uploading"]);
+      photoResolvers[0]({ ok: true });
+      await tick();
+      expect(statuses()).toEqual(["done"]);
+      expect(recorded).toEqual(["t/e/a.jpg"]);
+    });
+
+    test("the next fetch starts once an upload frees a place", async () => {
+      const { queue } = setup({ concurrency: 1 });
+      const files = ["a.jpg", "b.jpg", "c.jpg"].map(remote);
+      queue.addRemote(files.map((f) => f.file));
+      expect(files.map((f) => f.calls.count)).toEqual([1, 0, 0]);
+
+      files[0].arrive();
+      await tick();
+      // a is uploading, so b may be fetched; c waits behind it.
+      expect(files.map((f) => f.calls.count)).toEqual([1, 1, 0]);
+    });
+
+    test("a refusal made before fetching fails without a retry", () => {
+      const { queue } = setup();
+      queue.addRemote([
+        { name: "big.mp4", size: 1, kind: "video", error: "Too large." },
+      ]);
+      expect(queue.getSnapshot()[0]).toMatchObject({
+        status: "failed",
+        error: "Too large.",
+        retryable: false,
+      });
+    });
+
+    test("a failed fetch is retried by fetching again", async () => {
+      const { queue, statuses } = setup();
+      const a = remote("a.jpg");
+      queue.addRemote([a.file]);
+      a.failWith("Drive access expired.");
+      await tick();
+      expect(statuses()).toEqual(["failed"]);
+      expect(queue.getSnapshot()[0].retryable).toBe(true);
+
+      queue.retry(queue.getSnapshot()[0].id);
+      expect(statuses()).toEqual(["downloading"]);
+      expect(a.calls.count).toBe(2);
+    });
+
+    test("a fetched file that isn't media is refused", async () => {
+      const { queue } = setup();
+      const a = remote("a.jpg");
+      queue.addRemote([a.file]);
+      a.arrive(new File(["x"], "a.pdf", { type: "application/pdf" }));
+      await tick();
+      expect(queue.getSnapshot()[0]).toMatchObject({
+        status: "failed",
+        retryable: false,
+      });
+    });
   });
 });
