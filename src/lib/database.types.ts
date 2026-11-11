@@ -12389,11 +12389,11 @@ export type Database = {
       };
       has_role: { Args: { p_role: string }; Returns: boolean };
       has_tenant_membership: { Args: never; Returns: boolean };
-      inventory_actor_name: { Args: { p_user_id: string }; Returns: string };
       insert_event_plan_posts: {
         Args: { p_event_id: string; p_posts: Json };
         Returns: number;
       };
+      inventory_actor_name: { Args: { p_user_id: string }; Returns: string };
       inventory_intake_labels: {
         Args: { p_codes: string[]; p_donation_id: string };
         Returns: {
@@ -14320,13 +14320,13 @@ export type Database = {
         Args: { p_mode: string; p_policy_key: string };
         Returns: undefined;
       };
-      show_limit: { Args: never; Returns: number };
-      show_trgm: { Args: { "": string }; Returns: string[] };
-      site_content_approver_count: { Args: never; Returns: number };
       shift_event_social_posts: {
         Args: { p_event_id: string; p_shift_seconds: number };
         Returns: number;
       };
+      show_limit: { Args: never; Returns: number };
+      show_trgm: { Args: { "": string }; Returns: string[] };
+      site_content_approver_count: { Args: never; Returns: number };
       stamp_event_reminder: {
         Args: { p_registration_id: string };
         Returns: boolean;
