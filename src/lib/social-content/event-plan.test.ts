@@ -107,3 +107,19 @@ describe("planEventPosts", () => {
     expect(plan).toHaveLength(1);
   });
 });
+
+describe("addDaysInZone across a midnight DST gap", () => {
+  test("a day before 00:30 on 7 Sep 2026 in Santiago stays on 6 Sep", () => {
+    // 6 Sep 00:30 does not exist there; it moves forward to 01:30, not back
+    // to 23:30 on the 5th.
+    const startsAt = "2026-09-07T03:30:00.000Z"; // 00:30 -03
+    const due = addDaysInZone(startsAt, -1, "America/Santiago");
+    expect(due).toBe("2026-09-06T04:30:00.000Z");
+    expect(
+      new Intl.DateTimeFormat("en-CA", {
+        timeZone: "America/Santiago",
+        dateStyle: "short",
+      }).format(new Date(due)),
+    ).toBe("2026-09-06");
+  });
+});

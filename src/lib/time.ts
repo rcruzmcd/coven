@@ -85,6 +85,30 @@ export function daysInMonth(year: number, month: number): number {
   return new Date(Date.UTC(year, month, 0)).getUTCDate();
 }
 
+/** `instantMs`'s wall-clock reading in `timeZone`, as if that reading were UTC. */
+function wallClockAsUtcMs(instantMs: number, timeZone: string): number {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(instantMs));
+  const get = (type: string) =>
+    Number(parts.find((part) => part.type === type)?.value ?? 0);
+  return Date.UTC(
+    get("year"),
+    get("month") - 1,
+    get("day"),
+    get("hour"),
+    get("minute"),
+    get("second"),
+  );
+}
+
 /**
  * Converts a wall-clock date/time in `timeZone` to the UTC instant it
  * represents, as an ISO string. There's no date/timezone library in this
@@ -93,8 +117,12 @@ export function daysInMonth(year: number, month: number): number {
  * wall-clock values as UTC, then correct the guess by however far off that
  * guess's wall-clock reading in `timeZone` turns out to be. One correction
  * pass is enough except right at a DST transition, where a second pass
- * converges -- callers here only ever pass midnight/end-of-day anchors, not
- * a literal 2am transition instant.
+ * converges.
+ *
+ * A wall time a spring-forward change skips (00:30 on the night Santiago
+ * jumps from midnight to 1am) does not exist; it resolves forward through the
+ * gap, by the offset in force before it, to the same day's 01:30 -- never
+ * back onto the previous date.
  */
 export function zonedWallTimeToUtcIso(
   year: number,
@@ -109,29 +137,18 @@ export function zonedWallTimeToUtcIso(
   let guessMs = wallTimeAsUtcMs;
 
   for (let i = 0; i < 2; i++) {
-    const parts = new Intl.DateTimeFormat("en-CA", {
-      timeZone,
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      hourCycle: "h23",
-    }).formatToParts(new Date(guessMs));
-    const get = (type: string) =>
-      Number(parts.find((part) => part.type === type)?.value ?? 0);
-    const observedMs = Date.UTC(
-      get("year"),
-      get("month") - 1,
-      get("day"),
-      get("hour"),
-      get("minute"),
-      get("second"),
-    );
-    const deltaMs = wallTimeAsUtcMs - observedMs;
+    const deltaMs = wallTimeAsUtcMs - wallClockAsUtcMs(guessMs, timeZone);
     if (deltaMs === 0) break;
     guessMs += deltaMs;
+  }
+
+  if (wallClockAsUtcMs(guessMs, timeZone) !== wallTimeAsUtcMs) {
+    // In a gap: read the wall time with the offset from before the change.
+    const DAY = 24 * 60 * 60 * 1000;
+    const offsetBeforeMs =
+      wallClockAsUtcMs(wallTimeAsUtcMs - DAY, timeZone) -
+      (wallTimeAsUtcMs - DAY);
+    guessMs = wallTimeAsUtcMs - offsetBeforeMs;
   }
 
   return new Date(guessMs).toISOString();

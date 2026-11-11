@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import {
   type SocialPostSheetSession,
 } from "@/components/portal/social-content/social-post-sheet";
 import {
+  monthInZone,
   socialHref,
   type SocialFilters,
   type SocialView,
@@ -35,6 +36,7 @@ const VIEWS: { value: SocialView; label: string }[] = [
 
 export function SocialWorkspace({
   filters,
+  monthGiven,
   pieces,
   overlay,
   owners,
@@ -44,6 +46,8 @@ export function SocialWorkspace({
   defaultLeadTimeDays,
 }: {
   filters: SocialFilters;
+  /** The URL named the month; otherwise it is the server's, not the viewer's. */
+  monthGiven: boolean;
   pieces: SocialPieceRow[];
   overlay: CalendarEntry<CalendarItemEntryRow>[];
   owners: CalendarOwner[];
@@ -58,7 +62,19 @@ export function SocialWorkspace({
 
   // UTC until the browser reports its zone, so the server render and the
   // first client render place every post in the same cell.
-  const timeZone = useViewerTimeZone() ?? "UTC";
+  const viewerTimeZone = useViewerTimeZone();
+  const timeZone = viewerTimeZone ?? "UTC";
+
+  // A bare /portal/social opened the server's month; the grid places posts in
+  // the viewer's zone, so open the viewer's month instead. A month the URL
+  // names is kept as asked.
+  useEffect(() => {
+    if (monthGiven || !viewerTimeZone) return;
+    const month = monthInZone(viewerTimeZone);
+    if (month !== filters.month) {
+      router.replace(socialHref({ ...filters, month }));
+    }
+  }, [monthGiven, viewerTimeZone, filters, router]);
   const { byDay, unscheduled } = useMemo(
     () => placePieces(pieces, timeZone),
     [pieces, timeZone],

@@ -1,3 +1,4 @@
+import { todayInZone } from "@/lib/time";
 import { CONTENT_STATUSES } from "./pieces";
 
 /**
@@ -46,6 +47,21 @@ const LINKED_VALUES: readonly string[] = SOCIAL_LINKED_TO.map((l) => l.value);
 
 export function monthParam(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+/** `now`'s month as `timeZone` reads it, as a `month` param. */
+export function monthInZone(timeZone: string, now: Date = new Date()): string {
+  return todayInZone(timeZone, now).slice(0, 7);
+}
+
+/**
+ * Whether the URL names a month itself. When it does not, the server's
+ * fallback is the server's own month, which the page corrects to the
+ * viewer's once the browser reports its zone.
+ */
+export function hasMonthParam(params: RawParams): boolean {
+  const month = first(params, "month");
+  return !!month && MONTH_PATTERN.test(month);
 }
 
 function first(params: RawParams, key: string): string | undefined {

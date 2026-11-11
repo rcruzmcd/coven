@@ -191,6 +191,19 @@ describe("zonedWallTimeToUtcIso", () => {
       "2027-01-01T00:00:00.000Z",
     );
   });
+
+  // Santiago springs forward at midnight on 6 Sep 2026: 00:00-00:59 is skipped.
+  test("resolves a wall time in a midnight DST gap forward, on the same date", () => {
+    expect(
+      zonedWallTimeToUtcIso(2026, 9, 6, 0, 30, 0, "America/Santiago"),
+    ).toBe("2026-09-06T04:30:00.000Z"); // 01:30 -03
+  });
+
+  test("resolves a wall time in a 2am DST gap forward", () => {
+    expect(
+      zonedWallTimeToUtcIso(2027, 3, 14, 2, 30, 0, "America/New_York"),
+    ).toBe("2027-03-14T07:30:00.000Z"); // 03:30 EDT
+  });
 });
 
 describe("todayInZone", () => {

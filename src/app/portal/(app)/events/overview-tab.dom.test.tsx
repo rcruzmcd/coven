@@ -32,7 +32,8 @@ mock.module("../governance/meetings/actions", () => ({
 const shiftEventPostsActionMock = mock<
   (
     eventId: string,
-    shiftMs: number,
+    fromStartsAt: string,
+    toStartsAt: string,
   ) => Promise<{ success: true; moved: number }>
 >(async () => ({ success: true, moved: 1 }));
 
@@ -355,8 +356,11 @@ describe("OverviewTab social post shift", () => {
     await waitFor(() =>
       expect(shiftEventPostsActionMock).toHaveBeenCalledTimes(1),
     );
-    const [eventId, shiftMs] = shiftEventPostsActionMock.mock.calls[0];
+    const [eventId, fromStartsAt, toStartsAt] =
+      shiftEventPostsActionMock.mock.calls[0];
     expect(eventId).toBe("event-1");
+    expect(fromStartsAt).toBe(makeEvent().starts_at);
+    const shiftMs = Date.parse(toStartsAt) - Date.parse(fromStartsAt);
     // Within an hour of 3 days: the runner's zone may cross a DST change.
     expect(Math.abs(shiftMs - 3 * DAY)).toBeLessThanOrEqual(60 * 60 * 1000);
   });

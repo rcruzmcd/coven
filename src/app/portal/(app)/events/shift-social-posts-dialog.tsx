@@ -17,8 +17,16 @@ import { Spinner } from "@/components/ui/spinner";
 import { runAction } from "@/components/portal/action-toast";
 import { shiftEventPostsAction } from "@/lib/social-content/piece-actions";
 
-/** A save that moved the event's start, with posts that could follow it. */
-export type SocialPostShift = { shiftMs: number; count: number };
+/**
+ * A save that moved the event's start from `fromStartsAt` to `toStartsAt`,
+ * with `count` posts that could follow it.
+ */
+export type SocialPostShift = {
+  fromStartsAt: string;
+  toStartsAt: string;
+  shiftMs: number;
+  count: number;
+};
 
 /** "3 days later", "1 day and 2 hours earlier": how far the start moved. */
 export function describeShift(shiftMs: number) {
@@ -57,15 +65,19 @@ export function ShiftSocialPostsDialog({
     if (!shift) return;
     setError(null);
     startTransition(async () => {
-      await runAction(() => shiftEventPostsAction(eventId, shift.shiftMs), {
-        success: ({ moved }) =>
-          `${moved} social ${moved === 1 ? "post" : "posts"} moved.`,
-        onError: setError,
-        onSuccess: () => {
-          onClose();
-          router.refresh();
+      await runAction(
+        () =>
+          shiftEventPostsAction(eventId, shift.fromStartsAt, shift.toStartsAt),
+        {
+          success: ({ moved }) =>
+            `${moved} social ${moved === 1 ? "post" : "posts"} moved.`,
+          onError: setError,
+          onSuccess: () => {
+            onClose();
+            router.refresh();
+          },
         },
-      });
+      );
     });
   }
 

@@ -186,7 +186,14 @@ export function OverviewTab({
             ? Date.parse(startsAt) - Date.parse(event.starts_at)
             : 0;
           const count = movableEventPieces(social).length;
-          if (shiftMs !== 0 && count > 0) setPostShift({ shiftMs, count });
+          if (startsAt && shiftMs !== 0 && count > 0) {
+            setPostShift({
+              fromStartsAt: event.starts_at,
+              toStartsAt: startsAt,
+              shiftMs,
+              count,
+            });
+          }
         },
       });
     });

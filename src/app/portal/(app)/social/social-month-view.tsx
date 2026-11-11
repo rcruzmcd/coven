@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -51,6 +52,18 @@ export function SocialMonthView({
   timeZone: string;
   monthHref: (month: string) => string;
 }) {
+  // Days whose every entry is shown, past the three-chip limit.
+  const [expandedDays, setExpandedDays] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+  function toggleDay(key: string) {
+    setExpandedDays((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(key)) next.add(key);
+      return next;
+    });
+  }
+
   const monthStart = parseMonth(month);
   const year = monthStart.getFullYear();
   const monthIndex = monthStart.getMonth();
@@ -98,11 +111,18 @@ export function SocialMonthView({
             const dayPieces = piecesByDay.get(key) ?? [];
             const dayOverlay = overlayByDay.get(key) ?? [];
             const total = dayPieces.length + dayOverlay.length;
-            const shownPieces = dayPieces.slice(0, MAX_CHIPS_PER_DAY);
+            const expanded = expandedDays.has(key);
+            const limit = expanded ? total : MAX_CHIPS_PER_DAY;
+            const shownPieces = dayPieces.slice(0, limit);
             const shownOverlay = dayOverlay.slice(
               0,
-              MAX_CHIPS_PER_DAY - shownPieces.length,
+              limit - shownPieces.length,
             );
+            const hidden = total - shownPieces.length - shownOverlay.length;
+            const dayLabel = day.toLocaleDateString("en-US", {
+              month: "long",
+              day: "numeric",
+            });
             const inMonth = day.getMonth() === monthIndex;
             return (
               <div
@@ -150,10 +170,20 @@ export function SocialMonthView({
                       </TooltipContent>
                     </Tooltip>
                   ))}
-                  {total > shownPieces.length + shownOverlay.length && (
-                    <span className="app-muted px-1 text-[0.7rem]">
-                      +{total - shownPieces.length - shownOverlay.length} more
-                    </span>
+                  {(hidden > 0 || expanded) && total > MAX_CHIPS_PER_DAY && (
+                    <button
+                      type="button"
+                      aria-expanded={expanded}
+                      aria-label={
+                        expanded
+                          ? `Show fewer for ${dayLabel}`
+                          : `Show ${hidden} more for ${dayLabel}`
+                      }
+                      onClick={() => toggleDay(key)}
+                      className="app-muted w-full rounded px-1 py-0.5 text-left text-[0.7rem] underline-offset-2 hover:bg-muted hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                    >
+                      {expanded ? "Show fewer" : `+${hidden} more`}
+                    </button>
                   )}
                 </div>
               </div>

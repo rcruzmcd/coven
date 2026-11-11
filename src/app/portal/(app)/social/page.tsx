@@ -2,7 +2,10 @@ import type { Metadata } from "next";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { hasPermission, requirePermission } from "@/lib/auth/permissions";
 import { listSocialPieces } from "@/lib/social-content/queries";
-import { parseSocialFilters } from "@/lib/social-content/social-filters";
+import {
+  hasMonthParam,
+  parseSocialFilters,
+} from "@/lib/social-content/social-filters";
 import { listSocialContentLinkOptionsAction } from "@/lib/social-content/piece-actions";
 import { listCalendarOwnersAction } from "../calendar/actions";
 import { listCalendarEvents } from "../calendar/queries";
@@ -39,7 +42,9 @@ export default async function SocialContentPage({
   const canManage = hasPermission(permissions, "content_calendar", "manage");
   const canViewEvents = hasPermission(permissions, "events", "view");
 
-  const filters = parseSocialFilters(await searchParams);
+  const params = await searchParams;
+  const filters = parseSocialFilters(params);
+  const monthGiven = hasMonthParam(params);
 
   const [
     { pieces, error },
@@ -82,6 +87,7 @@ export default async function SocialContentPage({
         <div className="mt-2">
           <SocialWorkspace
             filters={filters}
+            monthGiven={monthGiven}
             pieces={pieces}
             overlay={overlay}
             owners={owners}
