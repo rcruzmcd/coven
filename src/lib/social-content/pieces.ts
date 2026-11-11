@@ -13,6 +13,72 @@ export const CONTENT_STATUSES = [
 ] as const;
 
 /**
+ * What a post is on its platform (#1826). The value names the platform so a
+ * second one can be added beside Instagram without a rename.
+ */
+export const POST_FORMATS = [
+  { value: "instagram_post", label: "Instagram post" },
+  { value: "instagram_reel", label: "Instagram reel" },
+  { value: "instagram_story", label: "Instagram story" },
+] as const;
+
+export type PostFormat = (typeof POST_FORMATS)[number]["value"];
+
+export function isPostFormat(value: unknown): value is PostFormat {
+  return POST_FORMATS.some((option) => option.value === value);
+}
+
+export function postFormatLabel(format: string | null): string | null {
+  return POST_FORMATS.find((option) => option.value === format)?.label ?? null;
+}
+
+/** The private bucket a post's photos and videos are stored in (#1826). */
+export const SOCIAL_POST_MEDIA_BUCKET = "social-post-media";
+
+/** Instagram's caption limit, shown as a count rather than enforced. */
+export const CAPTION_MAX_LENGTH = 2200;
+
+/** Instagram's collaborator limit, on posts and reels only. */
+export const MAX_COLLABORATORS = 3;
+
+/** What one post may hold, Instagram's carousel limit; the database agrees. */
+export const MAX_POST_MEDIA = 10;
+
+/** Stories take no caption and no collaborators. */
+export function formatTakesCaption(format: PostFormat | null) {
+  return format !== "instagram_story";
+}
+
+export function formatTakesCollaborators(format: PostFormat | null) {
+  return format !== "instagram_story";
+}
+
+/**
+ * Why a post's media does not fit its format, or null when it does (or when
+ * there is nothing yet to judge). A warning, not a refusal: media is added
+ * one file at a time and the format can change after it.
+ */
+export function mediaFormatIssue(
+  format: PostFormat | null,
+  media: { kind: string }[],
+): string | null {
+  if (!format || media.length === 0) return null;
+  if (format === "instagram_reel") {
+    if (media.length > 1) return "A reel is one video. Remove the extra files.";
+    if (media[0].kind !== "video") return "A reel is a video, not a photo.";
+    return null;
+  }
+  if (format === "instagram_story") {
+    return media.length > 1
+      ? "A story is one photo or video. Add each file as its own story."
+      : null;
+  }
+  return media.length > MAX_POST_MEDIA
+    ? `A post holds up to ${MAX_POST_MEDIA} photos or videos.`
+    : null;
+}
+
+/**
  * The social content module shared by the calendar, events and `/portal/social`
  * (#1793): status vocabulary, the row shape and the date helpers. The form
  * parser is `./piece-form`, the Server Actions `./piece-actions`.
@@ -32,7 +98,10 @@ export type ContentPieceRow = {
   calendar_item_id: string | null;
   event_id: string | null;
   title: string;
+  /** The caption since #1826 ("Story text" on a story); the column kept its name. */
   content: string | null;
+  post_format: PostFormat | null;
+  collaborator_handles: string[];
   content_status: string;
   skip_reason: string | null;
   internal_notes: string | null;

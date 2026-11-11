@@ -19,6 +19,10 @@ import { Spinner } from "@/components/ui/spinner";
 import { runAction } from "@/components/portal/action-toast";
 import { ContentStatusBadge } from "@/components/portal/social-content/content-status-badge";
 import {
+  PostContentSummary,
+  usePostExtras,
+} from "@/components/portal/social-content/post-content-fields";
+import {
   SocialPostSheet,
   type SocialPostSheetSession,
 } from "@/components/portal/social-content/social-post-sheet";
@@ -47,6 +51,10 @@ export function SocialPostDetail({
   const router = useRouter();
   const [sheetOpen, setSheetOpen] = useState(false);
   const [session, setSession] = useState<SocialPostSheetSession | null>(null);
+  const { extras, reload: reloadExtras } = usePostExtras(
+    piece.id,
+    piece.event_id,
+  );
 
   function openEdit() {
     setSession((prev) => ({ key: (prev?.key ?? 0) + 1, piece, mode: "edit" }));
@@ -115,11 +123,11 @@ export function SocialPostDetail({
               <ReadOnlyField label="Internal notes" htmlFor="post-notes">
                 {piece.internal_notes || "—"}
               </ReadOnlyField>
-              <ReadOnlyField label="Content" htmlFor="post-content">
-                <span className="whitespace-pre-wrap">
-                  {piece.content || "—"}
-                </span>
-              </ReadOnlyField>
+              <PostContentSummary
+                piece={piece}
+                extras={extras}
+                idPrefix="post"
+              />
             </FieldGroup>
           </CardContent>
         </Card>
@@ -162,7 +170,11 @@ export function SocialPostDetail({
         <SocialPostSheet
           open={sheetOpen}
           session={session}
-          onClose={() => setSheetOpen(false)}
+          onClose={() => {
+            setSheetOpen(false);
+            // Tags and media may have changed in the sheet.
+            reloadExtras();
+          }}
           owners={owners}
           defaultLeadTimeDays={defaultLeadTimeDays}
           canManage={canManage}

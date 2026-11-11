@@ -58,7 +58,7 @@ export async function uploadEventPhoto(
   }
 
   const result = await putToSignedUrl(
-    EVENT_MEDIA_BUCKET,
+    slot.bucket ?? EVENT_MEDIA_BUCKET,
     slot.path,
     slot.token,
     body,
@@ -105,7 +105,7 @@ export async function uploadEventPhotoOriginal(
   }
 
   const result = await putToSignedUrl(
-    EVENT_MEDIA_BUCKET,
+    slot.bucket ?? EVENT_MEDIA_BUCKET,
     slot.path,
     slot.token,
     body,
@@ -120,7 +120,7 @@ export async function uploadEventPhotoOriginal(
     try {
       const thumb = await compressImage(file, EVENT_PHOTO_MAX_EDGE);
       const thumbResult = await putToSignedUrl(
-        EVENT_MEDIA_BUCKET,
+        slot.bucket ?? EVENT_MEDIA_BUCKET,
         eventMediaThumbPath(slot.path),
         slot.thumbToken,
         thumb,
@@ -176,7 +176,7 @@ export function createVideoUpload(
       "x-upsert": "false",
     },
     metadata: {
-      bucketName: EVENT_MEDIA_BUCKET,
+      bucketName: slot.bucket ?? EVENT_MEDIA_BUCKET,
       objectName: slot.path,
       contentType: slot.contentType,
       cacheControl: "3600",
