@@ -25,6 +25,7 @@ import {
 } from "bun:test";
 import {
   adminClient,
+  createSuspendedTenant,
   serviceRoleClient,
 } from "../../../test/integration-setup";
 import { EMAIL_ENABLED_SETTING_KEY } from "./kinds";
@@ -193,6 +194,84 @@ describe("runOpsReport gates", () => {
   // the seeded database there is no such thing as a quiet day, and emptying
   // the queues to manufacture one would break every other file that reads
   // them.
+});
+
+describe("runOpsReport tenant status (#1674)", () => {
+  /**
+   * A second tenant with its own leadership inbox and something to report.
+   * Provisioned suspended (#795); the control case activates it only for the
+   * length of one run, to show the fixture would otherwise be sent.
+   */
+  const tag = crypto.randomUUID().slice(0, 8);
+  const B_RECIPIENT = `it-ops-b-${tag}@example.test`;
+  let tenantB: Awaited<ReturnType<typeof createSuspendedTenant>>;
+
+  beforeAll(async () => {
+    tenantB = await createSuspendedTenant(`ops-${tag}`);
+    const { error: settingError } = await service.from("app_settings").insert({
+      tenant_id: tenantB.id,
+      key: OPS_REPORT_RECIPIENTS_SETTING_KEY,
+      value: [B_RECIPIENT],
+    });
+    if (settingError) throw settingError;
+    const { error: messageError } = await service
+      .from("contact_messages")
+      .insert({
+        tenant_id: tenantB.id,
+        name: "Integration",
+        email: "writer@example.test",
+        topic: "general",
+        message: "Anything at all",
+        created_at: new Date(NOW.getTime() - 60_000).toISOString(),
+      });
+    if (messageError) throw messageError;
+  });
+
+  afterAll(async () => {
+    await tenantB.cleanup(["notification_deliveries", "contact_messages"]);
+  });
+
+  afterEach(() => {
+    sent.length = 0;
+  });
+
+  async function bRows() {
+    return (await opsReportRows()).filter(
+      (row) => row.tenant_id === tenantB.id,
+    );
+  }
+
+  for (const status of ["suspended", "archived"] as const) {
+    test(`a tenant that is ${status} gets no report and no ledger row`, async () => {
+      await seedSomethingToReport();
+      await setRecipients([RECIPIENT]);
+      await tenantB.setStatus(status);
+      try {
+        const summary = await runOpsReport(service, {
+          now: NOW,
+          siteUrl: SITE_URL,
+        });
+        expect(summary.failed).toBe(0);
+        expect(sent.filter((m) => m.to === B_RECIPIENT)).toHaveLength(0);
+        expect(await bRows()).toHaveLength(0);
+        // Active tenants are unaffected.
+        expect(sent.filter((m) => m.to === RECIPIENT)).toHaveLength(1);
+      } finally {
+        await tenantB.setStatus("suspended");
+      }
+    });
+  }
+
+  test("the same tenant, once active, is sent its report", async () => {
+    await tenantB.setStatus("active");
+    try {
+      await runOpsReport(service, { now: NOW, siteUrl: SITE_URL });
+    } finally {
+      await tenantB.setStatus("suspended");
+    }
+    expect(sent.filter((m) => m.to === B_RECIPIENT)).toHaveLength(1);
+    expect(await bRows()).toHaveLength(1);
+  });
 });
 
 describe("runOpsReport module gating (#903)", () => {

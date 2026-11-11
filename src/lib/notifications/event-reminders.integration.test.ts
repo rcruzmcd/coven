@@ -9,6 +9,7 @@ import {
   adminClient,
   anonClient,
   createPublishedEvent,
+  createSuspendedTenant,
   serviceRoleClient,
   uniqueEmail,
 } from "../../../test/integration-setup";
@@ -187,5 +188,93 @@ describe("runEventReminders (#1652)", () => {
       p_registration_id: cancelled.id,
     });
     expect(data).toBe(false);
+  });
+});
+
+describe("runEventReminders tenant status (#1674)", () => {
+  /**
+   * A due registration on a second tenant's event. Provisioned suspended
+   * (#795); the control activates it only for the length of one run.
+   */
+  const tag = crypto.randomUUID().slice(0, 8);
+  const B_EMAIL = uniqueEmail(`reminder-b-${tag}`);
+  let tenantB: Awaited<ReturnType<typeof createSuspendedTenant>>;
+  let bRegistrationId: string;
+
+  beforeAll(async () => {
+    tenantB = await createSuspendedTenant(`reminder-${tag}`);
+    const {
+      data: { user },
+    } = await adminClient.auth.getUser();
+    const { data: event, error: eventError } = await service
+      .from("events")
+      .insert({
+        tenant_id: tenantB.id,
+        name: `IT B Reminder Event ${tag}`,
+        starts_at: new Date(Date.now() + DAY).toISOString(),
+        timezone: "America/Denver",
+        visibility: "public",
+        status: "published",
+        reminder_enabled: true,
+        reminder_days_before: 2,
+        created_by: user!.id,
+      })
+      .select("id")
+      .single();
+    if (eventError) throw eventError;
+    const { data: registration, error: registrationError } = await service
+      .from("event_registrations")
+      .insert({
+        tenant_id: tenantB.id,
+        event_id: event.id,
+        name: "Riley In B",
+        email: B_EMAIL,
+        party_size: 1,
+        created_at: new Date(Date.now() - 5 * DAY).toISOString(),
+      })
+      .select("id")
+      .single();
+    if (registrationError) throw registrationError;
+    bRegistrationId = registration.id as string;
+  });
+
+  afterAll(async () => {
+    await tenantB.cleanup([
+      "outbound_messages",
+      "notification_deliveries",
+      "event_registrations",
+      "events",
+    ]);
+  });
+
+  for (const status of ["suspended", "archived"] as const) {
+    test(`claims and sends nothing for a tenant that is ${status}`, async () => {
+      await tenantB.setStatus(status);
+      try {
+        await runEventReminders(service, {
+          siteUrl: SITE_URL,
+          dailyLimit: LIMIT,
+        });
+      } finally {
+        await tenantB.setStatus("suspended");
+      }
+      expect(sentTo(B_EMAIL)).toHaveLength(0);
+      // Left unclaimed, so it still goes if the tenant is reactivated in time.
+      expect(await stamp(bRegistrationId)).toBeNull();
+    });
+  }
+
+  test("the same registration is sent once the tenant is active", async () => {
+    await tenantB.setStatus("active");
+    try {
+      await runEventReminders(service, {
+        siteUrl: SITE_URL,
+        dailyLimit: LIMIT,
+      });
+    } finally {
+      await tenantB.setStatus("suspended");
+    }
+    expect(sentTo(B_EMAIL)).toHaveLength(1);
+    expect(await stamp(bRegistrationId)).not.toBeNull();
   });
 });
