@@ -80,6 +80,32 @@ export function addDays(date: Date, days: number): Date {
   return new Date(date.getTime() + days * 24 * 60 * 60 * 1000);
 }
 
+/**
+ * `YYYY-MM-DD` of a `Date` read with local getters: for a grid cell built from
+ * calendar parts, its own date; for an instant, its day in the process's zone.
+ * Where the zone must be explicit, so server and browser agree, use
+ * `utcIsoToDateInZone` instead, as `placePieces` does.
+ */
+export function localDayKey(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+/**
+ * The days a month grid shows: whole Sunday-to-Saturday weeks covering the
+ * month (`monthIndex` 0-11). Calendar-day arithmetic rather than `addDays`,
+ * which steps 24 hours and so lands on the same date twice across a
+ * daylight-saving fall-back.
+ */
+export function monthGridDays(year: number, monthIndex: number): Date[] {
+  const leading = new Date(year, monthIndex, 1).getDay();
+  const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
+  const cellCount = Math.ceil((leading + daysInMonth) / 7) * 7;
+  return Array.from(
+    { length: cellCount },
+    (_, index) => new Date(year, monthIndex, 1 - leading + index),
+  );
+}
+
 /** Number of days in `month` (1-12) of `year`, leap-year-aware. */
 export function daysInMonth(year: number, month: number): number {
   return new Date(Date.UTC(year, month, 0)).getUTCDate();

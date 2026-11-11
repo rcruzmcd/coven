@@ -10,7 +10,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { utcIsoToDateInZone } from "@/lib/time";
+import { localDayKey, monthGridDays, utcIsoToDateInZone } from "@/lib/time";
 import { CONTENT_STATUSES } from "@/lib/social-content/pieces";
 import { socialPieceHref } from "@/lib/social-content/social-filters";
 import type { SocialPieceRow } from "@/lib/social-content/queries";
@@ -18,7 +18,6 @@ import type {
   CalendarEntry,
   CalendarItemEntryRow,
 } from "../calendar/calendar-entries";
-import { localDayKey, monthGridDays } from "./social-placement";
 
 const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MAX_CHIPS_PER_DAY = 3;
