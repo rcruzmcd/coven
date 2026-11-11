@@ -8,6 +8,7 @@ import {
   tenantMailContext,
   type TenantMailContext,
 } from "@/lib/email/identity";
+import { activeTenantIds } from "@/lib/notifications/active-tenants";
 import { isOrgEmailEnabled } from "@/lib/notifications/settings";
 import { recordOutboundMessage } from "@/lib/notifications/outbound-messages";
 import { mintConfirmationToken } from "@/lib/notifications/notification-email-token";
@@ -217,9 +218,9 @@ export type ReminderRunSummary = {
 /**
  * The hourly run. Reads the last day's sends against the daily limit, then
  * claims and sends tenant by tenant until the budget is spent; whatever is
- * left is claimed by a later run. A tenant with Events off, or its email
- * switch off, claims nothing, so its reminders go once it is back on and the
- * event has not started.
+ * left is claimed by a later run. A tenant that is not active (#1674), has
+ * Events off, or has its email switch off claims nothing, so its reminders go
+ * once it is back on and the event has not started.
  */
 export async function runEventReminders(
   admin: SupabaseClient,
@@ -259,8 +260,11 @@ export async function runEventReminders(
   let budget = Math.max(options.dailyLimit - Number(sentToday ?? 0), 0);
   summary.budget = budget;
 
+  const active = await activeTenantIds(admin, "[event-reminder]");
+
   for (const tenantId of tenants) {
     if (budget <= 0) break;
+    if (!active.has(tenantId)) continue;
     if (!(await isOrgEmailEnabled(admin, tenantId))) continue;
     const modules = await modulesForTenant(admin, tenantId);
     if (!moduleEnabled(modules, "events")) continue;

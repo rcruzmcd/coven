@@ -2,6 +2,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { deliverEmail } from "@/lib/notifications/deliver";
 import { tenantMailContext } from "@/lib/email/identity";
+import { activeTenantIds } from "@/lib/notifications/active-tenants";
 import { isOrgEmailEnabled } from "@/lib/notifications/settings";
 import { renderOpsReport } from "@/lib/notifications/ops-report-email";
 import { modulesForTenant } from "@/lib/portal/modules";
@@ -49,7 +50,10 @@ export type OpsReportRunSummary = {
   /** Configured addresses across those tenants, before the gates. */
   considered: number;
   sent: number;
-  /** Muted by the org switch, nothing to report, or already sent today. */
+  /**
+   * Tenant not active, muted by the org switch, nothing to report, or already
+   * sent today.
+   */
   skipped: number;
   failed: number;
 };
@@ -70,11 +74,15 @@ export async function runOpsReport(
 
   const byTenant = await fetchRecipientsByTenant(admin);
   summary.tenants = byTenant.size;
+  if (byTenant.size === 0) return summary;
+
+  // Once per run (#1674): a suspended or archived tenant gets no report.
+  const active = await activeTenantIds(admin, "[ops-report]");
 
   for (const [tenantId, recipients] of byTenant) {
     summary.considered += recipients.length;
 
-    if (!(await isOrgEmailEnabled(admin, tenantId))) {
+    if (!active.has(tenantId) || !(await isOrgEmailEnabled(admin, tenantId))) {
       summary.skipped += recipients.length;
       continue;
     }

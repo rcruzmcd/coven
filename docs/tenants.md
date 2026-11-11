@@ -980,7 +980,12 @@ it off the air takes that page down with it, and there is no second door. The
 CLI can still do it.
 
 Archiving takes the tenant off its hosts and out of every member's switcher
-immediately and is reversible (`status = 'active'` again). Deletion is not:
+immediately and is reversible (`status = 'active'` again). Suspending or
+archiving also stops the scheduled email -- the task digest, the ops report
+and event reminders all skip a tenant that is not `active` (#1674), since every
+link in that mail would land on the NoTenant page. Due event reminders are
+left unclaimed rather than dropped, so they still go if the tenant is
+reactivated before the event starts. Deletion is not:
 `delete_tenant()` refuses any tenant that is not archived, then deletes
 every row of every tenant table by `tenant_id` -- retrying tables whose rows
 are still referenced until their children are gone, since every foreign key

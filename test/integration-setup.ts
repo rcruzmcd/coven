@@ -946,6 +946,62 @@ export async function seededTenantId(): Promise<string> {
   return data.id as string;
 }
 
+/**
+ * A second tenant, provisioned `suspended` so it changes no host resolution
+ * for anything running beside it (#795). `cleanup` deletes the tenant and
+ * every row naming it -- `extraTables` first, in the dependency order the
+ * caller gives, then the rows provisioning creates. Every foreign key onto
+ * `tenants` is `no action`, so the tenant row has to go last.
+ */
+export async function createSuspendedTenant(tag: string) {
+  const service = serviceRoleClient();
+  const { data, error } = await service
+    .from("tenants")
+    .insert({
+      name: `IT Suspended Org ${tag}`,
+      slug: `it-suspended-${tag}`,
+      plan: "white_label",
+      status: "suspended",
+    })
+    .select("id")
+    .single();
+  if (error) throw new Error(`suspended tenant: ${error.message}`);
+  const id = data.id as string;
+
+  return {
+    id,
+    /** Flips the status, e.g. to prove a case sends once the tenant is active. */
+    async setStatus(status: "active" | "suspended" | "archived") {
+      const { error } = await service
+        .from("tenants")
+        .update({ status })
+        .eq("id", id);
+      if (error) throw new Error(`tenant status: ${error.message}`);
+    },
+    async cleanup(extraTables: string[] = []) {
+      for (const table of [
+        ...extraTables,
+        // Created with the tenant, and referencing it.
+        "retention_policies",
+        "tenant_modules",
+        "calendar_categories",
+        "volunteer_role_types",
+        "site_content",
+        "app_settings",
+        "roles",
+      ]) {
+        const { error } = await service
+          .from(table)
+          .delete()
+          .eq("tenant_id", id);
+        if (error) throw new Error(`cleanup ${table}: ${error.message}`);
+      }
+      const { error } = await service.from("tenants").delete().eq("id", id);
+      if (error) throw new Error(`cleanup tenant: ${error.message}`);
+    },
+  };
+}
+
 const RIDER_KEYS = [
   "riding_discipline",
   "ski_level",
