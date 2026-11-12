@@ -394,7 +394,7 @@ export function BrandingPanel({ branding }: { branding: Branding }) {
         )}
 
         <div className="flex flex-wrap gap-2">
-          <Button type="submit" disabled={isPending}>
+          <Button type="submit" disabled={isPending} focusableWhenDisabled>
             {isPending ? (
               <>
                 <Spinner /> Saving...
@@ -407,6 +407,7 @@ export function BrandingPanel({ branding }: { branding: Branding }) {
             type="button"
             variant="secondary"
             disabled={isPending}
+            focusableWhenDisabled
             onClick={handleReset}
           >
             Reset to defaults

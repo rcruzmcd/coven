@@ -89,8 +89,9 @@ export function AddStaffForm({
     >
       <FieldGroup>
         <Field>
-          <FieldLabel>Staff member</FieldLabel>
+          <FieldLabel htmlFor="staff-member">Staff member</FieldLabel>
           <PersonPicker
+            id="staff-member"
             people={people}
             selected={selectedPerson}
             onSelect={setSelectedPerson}
@@ -129,7 +130,7 @@ export function AddStaffForm({
           <Button type="button" variant="secondary" onClick={onCancel}>
             Cancel
           </Button>
-          <Button type="submit" disabled={isPending}>
+          <Button type="submit" disabled={isPending} focusableWhenDisabled>
             {isPending ? (
               <>
                 <Spinner /> Saving...

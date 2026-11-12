@@ -22,6 +22,7 @@ import {
   PostContentSummary,
   usePostExtras,
 } from "@/components/portal/social-content/post-content-fields";
+import { ShareToInstagram } from "@/components/portal/social-content/share-to-instagram";
 import {
   SocialPostSheet,
   type SocialPostSheetSession,
@@ -136,6 +137,7 @@ export function SocialPostDetail({
                 extras={extras}
                 idPrefix="post"
               />
+              <ShareToInstagram piece={piece} extras={extras} />
             </FieldGroup>
           </CardContent>
         </Card>

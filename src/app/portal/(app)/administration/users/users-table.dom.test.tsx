@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, mock, test } from "bun:test";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import {
   expectToast,
   hasToast,
@@ -7,6 +7,7 @@ import {
 } from "../../../../../../test/toast-testing";
 import userEvent from "@testing-library/user-event";
 import type { PortalUser } from "./users-shared";
+import { focusedName } from "../../../../../../test/focused";
 
 const updatePreferredNameMock = mock(
   async (
@@ -271,5 +272,102 @@ describe("UsersTable role revoke", () => {
     await user.click(screen.getByRole("button", { name: "Remove Admin" }));
     await user.click(screen.getByRole("button", { name: "Cancel" }));
     expect(revokeRoleMock).not.toHaveBeenCalled();
+  });
+});
+
+// A row action that takes its own button away on success must not drop
+// keyboard focus to <body> (#1862, #1863). The refresh is mocked, so each
+// test re-renders with what the server would now return.
+describe("UsersTable keeps focus after a row action succeeds", () => {
+  test("revoking a role hands focus to the chip that remains", async () => {
+    const user = userEvent.setup();
+    const before = [portalUser({ roles: ["admin", "treasurer"] })];
+    const { rerender } = render(
+      <UsersTable
+        users={before}
+        currentUserId="someone-else"
+        availableRoles={[]}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Remove Treasurer" }));
+    await user.click(screen.getByRole("button", { name: "Remove role" }));
+    await waitFor(() => expect(revokeRoleMock).toHaveBeenCalled());
+    await waitFor(() => expect(focusedName()).toBe("Remove Treasurer"));
+
+    rerender(
+      <UsersTable
+        users={[portalUser({ roles: ["admin"] })]}
+        currentUserId="someone-else"
+        availableRoles={[]}
+      />,
+    );
+    await waitFor(() => expect(focusedName()).toBe("Remove Admin"));
+  });
+
+  test("deactivating hands focus to Reactivate", async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(
+      <UsersTable
+        users={[portalUser()]}
+        currentUserId="someone-else"
+        availableRoles={[]}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Deactivate" }));
+    await user.click(
+      within(screen.getByRole("alertdialog")).getByRole("button", {
+        name: "Deactivate",
+      }),
+    );
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+
+    rerender(
+      <UsersTable
+        users={[portalUser({ deactivated_at: "2026-11-12T00:00:00Z" })]}
+        currentUserId="someone-else"
+        availableRoles={[]}
+      />,
+    );
+    await waitFor(() => expect(focusedName()).toBe("Reactivate"));
+  });
+
+  test("removing a shared account hands focus to the next row's control", async () => {
+    const user = userEvent.setup();
+    const avery = portalUser({ shared_account: true });
+    const blake = portalUser({
+      user_id: "auth-2",
+      email: "blake@example.test",
+      full_name: "Blake Ngata",
+      person_name: "Blake Ngata",
+      person_id: "person-2",
+      shared_account: true,
+    });
+    const { rerender } = render(
+      <UsersTable
+        users={[avery, blake]}
+        currentUserId="someone-else"
+        availableRoles={[]}
+      />,
+    );
+
+    const [averyRemove] = screen.getAllByRole("button", { name: "Remove" });
+    await user.click(averyRemove);
+    await user.click(
+      within(screen.getByRole("alertdialog")).getByRole("button", {
+        name: "Remove",
+      }),
+    );
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+
+    rerender(
+      <UsersTable
+        users={[blake]}
+        currentUserId="someone-else"
+        availableRoles={[]}
+      />,
+    );
+    await waitFor(() => expect(focusedName()).toBe("Remove"));
   });
 });

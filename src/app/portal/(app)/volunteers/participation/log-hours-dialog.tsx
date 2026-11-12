@@ -177,8 +177,11 @@ export function LogHoursDialog({
             </ReadOnlyField>
           ) : (
             <>
-              <FieldLabel required>Volunteer</FieldLabel>
+              <FieldLabel htmlFor="log-hours-volunteer" required>
+                Volunteer
+              </FieldLabel>
               <PersonPicker
+                id="log-hours-volunteer"
                 required
                 people={people}
                 selected={selectedPerson}

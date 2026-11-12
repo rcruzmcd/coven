@@ -120,6 +120,7 @@ export function CaseProgressCard({
                 type="button"
                 variant="secondary"
                 disabled={isPending}
+                focusableWhenDisabled
                 onClick={() =>
                   submit({ step: "review" }, "Case marked under review.")
                 }
@@ -200,6 +201,7 @@ export function CaseProgressCard({
                 type="button"
                 variant="secondary"
                 disabled={isPending}
+                focusableWhenDisabled
                 onClick={() => submit({ step: "reopen" }, "Case reopened.")}
               >
                 Reopen the case
@@ -243,7 +245,7 @@ function StepForm({
     >
       <p className="font-semibold">{label}</p>
       {children}
-      <Button type="submit" disabled={isPending}>
+      <Button type="submit" disabled={isPending} focusableWhenDisabled>
         {isPending ? (
           <>
             <Spinner /> Saving...

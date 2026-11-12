@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/tooltip";
 import { EmptyState } from "@/components/portal/empty-state";
 import { runAction } from "@/components/portal/action-toast";
+import { keepFocusOnRemoval } from "@/lib/focus-on-removal";
 
 /**
  * Tier setup for a giveaway (issue #5): the grant matrix that decides how many
@@ -130,7 +131,12 @@ export function TiersSection({
         description="Set up Gold, Silver and Bronze with the standard ticket grants. You can change the numbers afterwards."
         action={
           canEdit ? (
-            <Button type="button" onClick={handleSeed} disabled={isPending}>
+            <Button
+              type="button"
+              onClick={handleSeed}
+              disabled={isPending}
+              focusableWhenDisabled
+            >
               {isPending ? (
                 <>
                   <Spinner /> Setting up...
@@ -215,10 +221,16 @@ export function TiersSection({
             variant="secondary"
             onClick={() => setDraft({})}
             disabled={isPending}
+            focusableWhenDisabled
           >
             Discard changes
           </Button>
-          <Button type="button" onClick={handleSaveMatrix} disabled={isPending}>
+          <Button
+            type="button"
+            onClick={handleSaveMatrix}
+            disabled={isPending}
+            focusableWhenDisabled
+          >
             {isPending ? (
               <>
                 <Spinner /> Saving...
@@ -260,7 +272,9 @@ export function TiersSection({
                           variant="ghost"
                           size="sm"
                           disabled={isPending}
+                          focusableWhenDisabled
                           aria-label={`Remove keyword ${rule.match_text}`}
+                          ref={keepFocusOnRemoval}
                           onClick={() => handleRemoveKeyword(rule.id)}
                         />
                       }

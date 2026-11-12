@@ -66,6 +66,7 @@ export function RegistrantGroupChat({
           size="sm"
           className="h-auto p-0 align-baseline"
           disabled={isPending}
+          focusableWhenDisabled
           onClick={toggle}
         >
           {added ? "Mark not added" : "Mark added"}

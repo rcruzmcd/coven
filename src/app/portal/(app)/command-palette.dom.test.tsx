@@ -222,4 +222,32 @@ describe("CommandPalette", () => {
     expect(option.className).toContain("data-highlighted:inset-ring-2");
     expect(option.className).toContain("data-highlighted:inset-ring-ring");
   });
+  // Issue #663. The list is pinned open, so the Autocomplete used to swallow
+  // Escape in the input and the Dialog never heard it: the palette stayed up
+  // and focus stayed in it, however many times Escape was pressed.
+  test("Escape in the search input closes the palette and returns focus", async () => {
+    const user = await openPalette();
+    // Hidden from the tree while the modal is up, so it has to be asked for.
+    const trigger = screen.getByRole("button", {
+      name: "Search the portal",
+      hidden: true,
+    });
+    const input = screen.getByRole("combobox", {
+      name: "Search pages and people",
+    });
+    await user.type(input, "rei");
+    expect(input).toHaveFocus();
+
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await waitFor(() => expect(trigger).toHaveFocus());
+
+    // And it opens fresh: the query does not survive the close.
+    await user.click(trigger);
+    expect(
+      screen
+        .getByRole("combobox", { name: "Search pages and people" })
+        .getAttribute("value") ?? "",
+    ).toBe("");
+  });
 });

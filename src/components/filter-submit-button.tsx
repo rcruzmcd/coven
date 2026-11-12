@@ -43,6 +43,7 @@ export function FilterSubmitButton({
       variant={variant}
       size={size}
       disabled={pending}
+      focusableWhenDisabled
       aria-busy={pending || undefined}
       className={pending ? "animate-pulse" : undefined}
     >

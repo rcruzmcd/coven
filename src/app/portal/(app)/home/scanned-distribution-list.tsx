@@ -31,6 +31,7 @@ import {
   type ScannedItem,
 } from "./distribution-draft-actions";
 import type { AvailableInventoryItem } from "./distribution-actions";
+import { keepFocusOnRemoval } from "@/lib/focus-on-removal";
 
 /** How many matches the search offers at once. */
 const SEARCH_LIMIT = 8;
@@ -243,6 +244,7 @@ export function ScannedDistributionList({
                       variant="ghost"
                       className="h-auto w-full justify-start py-2 text-left whitespace-normal"
                       disabled={isPending}
+                      focusableWhenDisabled
                       onClick={() => addPicked(item)}
                     >
                       Add {itemLabel(item)} ·{" "}
@@ -337,6 +339,8 @@ export function ScannedDistributionList({
                           size="icon"
                           aria-label={`Remove ${itemLabel(item)}`}
                           disabled={isPending}
+                          focusableWhenDisabled
+                          ref={keepFocusOnRemoval}
                           onClick={() => remove(item.id)}
                         />
                       }

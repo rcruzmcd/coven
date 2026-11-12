@@ -156,10 +156,11 @@ export function NewPersonDialog({
           <PersonFormFields form={form} update={update} idPrefix="new-person" />
 
           <Field>
-            <FieldLabel>
+            <FieldLabel htmlFor="new-person-primary-contact">
               Primary contact person (for an organization)
             </FieldLabel>
             <PersonPicker
+              id="new-person-primary-contact"
               people={availablePeople}
               selected={contact}
               onSelect={setContact}

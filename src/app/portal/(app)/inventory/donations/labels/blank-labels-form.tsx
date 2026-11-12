@@ -64,7 +64,12 @@ export function BlankLabelsForm() {
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
-        <Button type="submit" className="self-start" disabled={isPending}>
+        <Button
+          type="submit"
+          className="self-start"
+          disabled={isPending}
+          focusableWhenDisabled
+        >
           {isPending && <Spinner />} Create blank labels
         </Button>
       </FieldGroup>

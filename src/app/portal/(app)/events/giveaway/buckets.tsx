@@ -127,6 +127,7 @@ export function BucketsSection({
                     variant="ghost"
                     size="sm"
                     disabled={isPending}
+                    focusableWhenDisabled
                     onClick={() => handleDelete(bucket.id)}
                   >
                     Remove
@@ -192,6 +193,7 @@ export function BucketsSection({
             variant="secondary"
             onClick={() => setShowAdd(false)}
             disabled={isPending}
+            focusableWhenDisabled
           >
             Cancel
           </Button>

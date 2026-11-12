@@ -282,6 +282,7 @@ export function GearRequestSettingsPanel({
                           size="sm"
                           onClick={() => removeMethod(index)}
                           disabled={isPending}
+                          focusableWhenDisabled
                         >
                           <Trash2 className="size-4" />
                           Remove
@@ -295,7 +296,7 @@ export function GearRequestSettingsPanel({
 
             <div className="flex items-center justify-end gap-2">
               {isPending ? <Spinner className="size-4" /> : null}
-              <Button type="submit" disabled={isPending}>
+              <Button type="submit" disabled={isPending} focusableWhenDisabled>
                 Save settings
               </Button>
             </div>

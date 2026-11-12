@@ -57,6 +57,7 @@ import { formatCurrency, personDisplayName } from "@/lib/format";
 import { INTENDED_USES } from "@/lib/inventory";
 import { EmptyState } from "@/components/portal/empty-state";
 import { runAction } from "@/components/portal/action-toast";
+import { keepFocusOnRemoval } from "@/lib/focus-on-removal";
 
 const SUPPORT_TYPES = [
   { value: "cash", label: "Cash" },
@@ -281,8 +282,11 @@ export function SponsorForm({
           </Field>
         ) : (
           <Field>
-            <FieldLabel>Sponsor / partner</FieldLabel>
+            <FieldLabel htmlFor="sponsors-sponsor-partner">
+              Sponsor / partner
+            </FieldLabel>
             <PersonPicker
+              id="sponsors-sponsor-partner"
               people={people}
               selected={selectedPerson}
               onSelect={setSelectedPerson}
@@ -356,6 +360,7 @@ export function SponsorForm({
               {itemRows.rows.map((row, index) => (
                 <div
                   key={row.id}
+                  data-row=""
                   className="flex flex-col gap-2 rounded-md border border-[var(--line)] p-3 sm:flex-row sm:items-end"
                 >
                   <Field className="sm:flex-2">
@@ -442,6 +447,10 @@ export function SponsorForm({
                           disabled={
                             itemRows.rows.length === 1 || row.value.allocated
                           }
+                          // Stays focusable when it becomes the last row's, so
+                          // removing the row above can hand focus to it.
+                          focusableWhenDisabled
+                          ref={keepFocusOnRemoval}
                           onClick={() => itemRows.remove(row.id)}
                         />
                       }
@@ -572,7 +581,7 @@ export function SponsorForm({
               Cancel
             </Button>
           )}
-          <Button type="submit" disabled={isPending}>
+          <Button type="submit" disabled={isPending} focusableWhenDisabled>
             {isPending ? (
               <>
                 <Spinner /> Saving...

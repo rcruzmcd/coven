@@ -253,8 +253,9 @@ export function PrizeForm({
         </Field>
 
         <Field>
-          <FieldLabel>Prize donor</FieldLabel>
+          <FieldLabel htmlFor="prizes-prize-donor">Prize donor</FieldLabel>
           <PersonPicker
+            id="prizes-prize-donor"
             people={people}
             selected={selectedDonor}
             onSelect={setSelectedDonor}
@@ -296,7 +297,7 @@ export function PrizeForm({
           <Button type="button" variant="secondary" onClick={onCancel}>
             Cancel
           </Button>
-          <Button type="submit" disabled={isPending}>
+          <Button type="submit" disabled={isPending} focusableWhenDisabled>
             {isPending ? (
               <>
                 <Spinner /> Saving...

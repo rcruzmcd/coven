@@ -112,7 +112,7 @@ export function FiscalYearPanel({
             </Field>
 
             <div className="flex items-center gap-2">
-              <Button type="submit" disabled={isPending}>
+              <Button type="submit" disabled={isPending} focusableWhenDisabled>
                 {isPending ? <Spinner className="size-4" /> : null}
                 Save fiscal year
               </Button>

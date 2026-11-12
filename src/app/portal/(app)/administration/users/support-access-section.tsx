@@ -175,6 +175,7 @@ export function SupportAccessSection({
                 size="sm"
                 variant="secondary"
                 disabled={isPending}
+                focusableWhenDisabled
                 onClick={() => setRevokeTarget(grant)}
               >
                 {isExpired(grant) ? "Remove" : "End access"}

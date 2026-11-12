@@ -1,6 +1,7 @@
 import { describe, expect, mock, test } from "bun:test";
-import { render, screen } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import type { PersonScreeningRow } from "@/lib/portal/person-screenings";
+import { focusedName } from "../../../../../../test/focused";
 
 // Spread the real module: the action this list imports reaches
 // `@/lib/auth/permissions`, which imports `redirect`, and replacing
@@ -116,6 +117,42 @@ describe("ScreeningList", () => {
     );
     expect(container.textContent).toBe(
       "Cleared for Tier 1Mar 14, 2026 · runs to Mar 14, 2029",
+    );
+  });
+});
+
+// Removing an outcome takes its row, and the button that had focus, away
+// (#1862). Focus goes to the next row's Remove, else the previous one's.
+describe("ScreeningList keeps focus when a removed row goes", () => {
+  const tier1 = screening();
+  const tier2 = screening({ id: "s2", tier: { id: "t2", name: "Tier 2" } });
+
+  function list(screenings: PersonScreeningRow[]) {
+    return (
+      <ScreeningList
+        personId="p1"
+        screenings={screenings}
+        today={TODAY}
+        canManage
+      />
+    );
+  }
+
+  test("focus moves to the next outcome's Remove", async () => {
+    const { rerender } = render(list([tier1, tier2]));
+    act(() => screen.getByLabelText("Remove the Tier 1 outcome").focus());
+    rerender(list([tier2]));
+    await waitFor(() =>
+      expect(focusedName()).toBe("Remove the Tier 2 outcome"),
+    );
+  });
+
+  test("the last outcome hands focus to the one above it", async () => {
+    const { rerender } = render(list([tier1, tier2]));
+    act(() => screen.getByLabelText("Remove the Tier 2 outcome").focus());
+    rerender(list([tier1]));
+    await waitFor(() =>
+      expect(focusedName()).toBe("Remove the Tier 1 outcome"),
     );
   });
 });

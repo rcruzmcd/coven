@@ -1,5 +1,7 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, mock, test } from "bun:test";
+import { useState } from "react";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { Button } from "./button";
 
 // Issue #1117: the mobile shell's 44px hit area is selected in CSS by
@@ -23,5 +25,62 @@ describe("Button's size attribute", () => {
       expect(screen.getByLabelText(size).dataset.size).toStartWith("icon");
       unmount();
     }
+  });
+});
+
+// #1855. A button that disables itself while its own action runs used to
+// throw keyboard focus to <body>: the native `disabled` attribute blurs it.
+function SelfDisablingButton({
+  onAction,
+  focusableWhenDisabled,
+}: {
+  onAction: () => void;
+  focusableWhenDisabled?: boolean;
+}) {
+  const [pending, setPending] = useState(false);
+  return (
+    <Button
+      disabled={pending}
+      focusableWhenDisabled={focusableWhenDisabled}
+      onClick={() => {
+        onAction();
+        setPending(true);
+      }}
+    >
+      Check in
+    </Button>
+  );
+}
+
+describe("Button that disables itself during its action", () => {
+  test("with focusableWhenDisabled, keeps focus while its action is pending", async () => {
+    const user = userEvent.setup();
+    const onAction = mock(() => {});
+    render(<SelfDisablingButton onAction={onAction} focusableWhenDisabled />);
+
+    const button = screen.getByRole("button", { name: "Check in" });
+    button.focus();
+    await user.keyboard("{Enter}");
+
+    expect(document.activeElement).toBe(button);
+    expect(button).not.toHaveAttribute("disabled");
+    expect(button).toHaveAttribute("aria-disabled", "true");
+    // What the dimmed style keys off, since `:disabled` no longer matches.
+    expect(button).toHaveAttribute("data-disabled");
+
+    // Still inert: a second press does not run the action again.
+    await user.keyboard("{Enter}");
+    await user.click(button);
+    expect(onAction).toHaveBeenCalledTimes(1);
+  });
+
+  test("without it, the native attribute is used", async () => {
+    const user = userEvent.setup();
+    render(<SelfDisablingButton onAction={() => {}} />);
+
+    const button = screen.getByRole("button", { name: "Check in" });
+    await user.click(button);
+
+    expect(button).toBeDisabled();
   });
 });

@@ -93,6 +93,7 @@ export function ClaimRowActions({
               variant="ghost"
               size="sm"
               disabled={isPending}
+              focusableWhenDisabled
               aria-label={`Claim options for ${itemLabel}`}
             />
           }
@@ -218,7 +219,7 @@ function AssignDialog({
           >
             Cancel
           </Button>
-          <Button type="submit" disabled={isPending}>
+          <Button type="submit" disabled={isPending} focusableWhenDisabled>
             {isPending ? <Spinner /> : "Assign"}
           </Button>
         </>

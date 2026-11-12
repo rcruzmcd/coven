@@ -15,6 +15,7 @@ import {
   reviewVolunteerHoursAction,
   type PendingVolunteerHours,
 } from "./actions";
+import { keepFocusOnRemoval } from "@/lib/focus-on-removal";
 
 type ClaimProps = {
   canManage: boolean;
@@ -113,7 +114,14 @@ function PendingRow({
           onChange={(event) => setHours(event.target.value)}
           disabled={isPending}
         />
-        <Button size="sm" onClick={() => decide(true)} disabled={isPending}>
+        <Button
+          size="sm"
+          onClick={() => decide(true)}
+          disabled={isPending}
+          focusableWhenDisabled
+          // The decision takes this row out of the queue (#1863).
+          ref={keepFocusOnRemoval}
+        >
           Confirm
         </Button>
         <Button
@@ -121,6 +129,8 @@ function PendingRow({
           variant="outline"
           onClick={() => decide(false)}
           disabled={isPending}
+          focusableWhenDisabled
+          ref={keepFocusOnRemoval}
         >
           Decline
         </Button>

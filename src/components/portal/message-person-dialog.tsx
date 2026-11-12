@@ -115,14 +115,21 @@ export function MessagePersonDialog({
 
     startTransition(async () => {
       const result = await sendMessage({ messageId, subject, body });
-      if ("error" in result) {
-        setError(result.error);
-        setMessageId(crypto.randomUUID());
-        return;
-      }
-      toast.success(`Message sent to ${recipientName || toEmail}.`);
-      setOpen(false);
-      router.refresh();
+      // Updates after an `await` are not part of the transition until they are
+      // wrapped again. Unwrapped, the error rendered urgently while `isPending`
+      // only cleared in a later transition render, so the alert showed beside a
+      // still-disabled Send and a retry click in that gap was swallowed (#1716).
+      // Wrapped, the error and the re-enabled button land in one commit.
+      startTransition(() => {
+        if ("error" in result) {
+          setError(result.error);
+          setMessageId(crypto.randomUUID());
+          return;
+        }
+        toast.success(`Message sent to ${recipientName || toEmail}.`);
+        setOpen(false);
+        router.refresh();
+      });
     });
   }
 

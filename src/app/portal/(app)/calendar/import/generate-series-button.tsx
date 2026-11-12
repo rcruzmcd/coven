@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { generateNextYearInstanceAction } from "../recurrence-actions";
 import { Spinner } from "@/components/ui/spinner";
 import { runAction } from "@/components/portal/action-toast";
+import { keepFocusOnRemoval } from "@/lib/focus-on-removal";
 
 export function GenerateSeriesButton({ itemId }: { itemId: string }) {
   const router = useRouter();
@@ -31,6 +32,9 @@ export function GenerateSeriesButton({ itemId }: { itemId: string }) {
         size="sm"
         onClick={handleGenerate}
         disabled={isPending}
+        focusableWhenDisabled
+        // Success takes this row (or the whole list) away (#1863).
+        ref={keepFocusOnRemoval}
       >
         {isPending ? (
           <>

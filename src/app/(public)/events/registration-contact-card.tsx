@@ -126,7 +126,12 @@ export function RegistrationContactCard({
               </Alert>
             )}
             <div className="flex items-center gap-3">
-              <Button type="button" onClick={handleSave} disabled={isPending}>
+              <Button
+                type="button"
+                onClick={handleSave}
+                disabled={isPending}
+                focusableWhenDisabled
+              >
                 {isPending ? "Saving…" : "Save"}
               </Button>
               {message && (

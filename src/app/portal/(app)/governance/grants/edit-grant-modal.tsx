@@ -290,8 +290,9 @@ export function EditGrantModal({
                   />
 
                   <Field>
-                    <FieldLabel>Owner</FieldLabel>
+                    <FieldLabel htmlFor="edit-grant-owner">Owner</FieldLabel>
                     <PersonPicker
+                      id="edit-grant-owner"
                       people={availablePeople}
                       selected={owner}
                       onSelect={setOwner}

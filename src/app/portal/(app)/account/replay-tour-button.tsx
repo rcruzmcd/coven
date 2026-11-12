@@ -40,6 +40,7 @@ export function ReplayTourButton() {
         variant="outline"
         onClick={handleClick}
         disabled={isPending}
+        focusableWhenDisabled
       >
         {isPending ? (
           <>

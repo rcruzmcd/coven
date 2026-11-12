@@ -104,7 +104,7 @@ export function LexiconPanel({ stored }: { stored: Lexicon }) {
           )}
 
           <div className="mt-6 flex flex-wrap gap-2">
-            <Button type="submit" disabled={isPending}>
+            <Button type="submit" disabled={isPending} focusableWhenDisabled>
               {isPending ? (
                 <>
                   <Spinner /> Saving...
@@ -117,6 +117,7 @@ export function LexiconPanel({ stored }: { stored: Lexicon }) {
               type="button"
               variant="secondary"
               disabled={isPending}
+              focusableWhenDisabled
               onClick={() =>
                 setTerms(
                   Object.fromEntries(LEXICON_TERMS.map((t) => [t.key, ""])),

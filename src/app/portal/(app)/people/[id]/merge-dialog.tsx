@@ -78,6 +78,7 @@ export function MergeDialog({
         </DialogHeader>
 
         <PersonPicker
+          aria-label="Duplicate record"
           people={people}
           selected={picked}
           onSelect={setPicked}

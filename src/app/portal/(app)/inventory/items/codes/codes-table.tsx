@@ -220,6 +220,7 @@ export function CodesTable({
                 size="sm"
                 variant="secondary"
                 disabled={isPending}
+                focusableWhenDisabled
                 onClick={markWritten}
               >
                 {isPending ? <Spinner /> : <Nfc />} Mark written to NFC

@@ -303,6 +303,7 @@ export function CategoryList({
                         type="button"
                         size="sm"
                         disabled={isPending}
+                        focusableWhenDisabled
                         onClick={() =>
                           run(() => publishArticleCategoryAction(category.id), {
                             success: category.pendingRemoval
@@ -320,6 +321,7 @@ export function CategoryList({
                         variant="ghost"
                         size="sm"
                         disabled={isPending}
+                        focusableWhenDisabled
                         onClick={() =>
                           run(() => discardArticleDraftsAction(category.id), {
                             success: "Draft discarded.",

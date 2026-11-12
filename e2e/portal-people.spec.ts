@@ -180,9 +180,7 @@ test.describe("portal people directory", () => {
       addDialog.getByRole("heading", { name: "Add person" }),
     ).toBeVisible();
 
-    // Exact, because the dialog also holds a person picker whose search
-    // input labels itself "Search by name or email..." -- a substring match
-    // on "Name" or "Email" resolves to both.
+    // Exact, so a longer label that contains it cannot match too.
     await addDialog.getByLabel(exactLabel("Name")).fill(personName);
     await addDialog.getByLabel("Email", { exact: true }).fill(personEmail);
     await addDialog.getByLabel("Phone", { exact: true }).fill("555-0142");

@@ -291,6 +291,25 @@ describe("RegistrantsPage", () => {
     ).not.toBeInTheDocument();
   });
 
+  // Issue #663. The Check in button disables, then gives way to the badge,
+  // and either drops focus to <body>. It hands focus to its row's More menu
+  // first, which stays mounted and never disables.
+  test("checking in by keyboard leaves focus in the row", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    const button = await screen.findByRole("button", {
+      name: "Check in Christina Fasanello-Okonkwo",
+    });
+    button.focus();
+    await user.keyboard("{Enter}");
+    expect(checkInMock).toHaveBeenCalledWith("reg-1");
+    const menu = screen.getByRole("button", {
+      name: "More actions for Christina Fasanello-Okonkwo",
+    });
+    expect(menu).toHaveFocus();
+    expect(menu.hasAttribute("disabled")).toBe(false);
+  });
+
   test("opening a registration puts it in the URL", async () => {
     const user = userEvent.setup();
     renderPage();

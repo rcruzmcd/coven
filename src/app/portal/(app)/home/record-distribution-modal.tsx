@@ -461,8 +461,11 @@ export function RecordDistributionModal({
 
             {showRecipientField && (
               <Field>
-                <FieldLabel>Recipient</FieldLabel>
+                <FieldLabel htmlFor="record-distribution-recipient">
+                  Recipient
+                </FieldLabel>
                 <PersonPicker
+                  id="record-distribution-recipient"
                   people={people}
                   selected={recipient}
                   onSelect={selectRecipient}

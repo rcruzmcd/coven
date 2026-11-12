@@ -37,6 +37,7 @@ import { AccessGrantDetailsSheet } from "./access-grant-details-sheet";
 import { Spinner } from "@/components/ui/spinner";
 import { personDisplayName } from "@/lib/format";
 import { runAction } from "@/components/portal/action-toast";
+import { keepFocusOnRemoval } from "@/lib/focus-on-removal";
 
 const STATUS_BADGE_VARIANT: Record<
   string,
@@ -63,6 +64,7 @@ function VerifyButton({
       variant="ghost"
       size="sm"
       disabled={isPending}
+      focusableWhenDisabled
       onClick={() =>
         startTransition(async () => {
           await runAction(() => verifyAccessGrantAction(grantId, assetId), {
@@ -122,6 +124,7 @@ function DeleteGrantButton({
               variant="ghost"
               size="icon-sm"
               aria-label={`Delete grant for ${personName}`}
+              ref={keepFocusOnRemoval}
               onClick={() => setOpen(true)}
             />
           }

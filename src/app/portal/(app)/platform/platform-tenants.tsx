@@ -300,7 +300,7 @@ export function PlatformTenants({
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={isPending}>
+              <Button type="submit" disabled={isPending} focusableWhenDisabled>
                 Provision
               </Button>
             </>
@@ -432,7 +432,7 @@ export function PlatformTenants({
             >
               Cancel
             </PortalFormSurfaceClose>
-            <Button type="submit" disabled={isPending}>
+            <Button type="submit" disabled={isPending} focusableWhenDisabled>
               Save
             </Button>
           </>

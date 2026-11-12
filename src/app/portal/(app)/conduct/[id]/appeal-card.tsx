@@ -172,7 +172,7 @@ export function AppealCard({
                 reporter&rsquo;s.
               </p>
             </Field>
-            <Button type="submit" disabled={isPending}>
+            <Button type="submit" disabled={isPending} focusableWhenDisabled>
               {isPending ? (
                 <>
                   <Spinner /> Recording...
@@ -212,7 +212,7 @@ export function AppealCard({
                 onChange={(event) => setOutcome(event.target.value)}
               />
             </Field>
-            <Button type="submit" disabled={isPending}>
+            <Button type="submit" disabled={isPending} focusableWhenDisabled>
               {isPending ? (
                 <>
                   <Spinner /> Recording...

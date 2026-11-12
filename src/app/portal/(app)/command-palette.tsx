@@ -269,10 +269,14 @@ export function CommandPalette({
     return result;
   }, [actionItems, pages, people, query]);
 
-  function select(item: PaletteItem) {
+  function close() {
     setOpen(false);
     setQuery("");
     setPeople([]);
+  }
+
+  function select(item: PaletteItem) {
+    close();
     if (item.actionKey) {
       setActiveAction(item.actionKey);
       return;
@@ -317,11 +321,8 @@ export function CommandPalette({
       <Dialog.Root
         open={open}
         onOpenChange={(next) => {
-          setOpen(next);
-          if (!next) {
-            setQuery("");
-            setPeople([]);
-          }
+          if (next) setOpen(true);
+          else close();
         }}
       >
         <Tooltip>
@@ -359,6 +360,13 @@ export function CommandPalette({
                 filter={null}
                 autoHighlight="always"
                 keepHighlight
+                // The list is pinned open, so Escape in the input is the
+                // Autocomplete's to handle and never reaches the Dialog: it
+                // asked to close a list that cannot close, and the palette
+                // stayed up (#663). Escape here closes the whole palette.
+                onOpenChange={(next, details) => {
+                  if (!next && details.reason === "escape-key") close();
+                }}
               >
                 <Autocomplete.InputGroup className="flex cursor-text items-center gap-2 border-b border-[var(--line)] pl-3">
                   <Search className="app-muted size-4 shrink-0" aria-hidden />
@@ -373,7 +381,11 @@ export function CommandPalette({
                   />
                   {isSearching && <Spinner className="mr-3 shrink-0" />}
                 </Autocomplete.InputGroup>
-                <Dialog.Close className="sr-only">Close search</Dialog.Close>
+                {/* Reachable by Tab, so it shows itself when focused: an invisible
+                    focus stop is a dead end for a sighted keyboard user (#663). */}
+                <Dialog.Close className="sr-only focus-visible:not-sr-only focus-visible:absolute focus-visible:top-2 focus-visible:right-2 focus-visible:rounded-md focus-visible:border focus-visible:border-ring focus-visible:bg-card focus-visible:px-2 focus-visible:py-1 focus-visible:text-xs focus-visible:outline-none">
+                  Close search
+                </Dialog.Close>
 
                 <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain py-1">
                   <Autocomplete.Empty>

@@ -240,7 +240,13 @@ function MakeRepeat({
             drafts copied from this one, ready for review.
           </p>
           <div>
-            <Button type="button" size="sm" onClick={save} disabled={isPending}>
+            <Button
+              type="button"
+              size="sm"
+              onClick={save}
+              disabled={isPending}
+              focusableWhenDisabled
+            >
               Make it repeat
             </Button>
           </div>
@@ -396,6 +402,7 @@ function SeriesDetails({
                   size="sm"
                   onClick={saveSchedule}
                   disabled={isPending}
+                  focusableWhenDisabled
                 >
                   Save
                 </Button>
@@ -409,6 +416,7 @@ function SeriesDetails({
                     setEditing(false);
                   }}
                   disabled={isPending}
+                  focusableWhenDisabled
                 >
                   Cancel
                 </Button>
@@ -448,6 +456,7 @@ function SeriesDetails({
                 variant="secondary"
                 onClick={() => setEditing(true)}
                 disabled={isPending}
+                focusableWhenDisabled
               >
                 Change repeat
               </Button>
@@ -472,6 +481,7 @@ function SeriesDetails({
                   )
                 }
                 disabled={isPending}
+                focusableWhenDisabled
               >
                 {state === "paused" ? "Resume" : "Pause"}
               </Button>
@@ -481,6 +491,7 @@ function SeriesDetails({
                 variant="secondary"
                 onClick={() => setConfirming("template")}
                 disabled={isPending}
+                focusableWhenDisabled
               >
                 Use this post for future posts
               </Button>
@@ -490,6 +501,7 @@ function SeriesDetails({
                 variant="ghost"
                 onClick={() => setConfirming("end")}
                 disabled={isPending}
+                focusableWhenDisabled
               >
                 End series
               </Button>
@@ -630,7 +642,13 @@ function ContentSourceFields({ series }: { series: SocialPostSeriesRow }) {
       )}
       {changed && (
         <div>
-          <Button type="button" size="sm" onClick={save} disabled={isPending}>
+          <Button
+            type="button"
+            size="sm"
+            onClick={save}
+            disabled={isPending}
+            focusableWhenDisabled
+          >
             Save
           </Button>
         </div>

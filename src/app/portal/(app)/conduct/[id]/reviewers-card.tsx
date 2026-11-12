@@ -195,6 +195,7 @@ export function ReviewersCard({
                           variant="ghost"
                           size="sm"
                           disabled={isPending}
+                          focusableWhenDisabled
                           onClick={() => handleUnassign(reviewer.id)}
                         >
                           Remove
@@ -302,7 +303,12 @@ export function ReviewersCard({
                 entirely once you do this — not just your vote.
               </p>
             </Field>
-            <Button type="submit" variant="secondary" disabled={isPending}>
+            <Button
+              type="submit"
+              variant="secondary"
+              disabled={isPending}
+              focusableWhenDisabled
+            >
               {isPending ? (
                 <>
                   <Spinner /> Recording...

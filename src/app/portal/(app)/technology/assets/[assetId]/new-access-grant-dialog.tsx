@@ -120,6 +120,7 @@ export function NewAccessGrantDialog({
         <Field>
           <FieldLabel htmlFor="grant-person">Person</FieldLabel>
           <PersonPicker
+            id="grant-person"
             people={people}
             selected={person}
             onSelect={setPerson}

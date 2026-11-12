@@ -50,6 +50,7 @@ import { PreferredNameCell } from "./preferred-name-cell";
 import { Spinner } from "@/components/ui/spinner";
 import { EmptyState } from "@/components/portal/empty-state";
 import { runAction } from "@/components/portal/action-toast";
+import { keepFocusOnRemoval } from "@/lib/focus-on-removal";
 
 function statusBadge(portalUser: PortalUser) {
   if (portalUser.deactivated_at) {
@@ -238,17 +239,23 @@ export function UsersTable({
                           render={
                             <button
                               type="button"
-                              disabled={isPending || lockedSelfAdmin}
+                              disabled={lockedSelfAdmin}
+                              // Not \`disabled\` while pending: a disabled button
+                              // can't take focus back from the dialog, so it
+                              // would drop to <body> (#1862).
+                              aria-disabled={isPending || undefined}
                               title={
                                 lockedSelfAdmin
                                   ? "You can't remove your own admin role."
                                   : undefined
                               }
                               aria-label={removeLabel}
-                              onClick={() =>
-                                setRevokeTarget({ user: portalUser, role })
-                              }
-                              className="-mr-1 flex size-6 items-center justify-center rounded-full hover:bg-black/10 disabled:pointer-events-none disabled:opacity-40 dark:hover:bg-white/10"
+                              ref={keepFocusOnRemoval}
+                              onClick={() => {
+                                if (isPending) return;
+                                setRevokeTarget({ user: portalUser, role });
+                              }}
+                              className="-mr-1 flex size-6 items-center justify-center rounded-full hover:bg-black/10 disabled:pointer-events-none disabled:opacity-40 aria-disabled:opacity-40 dark:hover:bg-white/10"
                             />
                           }
                         >
@@ -318,6 +325,7 @@ export function UsersTable({
                 size="sm"
                 variant="ghost"
                 disabled={isPending}
+                focusableWhenDisabled
                 onClick={() => {
                   setAddingFor(null);
                   setPendingRole("");
@@ -361,6 +369,8 @@ export function UsersTable({
                     ? "You can't remove yourself from the organization."
                     : "This account also belongs to another organization, so it is removed from this one rather than deactivated."
                 }
+                focusableWhenDisabled
+                ref={keepFocusOnRemoval}
                 onClick={() => setRemoveTarget(portalUser)}
               >
                 Remove
@@ -373,6 +383,8 @@ export function UsersTable({
               size="sm"
               variant="secondary"
               disabled={isPending}
+              focusableWhenDisabled
+              ref={keepFocusOnRemoval}
               onClick={() =>
                 submit(
                   () => reactivateUserAction(portalUser.user_id),
@@ -391,6 +403,8 @@ export function UsersTable({
               title={
                 isSelf ? "You can't deactivate your own account." : undefined
               }
+              focusableWhenDisabled
+              ref={keepFocusOnRemoval}
               onClick={() => setDeactivateTarget(portalUser)}
             >
               Deactivate

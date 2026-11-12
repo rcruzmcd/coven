@@ -231,9 +231,7 @@ test.describe("portal governance records", () => {
         addDialog.getByRole("heading", { name: "Add annual requirement" }),
       ).toBeVisible();
 
-      // Exact, because the dialog also holds a person picker whose search
-      // input labels itself "Search by name or email..." -- a substring match
-      // on "Name" or "Email" resolves to both.
+      // Exact, so a longer label that contains it cannot match too.
       await addDialog.getByLabel(exactLabel("Name")).fill(requirementName);
       await addDialog.getByLabel("Due date").fill("2026-05-15");
       await pickPerson(addDialog, person.name);

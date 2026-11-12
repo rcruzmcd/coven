@@ -130,6 +130,7 @@ export function BulkActionsToolbar({
           type="button"
           size="sm"
           disabled={!value || isPending}
+          focusableWhenDisabled
           onClick={handleApply}
         >
           {isPending ? (
@@ -145,6 +146,7 @@ export function BulkActionsToolbar({
           variant="ghost"
           size="sm"
           disabled={isPending}
+          focusableWhenDisabled
           onClick={onDone}
         >
           Clear selection
