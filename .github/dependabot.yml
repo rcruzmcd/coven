@@ -43,19 +43,6 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]
-      # Pinned at 20.11.6 (#1845): from 20.14.6 on (21.0.4 included) elements
-      # that should leave the DOM after a tab switch or a dialog closing stay
-      # mounted, and MeetingDetailView's tests run out of memory printing them.
-      # Drop these once the follow-up finds the cause (#1846). Every version
-      # past the pin is ignored, not just >=20.12: a 20.11.x bump of the
-      # registrator lets its `^20.11.x` range resolve a nested happy-dom 20.14.x
-      # (#1850 did exactly this). The `overrides` entry in package.json holds
-      # every copy at the pin; these keep Dependabot from proposing bumps that
-      # the override would silently undo.
-      - dependency-name: "happy-dom"
-        versions: [">20.11.6"]
-      - dependency-name: "@happy-dom/global-registrator"
-        versions: [">20.11.6"]
 
   - package-ecosystem: "github-actions"
     directory: "/"
