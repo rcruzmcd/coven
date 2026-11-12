@@ -289,6 +289,8 @@ describe("OverviewTab social post shift", () => {
       draft_due_at: null,
       status_changed_by: null,
       status_changed_at: null,
+      series_id: null,
+      occurrence_date: null,
       ...overrides,
     };
   }

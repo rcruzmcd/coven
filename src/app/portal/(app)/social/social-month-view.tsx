@@ -1,5 +1,6 @@
 "use client";
 
+import { RepeatMarker } from "@/components/portal/social-content/repeat-marker";
 import { useState } from "react";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -143,10 +144,15 @@ export function SocialMonthView({
                           />
                         }
                       >
+                        <RepeatMarker
+                          seriesId={piece.series_id}
+                          className="mr-0.5"
+                        />
                         {piece.title}
                       </TooltipTrigger>
                       <TooltipContent>
                         {piece.title} · {statusLabel(piece.content_status)}
+                        {piece.series_id ? " · Repeats" : ""}
                       </TooltipContent>
                     </Tooltip>
                   ))}
