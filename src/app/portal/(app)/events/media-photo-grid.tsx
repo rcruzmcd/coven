@@ -2,7 +2,9 @@
 
 import { useMemo, useState } from "react";
 import dynamic from "next/dynamic";
-import { Download, Eye, EyeOff, ImageOff } from "lucide-react";
+import { Download, Eye, EyeOff, ImageOff, Megaphone } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { TooltipIconButton } from "@/components/portal/tooltip-icon-button";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Spinner } from "@/components/ui/spinner";
@@ -27,7 +29,8 @@ const MediaLightbox = dynamic(
  * The Media card's photos (#1607): a thumbnail grid that opens the lightbox,
  * a tick on each for a bulk download, and delete for events:manage. Each says
  * whether it is in the public gallery, and events:manage hides or shows one,
- * or the ticked ones together (#1654).
+ * or the ticked ones together (#1654). One may be the event's flyer (#1827),
+ * which events:manage chooses here.
  *
  * The thumbnail is the stored photo itself -- the browser already re-encoded
  * it at 2048px on upload (#1606), so there is no second rendition to keep.
@@ -40,6 +43,8 @@ export function MediaPhotoGrid({
   onDelete,
   publishing,
   onSetPublic,
+  flyerId = null,
+  onSetFlyer,
 }: {
   photos: EventMediaRow[];
   eventName: string;
@@ -49,6 +54,10 @@ export function MediaPhotoGrid({
   onDelete: (photo: EventMediaRow) => void;
   publishing: boolean;
   onSetPublic: (photos: EventMediaRow[], isPublic: boolean) => void;
+  /** The photo that is the event's flyer. */
+  flyerId?: string | null;
+  /** Makes a photo the flyer; omitted, nobody here may. */
+  onSetFlyer?: (photo: EventMediaRow) => void;
 }) {
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const [openIndex, setOpenIndex] = useState<number | null>(null);
@@ -177,6 +186,11 @@ export function MediaPhotoGrid({
                 item={photo}
                 className="pointer-events-none absolute top-1.5 left-1.5 z-10"
               />
+              {photo.id === flyerId && (
+                <Badge className="pointer-events-none absolute top-1.5 right-1.5 z-10">
+                  Flyer
+                </Badge>
+              )}
               {photo.url ? (
                 <button
                   type="button"
@@ -212,6 +226,15 @@ export function MediaPhotoGrid({
                 >
                   {photo.original_filename}
                 </span>
+                {onSetFlyer && photo.id !== flyerId && (
+                  <TooltipIconButton
+                    label={`Use ${photo.original_filename} as the flyer`}
+                    disabled={publishing}
+                    onClick={() => onSetFlyer(photo)}
+                  >
+                    <Megaphone />
+                  </TooltipIconButton>
+                )}
                 {canDelete && (
                   <MediaVisibilityToggle
                     item={photo}

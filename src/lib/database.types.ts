@@ -4691,6 +4691,7 @@ export type Database = {
           event_lead_id: string | null;
           feedback_notes: string | null;
           flier_url: string | null;
+          flyer_media_id: string | null;
           group_chat_enabled: boolean;
           group_chat_label: string | null;
           id: string;
@@ -4739,6 +4740,7 @@ export type Database = {
           event_lead_id?: string | null;
           feedback_notes?: string | null;
           flier_url?: string | null;
+          flyer_media_id?: string | null;
           group_chat_enabled?: boolean;
           group_chat_label?: string | null;
           id?: string;
@@ -4787,6 +4789,7 @@ export type Database = {
           event_lead_id?: string | null;
           feedback_notes?: string | null;
           flier_url?: string | null;
+          flyer_media_id?: string | null;
           group_chat_enabled?: boolean;
           group_chat_label?: string | null;
           id?: string;
@@ -4830,6 +4833,13 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: "people_with_roles";
             referencedColumns: ["tenant_id", "id"];
+          },
+          {
+            foreignKeyName: "events_flyer_media_fkey";
+            columns: ["id", "flyer_media_id"];
+            isOneToOne: false;
+            referencedRelation: "event_media";
+            referencedColumns: ["event_id", "id"];
           },
           {
             foreignKeyName: "events_tenant_id_fkey";
@@ -10176,12 +10186,13 @@ export type Database = {
         Row: {
           content_opportunity_id: string;
           content_type: string;
+          event_media_id: string | null;
           id: string;
           kind: string;
           original_filename: string;
           position: number;
           size_bytes: number;
-          storage_path: string;
+          storage_path: string | null;
           tenant_id: string;
           uploaded_at: string;
           uploaded_by: string | null;
@@ -10189,12 +10200,13 @@ export type Database = {
         Insert: {
           content_opportunity_id: string;
           content_type: string;
+          event_media_id?: string | null;
           id?: string;
           kind?: string;
           original_filename: string;
           position: number;
           size_bytes: number;
-          storage_path: string;
+          storage_path?: string | null;
           tenant_id?: string;
           uploaded_at?: string;
           uploaded_by?: string | null;
@@ -10202,17 +10214,25 @@ export type Database = {
         Update: {
           content_opportunity_id?: string;
           content_type?: string;
+          event_media_id?: string | null;
           id?: string;
           kind?: string;
           original_filename?: string;
           position?: number;
           size_bytes?: number;
-          storage_path?: string;
+          storage_path?: string | null;
           tenant_id?: string;
           uploaded_at?: string;
           uploaded_by?: string | null;
         };
         Relationships: [
+          {
+            foreignKeyName: "social_post_media_event_media_fkey";
+            columns: ["tenant_id", "event_media_id"];
+            isOneToOne: false;
+            referencedRelation: "event_media";
+            referencedColumns: ["tenant_id", "id"];
+          },
           {
             foreignKeyName: "social_post_media_post_fkey";
             columns: ["tenant_id", "content_opportunity_id"];
@@ -11803,6 +11823,10 @@ export type Database = {
       add_gear_request_item: {
         Args: { p_inventory_item_id: string; p_request_id: string };
         Returns: undefined;
+      };
+      add_social_post_event_media: {
+        Args: { p_media_ids: string[]; p_post_id: string };
+        Returns: number;
       };
       add_to_distribution_draft: {
         Args: { p_event_id?: string; p_item_id: string };
@@ -13673,12 +13697,13 @@ export type Database = {
         Returns: {
           content_opportunity_id: string;
           content_type: string;
+          event_media_id: string | null;
           id: string;
           kind: string;
           original_filename: string;
           position: number;
           size_bytes: number;
-          storage_path: string;
+          storage_path: string | null;
           tenant_id: string;
           uploaded_at: string;
           uploaded_by: string | null;
@@ -13892,6 +13917,7 @@ export type Database = {
           event_lead_id: string | null;
           feedback_notes: string | null;
           flier_url: string | null;
+          flyer_media_id: string | null;
           group_chat_enabled: boolean;
           group_chat_label: string | null;
           id: string;
@@ -14667,6 +14693,7 @@ export type Database = {
           event_lead_id: string | null;
           feedback_notes: string | null;
           flier_url: string | null;
+          flyer_media_id: string | null;
           group_chat_enabled: boolean;
           group_chat_label: string | null;
           id: string;

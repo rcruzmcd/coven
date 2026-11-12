@@ -78,6 +78,8 @@ export type EventMediaState = {
   retentionDays: number | null;
   /** When this event's media expires, before any late upload's later date. */
   eventExpiresAt: string | null;
+  /** The photo that is the event's flyer (#1827), never purged by retention. */
+  flyerMediaId: string | null;
   items: EventMediaRow[];
 };
 
@@ -132,7 +134,7 @@ export async function getEventMediaAction(
     supabase.rpc("event_public_gallery_enabled"),
     supabase
       .from("events")
-      .select("visibility, status")
+      .select("visibility, status, flyer_media_id")
       .eq("id", eventId)
       .maybeSingle(),
   ]);
@@ -187,6 +189,7 @@ export async function getEventMediaAction(
       retentionDays:
         typeof retentionDays.data === "number" ? retentionDays.data : null,
       eventExpiresAt: eventExpiresAt.data ?? null,
+      flyerMediaId: event.data?.flyer_media_id ?? null,
       items: stored.map(({ storage_path, thumb_path, ...row }) => {
         const url = urls.get(storage_path) ?? null;
         return {
@@ -253,6 +256,53 @@ export async function deleteEventMediaAction(
   if (deleteError) {
     console.error("Could not delete the event media row", deleteError);
     return { error: "Could not delete the file. Please try again." };
+  }
+
+  revalidatePath("/portal/events");
+  return { ok: true };
+}
+
+/**
+ * Makes one of the event's photos its flyer (#1827), or clears the flyer with
+ * null. Whoever may edit the event, as events' update policy decides; the
+ * column's foreign key refuses media of another event.
+ */
+export async function setEventFlyerAction(
+  eventId: string,
+  mediaId: string | null,
+): Promise<{ ok: true } | { error: string }> {
+  const supabase = await createSupabaseServerClient();
+  const userResult = await checkUser(
+    supabase,
+    "You must be signed in to change the event's flyer.",
+  );
+  if ("error" in userResult) return userResult;
+  const permissionError = await checkEventAccess(
+    supabase,
+    { table: "events", level: "manage", eventId },
+    "You don't have permission to change this event's flyer.",
+  );
+  if (permissionError) return permissionError;
+
+  if (mediaId !== null) {
+    const { data: media } = await supabase
+      .from("event_media")
+      .select("kind")
+      .eq("id", String(mediaId))
+      .eq("event_id", String(eventId))
+      .maybeSingle();
+    if (!media) return { error: "That photo is no longer here." };
+    if (media.kind !== "photo") return { error: "A flyer is a photo." };
+  }
+
+  const { data, error } = await supabase
+    .from("events")
+    .update({ flyer_media_id: mediaId === null ? null : String(mediaId) })
+    .eq("id", String(eventId))
+    .select("id");
+  if (error || !data || data.length === 0) {
+    if (error) console.error("Could not set the event flyer", error);
+    return { error: "Could not save the flyer. Please try again." };
   }
 
   revalidatePath("/portal/events");

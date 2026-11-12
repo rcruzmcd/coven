@@ -34,6 +34,7 @@ import {
   type SocialPostTag,
 } from "@/lib/social-content/post-content-actions";
 import { MediaUploader } from "@/components/event-media/media-uploader";
+import { EventMediaPicker } from "./event-media-picker";
 import { createVideoUpload, uploadEventPhoto } from "@/lib/storage/event-media";
 import type { EventMediaQueueDeps } from "@/lib/storage/event-media-queue";
 import { ContentStatusBadge } from "./content-status-badge";
@@ -172,17 +173,21 @@ function useLinkOptions() {
 }
 
 /**
- * The media part of the Content section: upload, reorder, remove. Files save
- * as they go rather than with the form, so a post must exist first.
+ * The media part of the Content section: upload, choose from the related
+ * event (#1827), reorder, remove. Files save as they go rather than with the
+ * form, so a post must exist first.
  */
 function PostMediaEditor({
   postId,
+  eventId,
   media,
   format,
   onChanged,
   onError,
 }: {
   postId: string;
+  /** The saved post's event, whose media it can choose from. */
+  eventId: string | null;
   media: SocialPostMedia[];
   format: PostFormat | null;
   onChanged: () => void;
@@ -232,6 +237,19 @@ function PostMediaEditor({
         <Alert>
           <AlertDescription>{issue}</AlertDescription>
         </Alert>
+      )}
+      {eventId && (
+        <EventMediaPicker
+          postId={postId}
+          eventId={eventId}
+          format={format}
+          held={media.length}
+          referencedIds={
+            new Set(media.flatMap((item) => item.event_media_id ?? []))
+          }
+          onAdded={onChanged}
+          onError={onError}
+        />
       )}
       <MediaUploader
         deps={deps}
@@ -783,6 +801,7 @@ function SocialPostSheetBody({
                     <div id="piece-media">
                       <PostMediaEditor
                         postId={piece.id}
+                        eventId={piece.event_id}
                         media={extras.media}
                         format={form.postFormat || null}
                         onChanged={reloadExtras}

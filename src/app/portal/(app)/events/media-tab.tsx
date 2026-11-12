@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState, useTransition } from "react";
 import { CameraOff } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import { runAction } from "@/components/portal/action-toast";
 import { EmptyState } from "@/components/portal/empty-state";
 import { TabLoadingSkeleton } from "@/components/portal/tab-loading-skeleton";
@@ -18,6 +19,7 @@ import type { TabValue } from "./event-tabs-config";
 import {
   deleteEventMediaAction,
   getEventMediaAction,
+  setEventFlyerAction,
   setEventMediaPublicAction,
   type EventMediaRow,
   type EventMediaState,
@@ -145,6 +147,19 @@ export function MediaTab({
     });
   }
 
+  function handleSetFlyer(item: EventMediaRow | null) {
+    setPublishing(true);
+    startTransition(async () => {
+      await runAction(() => setEventFlyerAction(eventId, item?.id ?? null), {
+        success: item
+          ? `${item.original_filename} is the flyer.`
+          : "The event has no flyer now.",
+        onSuccess: load,
+      });
+      setPublishing(false);
+    });
+  }
+
   if (loadError) {
     return (
       <Alert variant="destructive">
@@ -161,6 +176,7 @@ export function MediaTab({
   const showLinks = showUploader && state.canDelete;
   const photos = state.items.filter((item) => item.kind === "photo");
   const videos = state.items.filter((item) => item.kind === "video");
+  const flyer = photos.find((item) => item.id === state.flyerMediaId) ?? null;
   const expiring = state.items.filter((item) =>
     eventMediaExpiresSoon(item.expires_at, loadedAt),
   );
@@ -204,6 +220,55 @@ export function MediaTab({
           is on the public site, whatever it is marked.
         </p>
       )}
+      {(flyer || state.canDelete) && (
+        <section
+          aria-labelledby="event-media-flyer"
+          className="flex flex-col gap-2"
+        >
+          <h3 id="event-media-flyer" className="text-sm font-semibold">
+            Flyer
+          </h3>
+          {flyer ? (
+            <div className="flex items-center gap-3">
+              {(flyer.display_url ?? flyer.url) ? (
+                // eslint-disable-next-line @next/next/no-img-element -- a short-lived signed URL; next/image would cache it past its expiry
+                <img
+                  src={flyer.display_url ?? flyer.url ?? undefined}
+                  alt={`Flyer: ${flyer.original_filename}`}
+                  className="h-24 w-auto max-w-32 rounded-md border border-[var(--line)] object-cover"
+                />
+              ) : null}
+              <div className="flex min-w-0 flex-col gap-1">
+                <span className="truncate text-sm">
+                  {flyer.original_filename}
+                </span>
+                <span className="app-muted text-xs">
+                  Offered first when a social post takes media from this event.
+                  Kept whatever the retention setting.
+                </span>
+                {state.canDelete && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="self-start"
+                    disabled={publishing}
+                    onClick={() => handleSetFlyer(null)}
+                  >
+                    Remove as flyer
+                  </Button>
+                )}
+              </div>
+            </div>
+          ) : (
+            <p className="app-muted text-sm">
+              {photos.length > 0
+                ? "No flyer yet. Choose Use as flyer on one of the photos below."
+                : "No flyer yet. Upload it here, then choose Use as flyer on it."}
+            </p>
+          )}
+        </section>
+      )}
       {state.items.length === 0 ? (
         <EmptyState
           title="No photos or videos yet"
@@ -226,6 +291,8 @@ export function MediaTab({
               onDelete={handleDelete}
               publishing={publishing}
               onSetPublic={handleSetPublic}
+              flyerId={state.flyerMediaId}
+              onSetFlyer={state.canDelete ? handleSetFlyer : undefined}
             />
           )}
           {videos.length > 0 && (
