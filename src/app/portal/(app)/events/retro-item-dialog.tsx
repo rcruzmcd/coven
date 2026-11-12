@@ -25,7 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
+import { MarkdownTextarea } from "@/components/portal/markdown-textarea";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "@/components/ui/toast";
 import { RequiredFieldsNote } from "@/components/required-fields-note";
@@ -191,7 +191,7 @@ export function RetroItemDialog({
           <FieldLabel htmlFor="retro-body" required>
             {kind === "action" ? "What needs doing" : "Item"}
           </FieldLabel>
-          <Textarea
+          <MarkdownTextarea
             id="retro-body"
             required
             maxLength={RETRO_BODY_MAX}

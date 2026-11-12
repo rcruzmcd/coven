@@ -1,3 +1,4 @@
+import { MarkdownText } from "@/components/portal/markdown-text";
 import type { Metadata } from "next";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -38,9 +39,9 @@ function ProgramCard({ program }: { program: Program }) {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <p className="app-muted text-sm leading-relaxed">
+        <MarkdownText className="app-muted text-sm leading-relaxed">
           {program.description}
-        </p>
+        </MarkdownText>
       </CardContent>
     </Card>
   );

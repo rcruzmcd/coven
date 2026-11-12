@@ -1,3 +1,4 @@
+import { MarkdownText } from "@/components/portal/markdown-text";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -301,9 +302,9 @@ export default async function PersonClaimsPage({
                   </dl>
 
                   {claim.note && (
-                    <p className="text-sm leading-relaxed whitespace-pre-line">
+                    <MarkdownText className="text-sm leading-relaxed">
                       {claim.note}
-                    </p>
+                    </MarkdownText>
                   )}
 
                   {claim.status === "pending" ? (

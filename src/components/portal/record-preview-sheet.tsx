@@ -1,5 +1,6 @@
 "use client";
 
+import { MarkdownText } from "@/components/portal/markdown-text";
 import {
   createContext,
   useContext,
@@ -312,9 +313,9 @@ function RecordPreviewView({
               </div>
             )}
             <Detail label="Summary">
-              <span className="whitespace-pre-wrap">
-                {preview.summary?.trim() || "None recorded."}
-              </span>
+              <MarkdownText fallback="None recorded.">
+                {preview.summary}
+              </MarkdownText>
             </Detail>
           </dl>
         )}
