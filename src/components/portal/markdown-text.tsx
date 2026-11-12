@@ -1,5 +1,6 @@
 "use client";
 
+import type * as React from "react";
 import Markdown from "react-markdown";
 import remarkBreaks from "remark-breaks";
 import remarkGfm from "remark-gfm";
@@ -86,14 +87,17 @@ export function MarkdownText({
   children,
   allow = "note",
   className,
+  fallback = null,
 }: {
-  /** The Markdown source. Empty or whitespace-only renders nothing. */
-  children: string;
+  /** The Markdown source. Missing, empty or whitespace-only renders `fallback`. */
+  children: string | null | undefined;
   /** `document` only for Markdown this app wrote. See `DOCUMENT_ELEMENTS`. */
   allow?: "note" | "document";
   className?: string;
+  /** What an empty source renders instead, e.g. a read-only field's "—". */
+  fallback?: React.ReactNode;
 }) {
-  if (children.trim() === "") return null;
+  if (!children?.trim()) return fallback;
 
   return (
     <div className={cn("markdown-text", className)}>

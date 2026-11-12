@@ -431,6 +431,25 @@ describe("formatAgendaMarkdown", () => {
     expect(markdown).toContain("Discussed fall planning.");
   });
 
+  test("keeps a Markdown discussion on its decision's one line (#1875)", () => {
+    const decision = {
+      id: "d2",
+      meeting_id: "meeting-1",
+      description: "Approve **budget**:\n\n- supplies\n- venue",
+      decision_date: "2026-08-31",
+      topic: "Finance",
+      vote_result: "5-0",
+    };
+    const input = { ...emptyInput, decisions: [decision] };
+
+    expect(formatAgendaMarkdown(input)).toContain(
+      "- Finance: Approve budget: - supplies - venue (5-0)",
+    );
+    expect(formatAgendaPlainText(input)).toContain(
+      "Finance: Approve budget: - supplies - venue (5-0)",
+    );
+  });
+
   test("prints the records behind each standing section", () => {
     const markdown = formatAgendaMarkdown({
       ...emptyInput,

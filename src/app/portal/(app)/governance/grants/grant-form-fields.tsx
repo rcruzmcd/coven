@@ -1,5 +1,6 @@
 "use client";
 
+import { MarkdownTextarea } from "@/components/portal/markdown-textarea";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import {
@@ -9,7 +10,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import type { GrantStatus } from "./grant-form";
 
 export const GRANT_STATUS_LABELS: Record<GrantStatus, string> = {
@@ -112,7 +112,7 @@ export function GrantFormFields({
 
       <Field>
         <FieldLabel htmlFor={`${idPrefix}-notes`}>Notes</FieldLabel>
-        <Textarea
+        <MarkdownTextarea
           id={`${idPrefix}-notes`}
           value={form.notes}
           onChange={(event) => update("notes", event.target.value)}

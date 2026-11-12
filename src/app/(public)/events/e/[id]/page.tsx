@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { PageShell } from "@/components/page-shell";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getPublicSite, publicTitle } from "@/lib/public-site";
+import { plainExcerpt } from "@/lib/markdown/plain-text";
 import { EventDetailContent } from "../../event-detail-content";
 import { loadEventPage } from "../../event-detail-data";
 import { EventPreviewBanner } from "../../event-preview-banner";
@@ -25,6 +26,10 @@ export async function generateMetadata({
       await getPublicSite(supabase),
       page?.event.name ?? "Event",
     ),
+    // The description is Markdown (#1874); a search result shows it as text.
+    ...(page?.event.description?.trim()
+      ? { description: plainExcerpt(page.event.description) }
+      : {}),
     // #1764. A preview is nobody's to find.
     ...(page?.preview ? { robots: { index: false, follow: false } } : {}),
   };

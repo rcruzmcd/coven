@@ -1,5 +1,6 @@
 "use client";
 
+import { MarkdownText } from "@/components/portal/markdown-text";
 import { FormEvent, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Eye, Pencil } from "lucide-react";
@@ -268,9 +269,7 @@ export function EditGrantModal({
                   {personDisplayName(grant.owner)}
                 </ReadOnlyField>
                 <ReadOnlyField label="Notes" htmlFor="edit-grant-notes">
-                  <span className="whitespace-pre-wrap">
-                    {grant.notes || "—"}
-                  </span>
+                  <MarkdownText fallback="—">{grant.notes}</MarkdownText>
                 </ReadOnlyField>
               </FieldGroup>
             </div>

@@ -1,5 +1,6 @@
 "use client";
 
+import { MarkdownTextarea } from "@/components/portal/markdown-textarea";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { DocumentField } from "@/components/portal/document-field";
 import { Input } from "@/components/ui/input";
@@ -10,7 +11,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import type { RequirementStatus } from "./annual-requirement-form";
 
 export type AnnualRequirementFormState = {
@@ -109,7 +109,7 @@ export function AnnualRequirementFormFields({
 
       <Field>
         <FieldLabel htmlFor={`${idPrefix}-body-text`}>Notes</FieldLabel>
-        <Textarea
+        <MarkdownTextarea
           id={`${idPrefix}-body-text`}
           value={form.bodyText}
           onChange={(event) => update("bodyText", event.target.value)}

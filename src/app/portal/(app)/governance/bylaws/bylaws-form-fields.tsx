@@ -1,9 +1,9 @@
 "use client";
 
+import { MarkdownTextarea } from "@/components/portal/markdown-textarea";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { DocumentField } from "@/components/portal/document-field";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 
 export type BylawsFormState = {
   version: string;
@@ -73,7 +73,7 @@ export function BylawsFormFields({
         <FieldLabel htmlFor={`${idPrefix}-amendment-summary`}>
           What changed
         </FieldLabel>
-        <Textarea
+        <MarkdownTextarea
           id={`${idPrefix}-amendment-summary`}
           placeholder="Summary of this amendment (leave blank for the original bylaws)"
           value={form.amendmentSummary}
@@ -94,7 +94,7 @@ export function BylawsFormFields({
 
       <Field>
         <FieldLabel htmlFor={`${idPrefix}-body-text`}>Bylaws text</FieldLabel>
-        <Textarea
+        <MarkdownTextarea
           id={`${idPrefix}-body-text`}
           value={form.bodyText}
           onChange={(event) => update("bodyText", event.target.value)}
