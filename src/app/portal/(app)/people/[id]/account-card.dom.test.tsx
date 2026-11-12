@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import * as PeopleActions from "../actions";
 import type { PersonAccount } from "./person-account";
+import { focusedName } from "../../../../../../test/focused";
 
 const unlinkMock = mock<
   (personId: string) => Promise<{ error: string } | { success: true }>
@@ -146,5 +147,48 @@ describe("AccountCard unlink", () => {
       />,
     );
     expect(screen.getByText("Active")).toBeInTheDocument();
+  });
+});
+
+// Save, Cancel and Escape all unmount the control that had focus; the pencil
+// that opened the editor takes it back (#1863).
+describe("AccountCard notification email editor", () => {
+  function renderEditable() {
+    return render(
+      <AccountCard
+        personId="p1"
+        personName="Robin Ashford"
+        account={websiteAccount}
+        hasPortalAccess={false}
+        linkable={[]}
+        roleLabels={{}}
+        notificationEmail={null}
+        notificationEmailPending={null}
+        canManagePerson
+        canUnlinkAccount={false}
+      />,
+    );
+  }
+
+  test("Cancel hands focus back to the pencil", async () => {
+    const user = userEvent.setup();
+    renderEditable();
+    await user.click(
+      screen.getByRole("button", { name: "Edit notification email" }),
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Cancel editing notification email" }),
+    );
+    expect(focusedName()).toBe("Edit notification email");
+  });
+
+  test("Escape hands focus back to the pencil", async () => {
+    const user = userEvent.setup();
+    renderEditable();
+    await user.click(
+      screen.getByRole("button", { name: "Edit notification email" }),
+    );
+    await user.keyboard("{Escape}");
+    expect(focusedName()).toBe("Edit notification email");
   });
 });

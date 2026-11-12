@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { generateMissingCalendarSeriesInstancesAction } from "../recurrence-actions";
 import { Spinner } from "@/components/ui/spinner";
 import { runAction } from "@/components/portal/action-toast";
+import { keepFocusOnRemoval } from "@/lib/focus-on-removal";
 
 export function GenerateMissingButton({ targetYear }: { targetYear: number }) {
   const router = useRouter();
@@ -40,6 +41,8 @@ export function GenerateMissingButton({ targetYear }: { targetYear: number }) {
         onClick={handleGenerateAll}
         disabled={isPending}
         focusableWhenDisabled
+        // Success takes this row (or the whole list) away (#1863).
+        ref={keepFocusOnRemoval}
       >
         {isPending ? (
           <>

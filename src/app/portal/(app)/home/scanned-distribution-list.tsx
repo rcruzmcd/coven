@@ -31,6 +31,7 @@ import {
   type ScannedItem,
 } from "./distribution-draft-actions";
 import type { AvailableInventoryItem } from "./distribution-actions";
+import { keepFocusOnRemoval } from "@/lib/focus-on-removal";
 
 /** How many matches the search offers at once. */
 const SEARCH_LIMIT = 8;
@@ -339,6 +340,7 @@ export function ScannedDistributionList({
                           aria-label={`Remove ${itemLabel(item)}`}
                           disabled={isPending}
                           focusableWhenDisabled
+                          ref={keepFocusOnRemoval}
                           onClick={() => remove(item.id)}
                         />
                       }

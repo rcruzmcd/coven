@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/tooltip";
 import { EmptyState } from "@/components/portal/empty-state";
 import { runAction } from "@/components/portal/action-toast";
+import { keepFocusOnRemoval } from "@/lib/focus-on-removal";
 
 /**
  * Tier setup for a giveaway (issue #5): the grant matrix that decides how many
@@ -273,6 +274,7 @@ export function TiersSection({
                           disabled={isPending}
                           focusableWhenDisabled
                           aria-label={`Remove keyword ${rule.match_text}`}
+                          ref={keepFocusOnRemoval}
                           onClick={() => handleRemoveKeyword(rule.id)}
                         />
                       }

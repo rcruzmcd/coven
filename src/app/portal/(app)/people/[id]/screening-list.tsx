@@ -27,6 +27,7 @@ import {
   type PersonScreeningRow,
 } from "@/lib/portal/person-screenings";
 import { removePersonScreeningAction } from "./screening-actions";
+import { keepFocusOnRemoval } from "@/lib/focus-on-removal";
 
 /**
  * One line per outcome, newest first — which is the order the query returns
@@ -103,6 +104,7 @@ export function ScreeningList({
                         disabled={isPending}
                         focusableWhenDisabled
                         aria-label={`Remove the ${level} outcome`}
+                        ref={keepFocusOnRemoval}
                         onClick={() => setPendingRemoval(screening)}
                       />
                     }
