@@ -72,6 +72,11 @@ const programs = [
   { id: "program-yoga", name: "Yoga" },
 ];
 
+// A loaded CI runner can take well over Testing Library's 1s default to
+// commit a transition's result; the waits are bounded, so only the ceiling
+// moves.
+const SETTLE = { timeout: 4_000 };
+
 const realPushState = window.history.pushState.bind(window.history);
 
 beforeEach(() => {
@@ -277,14 +282,24 @@ describe("ProfileQuestionsEditor", () => {
     screen.getByRole("button", { name: /Home mountain/ }).focus();
     await user.keyboard("{Alt>}{ArrowDown}{/Alt}");
     expect(screen.getByText("1 unsaved change to the questions")).toBeVisible();
+    // Focus follows the moved row, so a second Alt+Arrow keeps moving it.
+    expect(screen.getByRole("button", { name: /Home mountain/ })).toHaveFocus();
 
     await user.click(screen.getByRole("button", { name: "Save questions" }));
     await waitFor(() => expect(saveMock).toHaveBeenCalledTimes(1));
     const [payload] = saveMock.mock.calls[0] as [{ id: string }[]];
     expect(payload.map((q) => q.id)).toEqual(["q-level", "q-mountain"]);
-    // Saved, so the bar goes.
-    await waitFor(() =>
-      expect(screen.queryByText(/unsaved change/)).not.toBeInTheDocument(),
+    // Saved, so the bar goes. It stays while the save is pending, and a loaded
+    // CI runner can take well over the default 1s to clear that (#1786). The
+    // assertion compares the bar's text, not the element: when an element
+    // matcher fails, Bun prints the happy-dom node's whole object graph, and
+    // against this page that grew until the unit shard aborted with SIGABRT.
+    await waitFor(
+      () =>
+        expect(screen.queryByText(/unsaved change/)?.textContent ?? null).toBe(
+          null,
+        ),
+      SETTLE,
     );
   });
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type KeyboardEvent } from "react";
+import { useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
 import { GripVertical } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { QUESTION_KIND_LABELS } from "@/lib/registration-questions";
@@ -47,6 +47,19 @@ export function ProfileQuestionList({
   const [announcement, setAnnouncement] = useState("");
   // Written in a ref callback and read only in event handlers.
   const rows = useRef<Record<string, HTMLButtonElement>>({});
+  // The row a keyboard or drag move should hand focus back to, once the
+  // reordered list has committed. Moving the row can drop focus in some
+  // browsers. This used to be a requestAnimationFrame, which could fire after
+  // the list had gone; under a slow CI runner the reorder test then took the
+  // whole unit shard down with a SIGABRT (#1786). A layout effect runs inside
+  // React's commit, so nothing outlives the component.
+  const refocus = useRef<string | null>(null);
+  useLayoutEffect(() => {
+    const id = refocus.current;
+    if (id === null) return;
+    refocus.current = null;
+    rows.current[id]?.focus();
+  }, [questions]);
 
   function move(from: number, to: number) {
     if (to < 0 || to >= questions.length || from === to) return;
@@ -55,8 +68,7 @@ export function ProfileQuestionList({
     setAnnouncement(
       `${moved.prompt.trim() || "Untitled question"} moved to position ${to + 1} of ${questions.length}.`,
     );
-    // Moving the row can drop focus in some browsers; put it back.
-    requestAnimationFrame(() => rows.current[moved.id]?.focus());
+    refocus.current = moved.id;
   }
 
   function handleKeyDown(event: KeyboardEvent, index: number) {
