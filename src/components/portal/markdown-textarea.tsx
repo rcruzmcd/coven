@@ -40,7 +40,7 @@ const TOOLS: {
     icon: <ListOrdered />,
     action: (current) => toggleList(current, "number"),
   },
-  { label: "Link", icon: <Link2 />, action: insertLink },
+  { label: "Insert link", icon: <Link2 />, action: insertLink },
 ];
 
 /**

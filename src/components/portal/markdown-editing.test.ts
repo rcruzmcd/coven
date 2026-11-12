@@ -11,14 +11,16 @@ import {
 
 /** `|` marks the caret, or `[` and `]` a selection. */
 function at(marked: string): TextSelection {
-  if (marked.includes("|")) {
-    const start = marked.indexOf("|");
-    return { value: marked.replace("|", ""), start, end: start };
+  const cut = (text: string, at: number, width: number) =>
+    text.slice(0, at) + text.slice(at + width);
+  const caret = marked.indexOf("|");
+  if (caret !== -1) {
+    return { value: cut(marked, caret, 1), start: caret, end: caret };
   }
   const start = marked.indexOf("[[");
-  const value = marked.replace("[[", "");
+  const value = cut(marked, start, 2);
   const end = value.indexOf("]]");
-  return { value: value.replace("]]", ""), start, end };
+  return { value: cut(value, end, 2), start, end };
 }
 
 /** The new value with its selection marked the same way. */
