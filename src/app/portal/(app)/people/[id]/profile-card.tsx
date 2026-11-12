@@ -1,6 +1,7 @@
 "use client";
 
-import { FormEvent, useState, useTransition } from "react";
+import { useFocusWhenClosed } from "@/hooks/use-focus-when-closed";
+import { FormEvent, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Pencil } from "lucide-react";
@@ -137,6 +138,8 @@ export function ProfileCard({
   const router = useRouter();
   const formId = `person-profile-form-${person.id}`;
   const [mode, setMode] = useState<"view" | "edit">("view");
+  const editButtonRef = useRef<HTMLButtonElement>(null);
+  useFocusWhenClosed(mode === "edit", editButtonRef);
   const [form, setForm] = useState<PersonFormState>(() =>
     formStateFor(person, sponsorWallPublic),
   );
@@ -223,6 +226,7 @@ export function ProfileCard({
               <TooltipTrigger
                 render={
                   <Button
+                    ref={editButtonRef}
                     type="button"
                     variant="ghost"
                     size="icon-sm"

@@ -1,5 +1,6 @@
 "use client";
 
+import { CardEditButton } from "@/components/portal/card-edit-button";
 import {
   FormEvent,
   ReactNode,
@@ -9,7 +10,7 @@ import {
 } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Pencil } from "lucide-react";
+
 import { updateMeetingAction } from "../actions";
 import {
   MeetingStatusBadge,
@@ -24,13 +25,7 @@ import { PersonPicker, type PickedPerson } from "../../../people/person-picker";
 import { listPeopleAction, type PersonListItem } from "../../../people/actions";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { ReadOnlyField } from "@/components/ui/read-only-field";
@@ -43,11 +38,7 @@ import {
 } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+
 import {
   formatDateTime,
   formatInstantDate,
@@ -183,25 +174,8 @@ function EditableCard({
         <CardTitle className="app-muted text-sm font-semibold">
           {title}
         </CardTitle>
-        {canEdit && !editing && (
-          <CardAction>
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label={editLabel}
-                    onClick={onEdit}
-                  />
-                }
-              >
-                <Pencil />
-              </TooltipTrigger>
-              <TooltipContent>{editLabel}</TooltipContent>
-            </Tooltip>
-          </CardAction>
+        {canEdit && (
+          <CardEditButton label={editLabel} editing={editing} onEdit={onEdit} />
         )}
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
