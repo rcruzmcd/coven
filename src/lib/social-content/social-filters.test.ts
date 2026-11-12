@@ -4,12 +4,14 @@ import {
   hasMonthParam,
   monthInZone,
   parseSocialFilters,
+  programSocialHref,
   socialHref,
 } from "./social-filters";
 
 const NOW = new Date(2026, 10, 10);
 const EVENT_ID = "11111111-1111-4111-8111-111111111111";
 const PERSON_ID = "22222222-2222-4222-8222-222222222222";
+const PROGRAM_ID = "33333333-3333-4333-8333-333333333333";
 
 function paramsOf(href: string) {
   return Object.fromEntries(new URL(href, "https://x.test").searchParams);
@@ -25,6 +27,7 @@ describe("parseSocialFilters", () => {
       reviewer: "all",
       linkedTo: "all",
       event: "all",
+      program: "all",
       repeats: "all",
       overlay: false,
     });
@@ -61,6 +64,25 @@ describe("parseSocialFilters", () => {
     );
     expect(filters.linkedTo).toBe("event");
     expect(filters.event).toBe(EVENT_ID);
+  });
+
+  test("naming one program implies linked to a program (#1838)", () => {
+    const filters = parseSocialFilters({ program: PROGRAM_ID }, NOW);
+    expect(filters.linkedTo).toBe("program");
+    expect(filters.program).toBe(PROGRAM_ID);
+    expect(parseSocialFilters({ program: "nope" }, NOW).program).toBe("all");
+  });
+
+  test("an event wins over a program when a link names both", () => {
+    const filters = parseSocialFilters(
+      { event: EVENT_ID, program: PROGRAM_ID },
+      NOW,
+    );
+    expect(filters).toMatchObject({
+      linkedTo: "event",
+      event: EVENT_ID,
+      program: "all",
+    });
   });
 
   test("keeps 'none' for owner and reviewer", () => {
@@ -102,6 +124,18 @@ describe("socialHref", () => {
     expect(
       paramsOf(socialHref(parseSocialFilters({ linked: "standalone" }, NOW))),
     ).toEqual({ month: "2026-11", linked: "standalone" });
+  });
+
+  test("round-trips a program, which the program details link to", () => {
+    const filters = parseSocialFilters(
+      paramsOf(programSocialHref(PROGRAM_ID)),
+      NOW,
+    );
+    expect(filters.program).toBe(PROGRAM_ID);
+    expect(parseSocialFilters(paramsOf(socialHref(filters)), NOW)).toEqual(
+      filters,
+    );
+    expect(activeSocialFilterCount(filters)).toBe(1);
   });
 });
 

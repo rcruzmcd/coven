@@ -106,8 +106,9 @@ export function mediaFormatIssue(
 
 /**
  * One social post or story (#1231). Since #1792 a piece stands on its own and
- * may be related to a calendar item (a community date), an event, both or
- * neither -- deleting either clears the link and keeps the piece.
+ * may be related to a calendar item (a community date), an event and, since
+ * #1838, a program, in any combination or none -- deleting any of them clears
+ * the link and keeps the piece.
  *
  * Stored in `content_opportunities`, which kept its name through the reshape
  * so its audit history and RLS policies carried over; everything a person
@@ -117,6 +118,8 @@ export type ContentPieceRow = {
   id: string;
   calendar_item_id: string | null;
   event_id: string | null;
+  /** The program the post is for, if any (#1838). */
+  program_id: string | null;
   title: string;
   /** The caption since #1826 ("Story text" on a story); the column kept its name. */
   content: string | null;

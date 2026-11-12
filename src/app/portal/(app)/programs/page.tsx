@@ -18,6 +18,11 @@ export default async function ProgramsPage() {
   const supabase = await createSupabaseServerClient();
   const permissions = await getCurrentUserPermissions(supabase);
   const canManage = hasPermission(permissions, "programs", "manage");
+  // A program's details count and add its social posts (#1838).
+  const social = {
+    canView: hasPermission(permissions, "content_calendar", "view"),
+    canManage: hasPermission(permissions, "content_calendar", "manage"),
+  };
 
   const { data: programs, error } = await supabase
     .from("programs")
@@ -71,6 +76,7 @@ export default async function ProgramsPage() {
           <ProgramsTable
             programs={programs as ProgramRow[]}
             canManage={canManage}
+            social={social}
           />
         </div>
       )}

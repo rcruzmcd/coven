@@ -526,6 +526,7 @@ export async function createContentPiece(
     contentStatus?: string;
     publishDueAt?: string | null;
     eventId?: string | null;
+    programId?: string | null;
   } = {},
 ) {
   const { data, error } = await adminClient
@@ -533,6 +534,7 @@ export async function createContentPiece(
     .insert({
       calendar_item_id: calendarItemId,
       event_id: overrides.eventId ?? null,
+      program_id: overrides.programId ?? null,
       title: overrides.title ?? `Integration test piece ${crypto.randomUUID()}`,
       content_status: overrides.contentStatus ?? "idea",
       publish_due_at: overrides.publishDueAt ?? null,

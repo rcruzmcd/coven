@@ -8,6 +8,7 @@ import { TABLE_LABELS } from "./audit-log-badges";
 const RELATED_LABELS: Record<(typeof RELATED_VALUES)[number], string> = {
   event: "Social posts for an event",
   calendar_item: "Social posts for a calendar item",
+  program: "Social posts for a program",
   none: "Standalone social posts",
 };
 import {

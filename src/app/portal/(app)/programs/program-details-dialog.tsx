@@ -2,8 +2,9 @@
 
 import { EmptyState } from "@/components/portal/empty-state";
 import { FormEvent, useEffect, useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Eye, Pencil } from "lucide-react";
+import { ArrowLeft, Eye, Pencil, Plus } from "lucide-react";
 import {
   listProgramEventsAction,
   updateProgramAction,
@@ -63,6 +64,11 @@ import { toast } from "@/components/ui/toast";
 import { TabLoadingSkeleton } from "@/components/portal/tab-loading-skeleton";
 import { RequiredFieldsNote } from "@/components/required-fields-note";
 import { formatDateTime } from "@/lib/format";
+import { countProgramPiecesAction } from "@/lib/social-content/piece-actions";
+import { programSocialHref } from "@/lib/social-content/social-filters";
+
+/** What this reader may do with social posts (`content_calendar`), #1838. */
+export type ProgramSocialAccess = { canView: boolean; canManage: boolean };
 
 const STATUSES = [
   { value: "pilot", label: "Pilot" },
@@ -135,9 +141,11 @@ const EVENT_COLUMNS: PortalDataTableColumn<ProgramEvent>[] = [
 export function ProgramDetailsDialog({
   program,
   canManage,
+  social,
 }: {
   program: ProgramRow;
   canManage: boolean;
+  social: ProgramSocialAccess;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -150,6 +158,10 @@ export function ProgramDetailsDialog({
   );
   const [events, setEvents] = useState<ProgramEvent[] | null>(null);
   const [eventsError, setEventsError] = useState<string | null>(null);
+  // Undefined while loading; null when it could not be counted.
+  const [postCount, setPostCount] = useState<number | null | undefined>(
+    undefined,
+  );
   const formId = `edit-program-form-${program.id}`;
   const dirty = isDirty(form, program);
 
@@ -164,6 +176,11 @@ export function ProgramDetailsDialog({
       }
     });
   }, [open, program.id]);
+
+  useEffect(() => {
+    if (!open || !social.canView) return;
+    countProgramPiecesAction(program.id).then(setPostCount);
+  }, [open, program.id, social.canView]);
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -342,6 +359,52 @@ export function ProgramDetailsDialog({
                     )}
                   </div>
                 </Field>
+
+                {social.canView && (
+                  <Field>
+                    <FieldLabel htmlFor="program-posts">
+                      Social posts
+                    </FieldLabel>
+                    <div
+                      id="program-posts"
+                      className="flex flex-wrap items-center gap-3"
+                    >
+                      <span className="text-sm">
+                        {postCount === undefined
+                          ? "Loading..."
+                          : postCount === null
+                            ? "Could not count this program's posts."
+                            : postCount === 1
+                              ? "1 post"
+                              : `${postCount} posts`}
+                      </span>
+                      {postCount ? (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          nativeButton={false}
+                          render={<Link href={programSocialHref(program.id)} />}
+                        >
+                          View posts
+                        </Button>
+                      ) : null}
+                      {social.canManage && (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          nativeButton={false}
+                          render={
+                            <Link
+                              href={`${programSocialHref(program.id)}&new=1`}
+                            />
+                          }
+                        >
+                          <Plus /> New post
+                        </Button>
+                      )}
+                    </div>
+                  </Field>
+                )}
 
                 <Field>
                   <FieldLabel htmlFor="program-events">

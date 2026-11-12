@@ -16,23 +16,28 @@ import type { Database } from "@/lib/database.types";
 export type ContentPieceActionResult =
   { error: string } | { success: true; warning?: string };
 
-/** An event or community date a social post can be related to (#1793). */
+/**
+ * An event, community date or program a social post can be related to
+ * (#1793, #1838). A program has no date, so its `starts_at` is null.
+ */
 export type SocialContentLinkOption = {
   id: string;
   label: string;
-  starts_at: string;
+  starts_at: string | null;
 };
 
 export type SocialContentLinkOptions = {
   events: SocialContentLinkOption[];
   calendarItems: SocialContentLinkOption[];
+  programs: SocialContentLinkOption[];
 };
 
 /**
  * Every page a piece shows on: the calendar, `/portal/social` and each post's
  * own page under it (hence `layout`), and the event it is related to. The
  * calendar item's detail page reads under `/portal/calendar` and refreshes
- * with `router.refresh()` like it always has.
+ * with `router.refresh()` like it always has. A program's details count its
+ * posts when they open (#1838), so there is nothing of a program's to refresh.
  */
 function revalidatePiecePaths(eventIds: (string | null | undefined)[]) {
   revalidatePath("/portal/calendar");
@@ -46,6 +51,7 @@ function pieceColumns(data: ContentPieceFormData) {
   return {
     calendar_item_id: data.calendarItemId,
     event_id: data.eventId,
+    program_id: data.programId,
     title: data.title,
     content: data.content,
     post_format: data.postFormat,
@@ -86,8 +92,9 @@ async function saveTags(
 
 /**
  * Adds one social post. What it is related to -- a community date, an event,
- * both or neither -- comes from the form's `calendarItemId` and `eventId`,
- * which a caller opening the form from an item or event fills in.
+ * a program, any combination or none -- comes from the form's
+ * `calendarItemId`, `eventId` and `programId`, which a caller opening the form
+ * from one of those fills in.
  */
 export async function createContentPieceAction(
   formData: FormData,
@@ -472,12 +479,13 @@ export async function skipEventPostsAction(
 }
 
 /**
- * The events and community dates the Related to picker offers, newest first.
+ * The events and community dates the Related to picker offers, newest first,
+ * and the programs (#1838) by name.
  *
- * Gated on `content_calendar` view like the pieces themselves. The events are
- * whatever the events select policy returns for this reader, so a content
- * manager with no events access simply gets none, and the picker offers
- * community dates alone.
+ * Gated on `content_calendar` view like the pieces themselves. The events and
+ * programs are whatever their select policies return for this reader, so a
+ * content manager with no events access simply gets no events, and the picker
+ * offers the rest.
  */
 export async function listSocialContentLinkOptionsAction(): Promise<SocialContentLinkOptions> {
   const supabase = await createSupabaseServerClient();
@@ -486,9 +494,9 @@ export async function listSocialContentLinkOptionsAction(): Promise<SocialConten
     "content_calendar",
     "view",
   );
-  if (permissionError) return { events: [], calendarItems: [] };
+  if (permissionError) return { events: [], calendarItems: [], programs: [] };
 
-  const [events, calendarItems] = await Promise.all([
+  const [events, calendarItems, programs] = await Promise.all([
     fetchAllPages((from, to) =>
       supabase
         .from("events")
@@ -505,6 +513,14 @@ export async function listSocialContentLinkOptionsAction(): Promise<SocialConten
         .order("id", { ascending: true })
         .range(from, to),
     ),
+    fetchAllPages((from, to) =>
+      supabase
+        .from("programs")
+        .select("id, name")
+        .order("name", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, to),
+    ),
   ]);
 
   return {
@@ -518,5 +534,33 @@ export async function listSocialContentLinkOptionsAction(): Promise<SocialConten
       label: item.title,
       starts_at: item.starts_at,
     })),
+    programs: programs.map((program) => ({
+      id: program.id,
+      label: program.name,
+      starts_at: null,
+    })),
   };
+}
+
+/**
+ * How many social posts are linked to a program, for its details (#1838).
+ * Null when this reader cannot see social posts, or the count failed -- the
+ * details then leave the posts out rather than show a wrong zero.
+ */
+export async function countProgramPiecesAction(
+  programId: string,
+): Promise<number | null> {
+  const supabase = await createSupabaseServerClient();
+  const permissionError = await checkPermission(
+    supabase,
+    "content_calendar",
+    "view",
+  );
+  if (permissionError) return null;
+
+  const { count, error } = await supabase
+    .from("content_opportunities")
+    .select("id", { count: "exact", head: true })
+    .eq("program_id", programId);
+  return error ? null : (count ?? 0);
 }

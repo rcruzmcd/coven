@@ -1994,6 +1994,7 @@ export type Database = {
           occurrence_date: string | null;
           owner_id: string | null;
           post_format: string | null;
+          program_id: string | null;
           publish_due_at: string | null;
           review_due_at: string | null;
           reviewer_id: string | null;
@@ -2021,6 +2022,7 @@ export type Database = {
           occurrence_date?: string | null;
           owner_id?: string | null;
           post_format?: string | null;
+          program_id?: string | null;
           publish_due_at?: string | null;
           review_due_at?: string | null;
           reviewer_id?: string | null;
@@ -2048,6 +2050,7 @@ export type Database = {
           occurrence_date?: string | null;
           owner_id?: string | null;
           post_format?: string | null;
+          program_id?: string | null;
           publish_due_at?: string | null;
           review_due_at?: string | null;
           reviewer_id?: string | null;
@@ -2087,6 +2090,13 @@ export type Database = {
             columns: ["tenant_id", "owner_id"];
             isOneToOne: false;
             referencedRelation: "people_with_roles";
+            referencedColumns: ["tenant_id", "id"];
+          },
+          {
+            foreignKeyName: "content_opportunities_program_id_fkey";
+            columns: ["tenant_id", "program_id"];
+            isOneToOne: false;
+            referencedRelation: "programs";
             referencedColumns: ["tenant_id", "id"];
           },
           {

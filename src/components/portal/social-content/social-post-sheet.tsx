@@ -105,14 +105,15 @@ const INTERNAL_NOTES_POLICY =
 const NONE = "none";
 
 /**
- * What a new post starts out with when it is added from somewhere: the item
- * or event it is added from is its Related to link, and a publish date to
+ * What a new post starts out with when it is added from somewhere: the item,
+ * event or program it is added from is its Related to link, and a publish date to
  * suggest (the item's or event's start). All optional -- a post added from
  * `/portal/social` starts related to nothing and unscheduled.
  */
 export type SocialPostDefaults = {
   calendarItemId?: string | null;
   eventId?: string | null;
+  programId?: string | null;
   publishDueAt?: string | null;
 };
 
@@ -148,13 +149,16 @@ function formStateFor(
       ? (piece.calendar_item_id ?? "")
       : (defaults.calendarItemId ?? ""),
     eventId: piece ? (piece.event_id ?? "") : (defaults.eventId ?? ""),
+    programId: piece ? (piece.program_id ?? "") : (defaults.programId ?? ""),
   };
 }
 
 type FormState = ReturnType<typeof formStateFor>;
 
 function optionLabel(option: SocialContentLinkOption) {
-  return `${option.label} · ${formatInstantDate(option.starts_at)}`;
+  return option.starts_at
+    ? `${option.label} · ${formatInstantDate(option.starts_at)}`
+    : option.label;
 }
 
 /** Loads what the Related to picker offers, once per opening of the sheet. */
@@ -463,6 +467,7 @@ function SocialPostSheetBody({
     formData.set("leadTimeDays", form.leadTimeDays);
     formData.set("calendarItemId", form.calendarItemId);
     formData.set("eventId", form.eventId);
+    formData.set("programId", form.programId);
     // Converted here, in the browser, so each due instant is fixed using the
     // user's own timezone rather than the server's.
     for (const key of ["publishDueAt", "reviewDueAt", "draftDueAt"] as const) {
@@ -516,6 +521,11 @@ function SocialPostSheetBody({
     linkOptions?.calendarItems,
     piece?.calendar_item_id ?? null,
     "A community date",
+  );
+  const relatedProgram = linkedLabel(
+    linkOptions?.programs,
+    piece?.program_id ?? null,
+    "A program",
   );
 
   return (
@@ -587,8 +597,9 @@ function SocialPostSheetBody({
               </ReadOnlyField>
             )}
             <ReadOnlyField label="Related to" htmlFor="piece-view-related">
-              {[relatedEvent, relatedItem].filter(Boolean).join("; ") ||
-                "Nothing"}
+              {[relatedEvent, relatedItem, relatedProgram]
+                .filter(Boolean)
+                .join("; ") || "Nothing"}
             </ReadOnlyField>
             <Field orientation="responsive">
               <ReadOnlyField label="Owner" htmlFor="piece-view-owner">
@@ -688,9 +699,16 @@ function SocialPostSheetBody({
                   value={form.calendarItemId}
                   onChange={(next) => update("calendarItemId", next)}
                 />
-                <FieldDescription>
-                  An event, a community date, both, or neither.
-                </FieldDescription>
+                <RelatedToSelect
+                  id="piece-programId"
+                  label="Program"
+                  noneLabel="No program"
+                  unknownLabel="A program"
+                  options={linkOptions?.programs}
+                  value={form.programId}
+                  onChange={(next) => update("programId", next)}
+                />
+                <FieldDescription>Any of these, or none.</FieldDescription>
               </fieldset>
 
               <fieldset className="flex min-w-0 flex-col gap-4">
