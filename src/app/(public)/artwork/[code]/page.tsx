@@ -1,3 +1,4 @@
+import { MarkdownText } from "@/components/portal/markdown-text";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -105,9 +106,9 @@ export default async function ArtworkSubmissionPage({
       {eventLine && <p className="app-muted mt-4">{eventLine}</p>}
 
       {call.intro && (
-        <div className="mt-6 whitespace-pre-line text-base leading-relaxed">
+        <MarkdownText className="mt-6 text-base leading-relaxed">
           {call.intro}
-        </div>
+        </MarkdownText>
       )}
 
       <div className="mt-8">
