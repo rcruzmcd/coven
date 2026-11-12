@@ -1,37 +1,9 @@
-import {
-  afterEach,
-  beforeAll,
-  expect,
-  mock,
-  setDefaultTimeout,
-} from "bun:test";
-import { readFileSync } from "node:fs";
+import { afterEach, expect, mock, setDefaultTimeout } from "bun:test";
 import { cleanup } from "@testing-library/react";
 import * as matchers from "@testing-library/jest-dom/matchers";
 
 expect.extend(matchers);
 afterEach(cleanup);
-
-// A CI unit shard runs ~130 files in one process. Even under `--isolate` the
-// previous files' React trees and happy-dom windows are only garbage until the
-// collector gets to them, and on the runner it did not keep up: the shard sat
-// at 2.4 GB resident by the time profile-questions-editor.dom.test.tsx started,
-// and its reorder test is where the process ran out and aborted with SIGABRT
-// on every run (#1786). A full, synchronous collection before each file hands
-// that memory back before the next file starts building its own.
-beforeAll(() => {
-  Bun.gc(true);
-  // TEMP (#1786): resident size per file, read from /proc so measuring it
-  // does not itself touch the JS heap. Removed once CI confirms the fix.
-  if (process.env.CI) {
-    try {
-      const rss = /VmRSS:\s+(\d+)/.exec(
-        readFileSync("/proc/self/status", "utf8"),
-      )?.[1];
-      console.error(`[1786] rss=${Math.round(Number(rss) / 1024)}MB`);
-    } catch {}
-  }
-});
 
 // Bun's 5s default is sized for pure-logic tests. A DOM test that renders a
 // React tree, drives it through userEvent and then polls with waitFor runs
