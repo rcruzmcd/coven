@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { Download, Eye, EyeOff, ImageOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { PaginationNav, RowsPerPageSelect } from "@/components/ui/pagination";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "@/components/ui/toast";
 import { ConfirmDeleteButton } from "@/components/portal/confirm-delete-button";
@@ -17,6 +18,12 @@ import {
   MediaVisibilityBadge,
   MediaVisibilityToggle,
 } from "./media-visibility";
+
+/**
+ * Photos per page: rows of the 2/3/4-column grid. The first is the default, and
+ * the pager shows only past it.
+ */
+export const PHOTOS_PER_PAGE_OPTIONS = [24, 48, 96] as const;
 
 const MediaLightbox = dynamic(
   () => import("@/components/event-media/media-lightbox"),
@@ -53,6 +60,14 @@ export function MediaPhotoGrid({
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const [openIndex, setOpenIndex] = useState<number | null>(null);
   const [progress, setProgress] = useState<string | null>(null);
+  const [perPage, setPerPage] = useState<number>(PHOTOS_PER_PAGE_OPTIONS[0]);
+  const [requestedPage, setPage] = useState(1);
+  // Clamped rather than reset, so a delete on the last page lands on the one
+  // before it and an upload doesn't throw the reader back to page one.
+  const totalPages = Math.max(1, Math.ceil(photos.length / perPage));
+  const page = Math.min(requestedPage, totalPages);
+  const pagePhotos = photos.slice((page - 1) * perPage, page * perPage);
+  const showPager = photos.length > PHOTOS_PER_PAGE_OPTIONS[0];
 
   // Only photos that signed can be shown, opened or zipped.
   const viewable = useMemo(
@@ -166,7 +181,7 @@ export function MediaPhotoGrid({
       </div>
 
       <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-        {photos.map((photo) => {
+        {pagePhotos.map((photo) => {
           const index = viewable.findIndex((p) => p.id === photo.id);
           return (
             <li
@@ -235,6 +250,27 @@ export function MediaPhotoGrid({
         })}
       </ul>
 
+      {showPager && (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <RowsPerPageSelect
+            label="Photos per page"
+            value={perPage}
+            options={PHOTOS_PER_PAGE_OPTIONS}
+            onChange={(next) => {
+              setPerPage(next);
+              setPage(1);
+            }}
+          />
+          <PaginationNav
+            page={page}
+            totalPages={totalPages}
+            count={photos.length}
+            pageSize={perPage}
+            onPageChange={setPage}
+          />
+        </div>
+      )}
+
       {openIndex !== null && viewable[openIndex] && (
         <MediaLightbox
           photos={viewable.map((photo) => ({
@@ -245,7 +281,12 @@ export function MediaPhotoGrid({
               : null,
           }))}
           index={openIndex}
-          onIndexChange={setOpenIndex}
+          onIndexChange={(next) => {
+            setOpenIndex(next);
+            // Keep the grid on the page of the photo the lightbox is showing.
+            const at = photos.findIndex((p) => p.id === viewable[next]?.id);
+            if (at >= 0) setPage(Math.floor(at / perPage) + 1);
+          }}
           onClose={() => setOpenIndex(null)}
         />
       )}

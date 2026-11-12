@@ -76,7 +76,7 @@ mock.module("@/lib/storage/google-drive", () => ({
 }));
 
 const { EventMediaUploader } = await import("./event-media-uploader");
-const { DRIVE_MEDIA_MAX_BYTES } =
+const { CLEAR_DONE_DELAY_MS, DRIVE_MEDIA_MAX_BYTES } =
   await import("@/components/event-media/media-uploader");
 
 function pick(files: File[]) {
@@ -198,6 +198,41 @@ describe("EventMediaUploader", () => {
       screen.queryByRole("button", { name: "Retry notes.pdf" }),
     ).toBeNull();
     expect(mintMock).not.toHaveBeenCalled();
+  });
+
+  test("a big batch folds into one summary line, and clears once it is all in", async () => {
+    render(<EventMediaUploader eventId="event-1" />);
+    await pick(
+      ["a.jpg", "b.jpg", "c.jpg", "d.jpg"].map(
+        (name) => new File(["x"], name, { type: "image/jpeg" }),
+      ),
+    );
+    await screen.findByText("4 uploaded");
+    // Folded: the rows wait behind Show files.
+    expect(screen.queryByText("a.jpg")).toBeNull();
+    await userEvent.click(
+      screen.getByRole("button", { name: "Show files (4)" }),
+    );
+    expect(row("d.jpg").getAttribute("data-status")).toBe("done");
+    await waitFor(() => expect(screen.queryByText("4 uploaded")).toBeNull(), {
+      timeout: CLEAR_DONE_DELAY_MS + 1000,
+    });
+  });
+
+  test("a failure stays on screen when the batch is folded", async () => {
+    photoResult = { error: "b.jpg stopped uploading." };
+    render(<EventMediaUploader eventId="event-1" />);
+    await pick(
+      ["a.jpg", "b.jpg", "c.jpg", "d.jpg"].map(
+        (name) => new File(["x"], name, { type: "image/jpeg" }),
+      ),
+    );
+    await screen.findByText("0 uploaded, 4 failed");
+    expect(row("b.jpg").getAttribute("data-status")).toBe("failed");
+    await userEvent.click(
+      screen.getByRole("button", { name: "Clear finished" }),
+    );
+    expect(screen.queryByText("b.jpg")).toBeNull();
   });
 
   describe("from Google Drive (#1634)", () => {
