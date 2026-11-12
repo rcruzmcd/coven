@@ -277,6 +277,8 @@ describe("ProfileQuestionsEditor", () => {
     screen.getByRole("button", { name: /Home mountain/ }).focus();
     await user.keyboard("{Alt>}{ArrowDown}{/Alt}");
     expect(screen.getByText("1 unsaved change to the questions")).toBeVisible();
+    // Focus follows the moved row, so a second Alt+Arrow keeps moving it.
+    expect(screen.getByRole("button", { name: /Home mountain/ })).toHaveFocus();
 
     await user.click(screen.getByRole("button", { name: "Save questions" }));
     await waitFor(() => expect(saveMock).toHaveBeenCalledTimes(1));
