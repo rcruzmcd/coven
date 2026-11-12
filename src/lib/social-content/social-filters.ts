@@ -20,6 +20,15 @@ export const SOCIAL_LINKED_TO = [
 
 export type SocialLinkedTo = (typeof SOCIAL_LINKED_TO)[number]["value"];
 
+/** Whether a post repeats (#1839): part of a series, or a one-off. */
+export const SOCIAL_REPEATS = [
+  { value: "all", label: "Any" },
+  { value: "repeating", label: "Repeating posts" },
+  { value: "one_off", label: "One-off posts" },
+] as const;
+
+export type SocialRepeats = (typeof SOCIAL_REPEATS)[number]["value"];
+
 export type SocialFilters = {
   view: SocialView;
   /** `YYYY-MM`, the month the month view shows. */
@@ -33,6 +42,7 @@ export type SocialFilters = {
   linkedTo: SocialLinkedTo;
   /** One event's id, narrowing `linkedTo: event` to that event (#1795), or `all`. */
   event: string;
+  repeats: SocialRepeats;
   /** Draw events and community dates on the month view for context. */
   overlay: boolean;
 };
@@ -44,6 +54,7 @@ const UUID_PATTERN =
 const MONTH_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
 const STATUS_VALUES: readonly string[] = CONTENT_STATUSES.map((s) => s.value);
 const LINKED_VALUES: readonly string[] = SOCIAL_LINKED_TO.map((l) => l.value);
+const REPEATS_VALUES: readonly string[] = SOCIAL_REPEATS.map((r) => r.value);
 
 export function monthParam(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
@@ -88,6 +99,7 @@ export function parseSocialFilters(
   const status = first(params, "status");
   const linkedTo = first(params, "linked");
   const event = first(params, "event");
+  const repeats = first(params, "repeats");
 
   // A single event only makes sense under "linked to an event", so naming
   // one implies it.
@@ -106,6 +118,10 @@ export function parseSocialFilters(
           ? (linkedTo as SocialLinkedTo)
           : "all",
     event: eventId,
+    repeats:
+      repeats && REPEATS_VALUES.includes(repeats)
+        ? (repeats as SocialRepeats)
+        : "all",
     overlay: first(params, "overlay") === "1",
   };
 }
@@ -120,6 +136,7 @@ export function socialHref(filters: SocialFilters): string {
   if (filters.reviewer !== "all") sp.set("reviewer", filters.reviewer);
   if (filters.event !== "all") sp.set("event", filters.event);
   else if (filters.linkedTo !== "all") sp.set("linked", filters.linkedTo);
+  if (filters.repeats !== "all") sp.set("repeats", filters.repeats);
   if (filters.overlay) sp.set("overlay", "1");
   return `/portal/social?${sp.toString()}`;
 }
@@ -131,6 +148,7 @@ export function activeSocialFilterCount(filters: SocialFilters): number {
     filters.owner !== "all",
     filters.reviewer !== "all",
     filters.linkedTo !== "all" || filters.event !== "all",
+    filters.repeats !== "all",
   ].filter(Boolean).length;
 }
 

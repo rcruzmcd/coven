@@ -64,6 +64,10 @@
  * reason: the seed gives no post a tag or a file. Their access is asserted
  * directly in `src/lib/social-content/post-content-actions.integration.test.ts`.
  *
+ * `social_post_series` (#1839) is absent for the same reason: the seed makes
+ * no post repeat. Its access is asserted directly in
+ * `src/lib/social-content/series-actions.integration.test.ts`.
+ *
  * `event_access_grants` (#1686) is absent for the same reason: a grant exists
  * only once an administrator gives a guest access to an event, which the seed
  * never does. Its isolation -- a grant in another tenant reaching nothing --

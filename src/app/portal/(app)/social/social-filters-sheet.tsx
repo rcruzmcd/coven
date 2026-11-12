@@ -23,10 +23,12 @@ import {
 import { CONTENT_STATUSES } from "@/lib/social-content/pieces";
 import {
   SOCIAL_LINKED_TO,
+  SOCIAL_REPEATS,
   activeSocialFilterCount,
   socialHref,
   type SocialFilters,
   type SocialLinkedTo,
+  type SocialRepeats,
 } from "@/lib/social-content/social-filters";
 import type { SocialContentLinkOption } from "@/lib/social-content/piece-actions";
 import { formatInstantDate } from "@/lib/format";
@@ -76,8 +78,8 @@ function FilterSelect({
 }
 
 /**
- * Status, owner, reviewer and what a post is related to (#1794), down to one
- * event (#1795). Applying writes them to the URL, which is where the page
+ * Status, owner, reviewer, what a post is related to (#1794), down to one
+ * event (#1795), and whether it repeats (#1839). Applying writes them to the URL, which is where the page
  * reads them from, so they survive a reload.
  */
 export function SocialFiltersSheet({
@@ -190,6 +192,13 @@ export function SocialFiltersSheet({
               onChange={(value) => update("event", value)}
             />
           )}
+          <FilterSelect
+            id="social-filter-repeats"
+            label="Repeats"
+            value={draft.repeats}
+            options={[...SOCIAL_REPEATS]}
+            onChange={(value) => update("repeats", value as SocialRepeats)}
+          />
         </div>
 
         <SheetFooter className="flex-row justify-between">
@@ -204,6 +213,7 @@ export function SocialFiltersSheet({
                 reviewer: "all",
                 linkedTo: "all",
                 event: "all",
+                repeats: "all",
               })
             }
           >

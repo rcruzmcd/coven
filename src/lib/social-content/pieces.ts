@@ -133,6 +133,9 @@ export type ContentPieceRow = {
   draft_due_at: string | null;
   status_changed_by: string | null;
   status_changed_at: string | null;
+  /** The recurring series that made it (#1839), and which of its dates it fills. */
+  series_id: string | null;
+  occurrence_date: string | null;
 };
 
 /** Statuses a piece needs no more work in. */

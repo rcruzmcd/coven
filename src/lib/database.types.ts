@@ -1991,11 +1991,13 @@ export type Database = {
           id: string;
           internal_notes: string | null;
           lead_time_days: number;
+          occurrence_date: string | null;
           owner_id: string | null;
           post_format: string | null;
           publish_due_at: string | null;
           review_due_at: string | null;
           reviewer_id: string | null;
+          series_id: string | null;
           skip_reason: string | null;
           status_changed_at: string | null;
           status_changed_by: string | null;
@@ -2016,11 +2018,13 @@ export type Database = {
           id?: string;
           internal_notes?: string | null;
           lead_time_days?: number;
+          occurrence_date?: string | null;
           owner_id?: string | null;
           post_format?: string | null;
           publish_due_at?: string | null;
           review_due_at?: string | null;
           reviewer_id?: string | null;
+          series_id?: string | null;
           skip_reason?: string | null;
           status_changed_at?: string | null;
           status_changed_by?: string | null;
@@ -2041,11 +2045,13 @@ export type Database = {
           id?: string;
           internal_notes?: string | null;
           lead_time_days?: number;
+          occurrence_date?: string | null;
           owner_id?: string | null;
           post_format?: string | null;
           publish_due_at?: string | null;
           review_due_at?: string | null;
           reviewer_id?: string | null;
+          series_id?: string | null;
           skip_reason?: string | null;
           status_changed_at?: string | null;
           status_changed_by?: string | null;
@@ -2095,6 +2101,13 @@ export type Database = {
             columns: ["tenant_id", "reviewer_id"];
             isOneToOne: false;
             referencedRelation: "people_with_roles";
+            referencedColumns: ["tenant_id", "id"];
+          },
+          {
+            foreignKeyName: "content_opportunities_series_id_fkey";
+            columns: ["tenant_id", "series_id"];
+            isOneToOne: false;
+            referencedRelation: "social_post_series";
             referencedColumns: ["tenant_id", "id"];
           },
           {
@@ -10253,6 +10266,147 @@ export type Database = {
           },
         ];
       };
+      social_post_series: {
+        Row: {
+          anchor_date: string;
+          auto_approve: boolean;
+          cadence: string;
+          calendar_item_id: string | null;
+          collaborator_handles: string[];
+          content: string | null;
+          created_at: string;
+          created_by: string | null;
+          ended_at: string | null;
+          ends_on: string | null;
+          event_id: string | null;
+          id: string;
+          internal_notes: string | null;
+          lead_time_days: number;
+          owner_id: string | null;
+          paused_at: string | null;
+          post_format: string | null;
+          publish_time: string;
+          reviewer_id: string | null;
+          tags: Json;
+          tenant_id: string;
+          time_zone: string;
+          title: string;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: {
+          anchor_date: string;
+          auto_approve?: boolean;
+          cadence: string;
+          calendar_item_id?: string | null;
+          collaborator_handles?: string[];
+          content?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          ended_at?: string | null;
+          ends_on?: string | null;
+          event_id?: string | null;
+          id?: string;
+          internal_notes?: string | null;
+          lead_time_days: number;
+          owner_id?: string | null;
+          paused_at?: string | null;
+          post_format?: string | null;
+          publish_time: string;
+          reviewer_id?: string | null;
+          tags?: Json;
+          tenant_id?: string;
+          time_zone: string;
+          title: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          anchor_date?: string;
+          auto_approve?: boolean;
+          cadence?: string;
+          calendar_item_id?: string | null;
+          collaborator_handles?: string[];
+          content?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          ended_at?: string | null;
+          ends_on?: string | null;
+          event_id?: string | null;
+          id?: string;
+          internal_notes?: string | null;
+          lead_time_days?: number;
+          owner_id?: string | null;
+          paused_at?: string | null;
+          post_format?: string | null;
+          publish_time?: string;
+          reviewer_id?: string | null;
+          tags?: Json;
+          tenant_id?: string;
+          time_zone?: string;
+          title?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "social_post_series_calendar_item_id_fkey";
+            columns: ["tenant_id", "calendar_item_id"];
+            isOneToOne: false;
+            referencedRelation: "calendar_items";
+            referencedColumns: ["tenant_id", "id"];
+          },
+          {
+            foreignKeyName: "social_post_series_event_id_fkey";
+            columns: ["tenant_id", "event_id"];
+            isOneToOne: false;
+            referencedRelation: "events";
+            referencedColumns: ["tenant_id", "id"];
+          },
+          {
+            foreignKeyName: "social_post_series_owner_id_fkey";
+            columns: ["tenant_id", "owner_id"];
+            isOneToOne: false;
+            referencedRelation: "people";
+            referencedColumns: ["tenant_id", "id"];
+          },
+          {
+            foreignKeyName: "social_post_series_owner_id_fkey";
+            columns: ["tenant_id", "owner_id"];
+            isOneToOne: false;
+            referencedRelation: "people_with_roles";
+            referencedColumns: ["tenant_id", "id"];
+          },
+          {
+            foreignKeyName: "social_post_series_reviewer_id_fkey";
+            columns: ["tenant_id", "reviewer_id"];
+            isOneToOne: false;
+            referencedRelation: "people";
+            referencedColumns: ["tenant_id", "id"];
+          },
+          {
+            foreignKeyName: "social_post_series_reviewer_id_fkey";
+            columns: ["tenant_id", "reviewer_id"];
+            isOneToOne: false;
+            referencedRelation: "people_with_roles";
+            referencedColumns: ["tenant_id", "id"];
+          },
+          {
+            foreignKeyName: "social_post_series_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "public_tenant";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "social_post_series_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       social_post_tags: {
         Row: {
           content_opportunity_id: string;
@@ -12171,6 +12325,15 @@ export type Database = {
           p_prize_name: string;
           p_source_inventory_item_id?: string;
           p_source_monetary_donation_id?: string;
+        };
+        Returns: string;
+      };
+      create_social_post_series: {
+        Args: {
+          p_cadence: string;
+          p_ends_on?: string;
+          p_post_id: string;
+          p_time_zone: string;
         };
         Returns: string;
       };
@@ -14615,6 +14778,7 @@ export type Database = {
           preferred_name: string;
         }[];
       };
+      social_post_tags_json: { Args: { p_post_id: string }; Returns: Json };
       stamp_event_reminder: {
         Args: { p_registration_id: string };
         Returns: boolean;
@@ -14852,6 +15016,10 @@ export type Database = {
           p_source_inventory_item_id?: string;
           p_source_monetary_donation_id?: string;
         };
+        Returns: undefined;
+      };
+      update_social_post_series_template: {
+        Args: { p_post_id: string };
         Returns: undefined;
       };
       uploader_name: {
