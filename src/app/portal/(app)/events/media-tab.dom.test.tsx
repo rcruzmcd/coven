@@ -187,6 +187,41 @@ describe("MediaTab", () => {
     ).toBeNull();
   });
 
+  test("photos page past 24, and Select all still takes every page", async () => {
+    state = stateWith({
+      items: Array.from({ length: 30 }, (_, i) =>
+        item({ original_filename: `p${i + 1}.jpg` }),
+      ),
+    });
+    renderTab();
+    const section = (
+      await screen.findByRole("heading", { name: /Photos/ })
+    ).closest("section")!;
+    expect(within(section).getByText("(30)")).toBeTruthy();
+    expect(within(section).getByText("p24.jpg")).toBeTruthy();
+    expect(within(section).queryByText("p25.jpg")).toBeNull();
+
+    await userEvent.click(
+      within(section).getByRole("button", { name: "Next" }),
+    );
+    expect(within(section).getByText("p25.jpg")).toBeTruthy();
+    expect(within(section).queryByText("p1.jpg")).toBeNull();
+
+    await userEvent.click(
+      within(section).getByRole("button", { name: "Select all" }),
+    );
+    expect(
+      within(section).getByRole("button", { name: "Download selected (30)" }),
+    ).toBeTruthy();
+  });
+
+  test("a handful of photos shows no pager", async () => {
+    state = stateWith({ items: [item({ original_filename: "a.jpg" })] });
+    renderTab();
+    await screen.findByText("a.jpg");
+    expect(screen.queryByRole("button", { name: "Next" })).toBeNull();
+  });
+
   test("ticking photos turns Download all into Download selected", async () => {
     state = stateWith({
       items: [
