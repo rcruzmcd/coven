@@ -77,6 +77,10 @@ const EXEMPT: Record<string, string> = {
   "platform/tenant-modules-dialog.tsx":
     "Says what turning a module off does to somebody else's portal before " +
     "the operator does it. Toggles apply on click; there is no submit.",
+  "social/[pieceId]/social-post-featured-gear-card.tsx":
+    "Choose item (#1841): a search-and-pick list of Gear Library items. A " +
+    "row's click swaps the post's item at once; there is nothing to fill in " +
+    "and no submit.",
   "website/publish-changes-dialog.tsx":
     "The diff review before publishing. Each change is accepted or reverted " +
     "on its own, so a submit button would have nothing to mean.",

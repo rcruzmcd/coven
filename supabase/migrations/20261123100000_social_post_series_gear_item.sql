@@ -51,6 +51,11 @@ comment on column public.social_post_series.no_gear_occurrences is
 -- 2. What a post features
 -- ---------------------------------------------------------------------------
 
+-- Target for the composite foreign key below, so a post's photo stays in its
+-- tenant. id is already unique, so this is too.
+create unique index social_post_media_tenant_id_id_key
+  on public.social_post_media (tenant_id, id);
+
 alter table public.content_opportunities
   add column featured_inventory_item_id uuid,
   add column featured_media_id uuid,
@@ -59,9 +64,9 @@ alter table public.content_opportunities
     references public.inventory_items (tenant_id, id)
     on delete set null (featured_inventory_item_id),
   add constraint content_opportunities_featured_media_fkey
-    foreign key (featured_media_id)
-    references public.social_post_media (id)
-    on delete set null;
+    foreign key (tenant_id, featured_media_id)
+    references public.social_post_media (tenant_id, id)
+    on delete set null (featured_media_id);
 
 create index content_opportunities_featured_item_idx
   on public.content_opportunities (series_id, occurrence_date desc)

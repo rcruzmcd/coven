@@ -2093,10 +2093,10 @@ export type Database = {
           },
           {
             foreignKeyName: "content_opportunities_featured_media_fkey";
-            columns: ["featured_media_id"];
+            columns: ["tenant_id", "featured_media_id"];
             isOneToOne: false;
             referencedRelation: "social_post_media";
-            referencedColumns: ["id"];
+            referencedColumns: ["tenant_id", "id"];
           },
           {
             foreignKeyName: "content_opportunities_owner_id_fkey";
