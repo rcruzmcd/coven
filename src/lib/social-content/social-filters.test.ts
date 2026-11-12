@@ -28,6 +28,7 @@ describe("parseSocialFilters", () => {
       linkedTo: "all",
       event: "all",
       program: "all",
+      repeats: "all",
       overlay: false,
     });
   });
@@ -41,6 +42,7 @@ describe("parseSocialFilters", () => {
         owner: "not-a-uuid",
         linked: "elsewhere",
         event: "nope",
+        repeats: "sometimes",
       },
       NOW,
     );
@@ -51,6 +53,7 @@ describe("parseSocialFilters", () => {
       owner: "all",
       linkedTo: "all",
       event: "all",
+      repeats: "all",
     });
   });
 
@@ -103,10 +106,12 @@ describe("socialHref", () => {
         owner: PERSON_ID,
         reviewer: "none",
         event: EVENT_ID,
+        repeats: "repeating",
         overlay: "1",
       },
       NOW,
     );
+    expect(filters.repeats).toBe("repeating");
     expect(parseSocialFilters(paramsOf(socialHref(filters)), NOW)).toEqual(
       filters,
     );
@@ -142,9 +147,12 @@ test("activeSocialFilterCount counts the narrowing filters, not view or overlay"
   ).toBe(0);
   expect(
     activeSocialFilterCount(
-      parseSocialFilters({ status: "draft", event: EVENT_ID }, NOW),
+      parseSocialFilters(
+        { status: "draft", event: EVENT_ID, repeats: "one_off" },
+        NOW,
+      ),
     ),
-  ).toBe(2);
+  ).toBe(3);
 });
 
 describe("the default month", () => {

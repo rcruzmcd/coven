@@ -8,6 +8,7 @@ import {
 } from "./event-plan";
 import type { SocialFilters } from "./social-filters";
 import { fetchAllPages } from "@/lib/supabase/fetch-all-pages";
+import { SERIES_COLUMNS, type SocialPostSeriesRow } from "./series";
 
 /**
  * A social post with the names of what it is related to, for `/portal/social`
@@ -19,14 +20,16 @@ export type SocialPieceRow = ContentPieceRow & {
   event: { id: string; name: string; starts_at: string } | null;
   program: { id: string; name: string } | null;
   calendar_item: { id: string; title: string; starts_at: string } | null;
+  /** The recurring series it belongs to (#1839), or null. */
+  series: SocialPostSeriesRow | null;
 };
 
 export const PIECE_COLUMNS =
-  "id, calendar_item_id, event_id, program_id, title, content, post_format, collaborator_handles, content_status, skip_reason, internal_notes, owner_id, reviewer_id, lead_time_days, publish_due_at, review_due_at, draft_due_at, status_changed_by, status_changed_at";
+  "id, calendar_item_id, event_id, program_id, title, content, post_format, collaborator_handles, content_status, skip_reason, internal_notes, owner_id, reviewer_id, lead_time_days, publish_due_at, review_due_at, draft_due_at, status_changed_by, status_changed_at, series_id, occurrence_date";
 
 // Named by constraint: the FKs are composite (tenant_id, ...) and `tenant_id`
 // alone also points at `tenants`, so an unnamed embed would be ambiguous.
-const SOCIAL_PIECE_SELECT = `${PIECE_COLUMNS}, event:events!content_opportunities_event_id_fkey(id, name, starts_at), calendar_item:calendar_items!content_opportunities_calendar_item_id_fkey(id, title, starts_at), program:programs!content_opportunities_program_id_fkey(id, name)`;
+const SOCIAL_PIECE_SELECT = `${PIECE_COLUMNS}, event:events!content_opportunities_event_id_fkey(id, name, starts_at), calendar_item:calendar_items!content_opportunities_calendar_item_id_fkey(id, title, starts_at), series:social_post_series!content_opportunities_series_id_fkey(${SERIES_COLUMNS}), program:programs!content_opportunities_program_id_fkey(id, name)`;
 
 /**
  * Every post the filters match, scheduled ones by publish date and the
@@ -73,6 +76,10 @@ export async function listSocialPieces(
         .is("event_id", null)
         .is("calendar_item_id", null)
         .is("program_id", null);
+
+    if (filters.repeats === "repeating")
+      query = query.not("series_id", "is", null);
+    else if (filters.repeats === "one_off") query = query.is("series_id", null);
 
     const result = await query;
     if (result.error) failed = true;

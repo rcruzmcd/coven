@@ -16,6 +16,7 @@ export const TABLE_LABELS: Record<string, string> = {
   content_opportunities: "Social posts",
   social_post_tags: "Social post tags",
   social_post_media: "Social post media",
+  social_post_series: "Recurring social posts",
   services: "Services",
   assets: "Assets",
   access_grants: "Access grants",

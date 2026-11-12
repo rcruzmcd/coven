@@ -22,6 +22,15 @@ export const SOCIAL_LINKED_TO = [
 
 export type SocialLinkedTo = (typeof SOCIAL_LINKED_TO)[number]["value"];
 
+/** Whether a post repeats (#1839): part of a series, or a one-off. */
+export const SOCIAL_REPEATS = [
+  { value: "all", label: "Any" },
+  { value: "repeating", label: "Repeating posts" },
+  { value: "one_off", label: "One-off posts" },
+] as const;
+
+export type SocialRepeats = (typeof SOCIAL_REPEATS)[number]["value"];
+
 export type SocialFilters = {
   view: SocialView;
   /** `YYYY-MM`, the month the month view shows. */
@@ -37,6 +46,7 @@ export type SocialFilters = {
   event: string;
   /** One program's id, narrowing `linkedTo: program` to that program (#1838), or `all`. */
   program: string;
+  repeats: SocialRepeats;
   /** Draw events and community dates on the month view for context. */
   overlay: boolean;
 };
@@ -48,6 +58,7 @@ const UUID_PATTERN =
 const MONTH_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
 const STATUS_VALUES: readonly string[] = CONTENT_STATUSES.map((s) => s.value);
 const LINKED_VALUES: readonly string[] = SOCIAL_LINKED_TO.map((l) => l.value);
+const REPEATS_VALUES: readonly string[] = SOCIAL_REPEATS.map((r) => r.value);
 
 export function monthParam(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
@@ -93,6 +104,7 @@ export function parseSocialFilters(
   const linkedTo = first(params, "linked");
   const event = first(params, "event");
   const program = first(params, "program");
+  const repeats = first(params, "repeats");
 
   // A single event only makes sense under "linked to an event", so naming
   // one implies it; likewise a program. The event wins if a link names both.
@@ -118,6 +130,10 @@ export function parseSocialFilters(
             : "all",
     event: eventId,
     program: programId,
+    repeats:
+      repeats && REPEATS_VALUES.includes(repeats)
+        ? (repeats as SocialRepeats)
+        : "all",
     overlay: first(params, "overlay") === "1",
   };
 }
@@ -133,6 +149,7 @@ export function socialHref(filters: SocialFilters): string {
   if (filters.event !== "all") sp.set("event", filters.event);
   else if (filters.program !== "all") sp.set("program", filters.program);
   else if (filters.linkedTo !== "all") sp.set("linked", filters.linkedTo);
+  if (filters.repeats !== "all") sp.set("repeats", filters.repeats);
   if (filters.overlay) sp.set("overlay", "1");
   return `/portal/social?${sp.toString()}`;
 }
@@ -146,6 +163,7 @@ export function activeSocialFilterCount(filters: SocialFilters): number {
     filters.linkedTo !== "all" ||
       filters.event !== "all" ||
       filters.program !== "all",
+    filters.repeats !== "all",
   ].filter(Boolean).length;
 }
 
