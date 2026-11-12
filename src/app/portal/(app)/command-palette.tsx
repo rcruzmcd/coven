@@ -221,6 +221,10 @@ export function CommandPalette({
     function onKeyDown(event: KeyboardEvent) {
       if (event.key.toLowerCase() !== "k") return;
       if (!event.metaKey && !event.ctrlKey) return;
+      // A field that claimed the shortcut keeps it: in a MarkdownTextarea
+      // Cmd/Ctrl+K inserts a link (#1872). React handles the key at the root,
+      // before it bubbles to this window listener.
+      if (event.defaultPrevented) return;
       event.preventDefault();
       setOpen((prev) => !prev);
     }
