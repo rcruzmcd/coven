@@ -19,6 +19,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { keepFocusOnRemoval } from "@/lib/focus-on-removal";
 
 /**
  * The row-level delete affordance, with the confirmation step that fourteen
@@ -64,6 +65,10 @@ export function ConfirmDeleteButton({
               size="icon-sm"
               aria-label={label}
               disabled={disabled || pending}
+              // Pending keeps it focusable, and the row it deletes takes it
+              // away on success: focus moves on to the next row (#1862).
+              focusableWhenDisabled
+              ref={keepFocusOnRemoval}
               onClick={() => setOpen(true)}
             />
           }

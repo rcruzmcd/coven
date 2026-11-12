@@ -53,6 +53,7 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { EmptyState } from "@/components/portal/empty-state";
 import { runAction } from "@/components/portal/action-toast";
+import { keepFocusOnRemoval } from "@/lib/focus-on-removal";
 
 const STATUS_BADGE_VARIANT = {
   Expired: "outline",
@@ -218,6 +219,7 @@ export function PendingAccessSection({
                 variant="secondary"
                 disabled={isPending}
                 focusableWhenDisabled
+                ref={keepFocusOnRemoval}
                 onClick={() => setRevokeTarget(grant)}
               >
                 Revoke

@@ -66,6 +66,7 @@ import {
 } from "./actions";
 import { CopyTagUrlButton } from "./copy-tag-url-button";
 import type { CodeRow } from "./codes-table";
+import { keepFocusOnRemoval } from "@/lib/focus-on-removal";
 
 /** A code we print and write: not an NFC serial, and not retired. */
 export function isLabelCode(row: CodeRow): boolean {
@@ -212,6 +213,7 @@ export function CodeActions({
                 aria-label={`More actions for ${row.value}`}
                 disabled={isPending}
                 focusableWhenDisabled
+                ref={keepFocusOnRemoval}
               />
             }
           >

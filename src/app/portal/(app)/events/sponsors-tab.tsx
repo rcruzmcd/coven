@@ -57,6 +57,7 @@ import { formatCurrency, personDisplayName } from "@/lib/format";
 import { INTENDED_USES } from "@/lib/inventory";
 import { EmptyState } from "@/components/portal/empty-state";
 import { runAction } from "@/components/portal/action-toast";
+import { keepFocusOnRemoval } from "@/lib/focus-on-removal";
 
 const SUPPORT_TYPES = [
   { value: "cash", label: "Cash" },
@@ -359,6 +360,7 @@ export function SponsorForm({
               {itemRows.rows.map((row, index) => (
                 <div
                   key={row.id}
+                  data-row=""
                   className="flex flex-col gap-2 rounded-md border border-[var(--line)] p-3 sm:flex-row sm:items-end"
                 >
                   <Field className="sm:flex-2">
@@ -445,6 +447,10 @@ export function SponsorForm({
                           disabled={
                             itemRows.rows.length === 1 || row.value.allocated
                           }
+                          // Stays focusable when it becomes the last row's, so
+                          // removing the row above can hand focus to it.
+                          focusableWhenDisabled
+                          ref={keepFocusOnRemoval}
                           onClick={() => itemRows.remove(row.id)}
                         />
                       }

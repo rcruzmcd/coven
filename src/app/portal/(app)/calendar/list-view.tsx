@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { ArrowDown, ArrowUp, ArrowUpDown, Eye } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import {
@@ -37,6 +37,7 @@ import {
 import { ContentPiecesBadge } from "@/components/portal/social-content/content-status-badge";
 import type { CalendarEntry } from "./calendar-entries";
 import { formatDateTime } from "@/lib/format";
+import { useFocusWhenClosed } from "@/hooks/use-focus-when-closed";
 
 export type ListSortColumn = "title" | "starts_at" | "calendar_status";
 
@@ -88,6 +89,13 @@ export function ListView({
     visibleSelectedIds.length === selectableIds.length;
   const someSelected = visibleSelectedIds.length > 0 && !allSelected;
 
+  // Apply and Clear selection both empty the selection, which takes the
+  // toolbar -- and the button just pressed -- away. Focus goes back to
+  // Select all rather than falling to <body> (#1863).
+  const toolbarOpen = canManage && visibleSelectedIds.length > 0;
+  const selectAllRef = useRef<HTMLButtonElement>(null);
+  useFocusWhenClosed(toolbarOpen, selectAllRef);
+
   function toggleAll(checked: boolean) {
     setSelectedIds(checked ? new Set(selectableIds) : new Set());
   }
@@ -104,7 +112,7 @@ export function ListView({
   return (
     <Card className="mt-6">
       <CardContent className="px-0">
-        {canManage && visibleSelectedIds.length > 0 && (
+        {toolbarOpen && (
           <BulkActionsToolbar
             selectedIds={visibleSelectedIds}
             onDone={() => setSelectedIds(new Set())}
@@ -125,6 +133,7 @@ export function ListView({
                       indeterminate={someSelected}
                       onCheckedChange={(checked) => toggleAll(checked)}
                       aria-label="Select all"
+                      ref={selectAllRef}
                     />
                   </TableHead>
                 )}

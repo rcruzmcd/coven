@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState, useTransition } from "react";
+import { FormEvent, useCallback, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   setGearRequestStatusAction,
@@ -13,6 +13,8 @@ import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { runAction } from "@/components/portal/action-toast";
 import type { GearRequestStatus } from "@/lib/gear-requests";
+import { keepFocusOnRemoval } from "@/lib/focus-on-removal";
+import { useFocusWhenClosed } from "@/hooks/use-focus-when-closed";
 
 /**
  * The next thing staff can do with an open request (#1032). For shipping
@@ -39,6 +41,21 @@ export function GearRequestStatusActions({
   const [isPending, startTransition] = useTransition();
 
   const shipping = deliveryMethod === "shipping";
+
+  // Every button here gives way to another once it is pressed, and focus
+  // would fall to <body> (#1863). Cancel request and Keep swap with each
+  // other; the step buttons go to whatever this group offers next, or to the
+  // request's heading once a closing step takes the panel away.
+  const keepRef = useRef<HTMLButtonElement>(null);
+  const cancelRequestRef = useRef<HTMLButtonElement>(null);
+  useFocusWhenClosed(!confirmingCancel, keepRef);
+  useFocusWhenClosed(confirmingCancel, cancelRequestRef);
+  // A confirmed cancel brings this button back for a moment before the
+  // refresh takes the whole panel away, so it needs the removal hand-off too.
+  const cancelRequestRefs = useCallback((element: HTMLButtonElement | null) => {
+    cancelRequestRef.current = element;
+    return keepFocusOnRemoval(element);
+  }, []);
 
   function move(
     next: GearRequestStatus,
@@ -114,7 +131,7 @@ export function GearRequestStatusActions({
           <div />
         )}
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div data-row="" className="flex flex-wrap items-center gap-2">
           {isPending ? <Spinner className="size-4" /> : null}
           {shipping && status === "quoted" && (
             <Button
@@ -122,6 +139,7 @@ export function GearRequestStatusActions({
               variant="secondary"
               disabled={isPending}
               focusableWhenDisabled
+              ref={keepFocusOnRemoval}
               onClick={() => move("paid", null, "Postage marked as paid.")}
             >
               Mark paid
@@ -132,6 +150,7 @@ export function GearRequestStatusActions({
               type="button"
               disabled={isPending}
               focusableWhenDisabled
+              ref={keepFocusOnRemoval}
               onClick={() =>
                 move("fulfilled", null, "Request fulfilled; items distributed.")
               }
@@ -145,6 +164,7 @@ export function GearRequestStatusActions({
               variant="ghost"
               disabled={isPending}
               focusableWhenDisabled
+              ref={keepFocusOnRemoval}
               onClick={() =>
                 move(
                   "fulfilled",
@@ -169,6 +189,7 @@ export function GearRequestStatusActions({
                 size="sm"
                 disabled={isPending}
                 focusableWhenDisabled
+                ref={keepFocusOnRemoval}
                 onClick={() =>
                   move("cancelled", null, "Request cancelled; items released.")
                 }
@@ -181,6 +202,7 @@ export function GearRequestStatusActions({
                 size="sm"
                 disabled={isPending}
                 focusableWhenDisabled
+                ref={keepRef}
                 onClick={() => setConfirmingCancel(false)}
               >
                 Keep
@@ -192,6 +214,7 @@ export function GearRequestStatusActions({
               variant="ghost"
               disabled={isPending}
               focusableWhenDisabled
+              ref={cancelRequestRefs}
               onClick={() => setConfirmingCancel(true)}
             >
               Cancel request

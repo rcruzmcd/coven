@@ -3,9 +3,11 @@
 // bulk actions, which only ever write `calendar_items`.
 import { describe, expect, test } from "bun:test";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { ListView } from "./list-view";
 import { calendarItemEntry, eventEntry } from "./calendar-entries";
 import type { CalendarItemRow } from "./calendar-shared";
+import { focusedName } from "../../../../../test/focused";
 
 function item(overrides: Partial<CalendarItemRow> = {}): CalendarItemRow {
   return {
@@ -97,5 +99,21 @@ describe("ListView with event entries", () => {
     expect(
       screen.getByLabelText("Select Trans Day of Visibility"),
     ).toBeDefined();
+  });
+});
+
+// Clear selection and a successful Apply both empty the selection, which
+// takes the toolbar and the button just pressed away (#1863). Focus goes
+// back to Select all instead of falling to <body>.
+describe("ListView bulk toolbar focus", () => {
+  test("Clear selection hands focus to Select all", async () => {
+    const user = userEvent.setup();
+    renderList();
+    await user.click(screen.getByRole("checkbox", { name: "Select all" }));
+    await user.click(screen.getByRole("button", { name: "Clear selection" }));
+    expect(
+      screen.queryByRole("button", { name: "Clear selection" }),
+    ).toBeNull();
+    expect(focusedName()).toBe("Select all");
   });
 });

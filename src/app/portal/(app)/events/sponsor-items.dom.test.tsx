@@ -13,6 +13,7 @@ import {
 import userEvent from "@testing-library/user-event";
 import * as SponsorsActions from "./sponsors-actions";
 import type { EventSponsor } from "./sponsors-actions";
+import { focusedName } from "../../../../../test/focused";
 
 type ActionResult = { error: string } | { success: true };
 
@@ -128,6 +129,9 @@ describe("SponsorForm in-kind items", () => {
       expect(screen.queryAllByLabelText(/^Item \d+$/)).toHaveLength(1),
     );
     expect(screen.getByLabelText("Item 1")).toHaveValue("Goggles");
+    // The removed row took the button that had focus; the remaining row's
+    // Remove takes it instead of <body> (#1862).
+    await waitFor(() => expect(focusedName()).toBe("Remove item 1"));
 
     submitForm();
     const { items } = await submitted();
@@ -137,9 +141,10 @@ describe("SponsorForm in-kind items", () => {
 
   test("the only row cannot be removed, so there is always somewhere to type", () => {
     renderForm();
+    // Disabled but still focusable (#1862), so aria-disabled, not `disabled`.
     expect(
       screen.getByRole("button", { name: "Remove item 1" }),
-    ).toBeDisabled();
+    ).toHaveAttribute("aria-disabled", "true");
   });
 
   test("an item a giveaway prize claims cannot be removed", () => {
@@ -163,12 +168,15 @@ describe("SponsorForm in-kind items", () => {
       ],
     });
 
+    // Disabled but still focusable (#1862), so aria-disabled, not `disabled`.
     expect(
       screen.getByRole("button", { name: "Remove item 1" }),
-    ).toBeDisabled();
+    ).toHaveAttribute("aria-disabled", "true");
     expect(
-      screen.getByRole("button", { name: "Remove item 2" }),
-    ).not.toBeDisabled();
+      screen
+        .getByRole("button", { name: "Remove item 2" })
+        .getAttribute("aria-disabled"),
+    ).not.toBe("true");
   });
 
   test("a blank contribution value falls back to the items total", async () => {

@@ -130,6 +130,7 @@ export function BulkActionsToolbar({
           type="button"
           size="sm"
           disabled={!value || isPending}
+          focusableWhenDisabled
           onClick={handleApply}
         >
           {isPending ? (

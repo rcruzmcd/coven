@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Check, Pencil, X } from "lucide-react";
@@ -38,6 +38,7 @@ import {
   type RoleLabels,
 } from "@/lib/format";
 import type { PersonAccount, LinkableAccount } from "./person-account";
+import { useFocusWhenClosed } from "@/hooks/use-focus-when-closed";
 
 /**
  * The account behind a directory record, and the two very different things that
@@ -311,6 +312,10 @@ function NotificationEmailRow({
   const [draft, setDraft] = useState(value ?? "");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  // Save, Cancel and Escape all unmount the control that had focus; the
+  // pencil that opened the editor takes it back (#1863).
+  const editRef = useRef<HTMLButtonElement>(null);
+  useFocusWhenClosed(isEditing, editRef);
 
   function start() {
     setDraft(value ?? "");
@@ -425,6 +430,7 @@ function NotificationEmailRow({
                       disabled={isPending}
                       focusableWhenDisabled
                       aria-label="Edit notification email"
+                      ref={editRef}
                       onClick={start}
                     />
                   }
