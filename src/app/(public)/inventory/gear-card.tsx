@@ -32,14 +32,13 @@ export function GearCard({
       <button
         type="button"
         onClick={onSelect}
-        aria-label={`View details for ${item.description}`}
         className="flex w-full cursor-pointer flex-col text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset"
       >
-        <div className="relative aspect-square w-full bg-muted">
+        <div aria-hidden className="relative aspect-square w-full bg-muted">
           {imageUrl ? (
             <Image
               src={imageUrl}
-              alt={item.description}
+              alt=""
               fill
               sizes="(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw"
               className="object-cover"
@@ -49,7 +48,14 @@ export function GearCard({
           )}
         </div>
         <CardContent className="space-y-1.5 px-4 py-3">
-          <p className="line-clamp-2 text-sm font-medium">{item.description}</p>
+          {/* Named by its content rather than an aria-label, which left out
+              the visible text a voice-control user would say (axe
+              label-content-name-mismatch, #1845). The photo area is
+              decoration, so it stays out of the name. */}
+          <p className="line-clamp-2 text-sm font-medium">
+            <span className="sr-only">View details for </span>
+            {item.description}
+          </p>
           <p className="app-muted text-xs">
             {[categoryLabelFor(item), item.size, genderLabel]
               .filter(Boolean)
