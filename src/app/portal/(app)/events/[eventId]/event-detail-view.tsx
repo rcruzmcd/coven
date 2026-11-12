@@ -1,7 +1,8 @@
 "use client";
 
+import { CardEditButton } from "@/components/portal/card-edit-button";
 import { useMemo, useState } from "react";
-import { Eye, Pencil } from "lucide-react";
+import { Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -12,11 +13,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+
 import type { Program } from "../../programs/actions";
 import type { EventRow } from "../event-badges";
 import { StatusBadge, VisibilityBadge } from "../event-badges";
@@ -129,25 +126,12 @@ function EditableTabCard({
         <CardTitle className="app-muted text-sm font-semibold">
           {title}
         </CardTitle>
-        {canEdit && mode === "view" && (
-          <CardAction>
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label={`Edit ${title.toLowerCase()}`}
-                    onClick={() => setMode("edit")}
-                  />
-                }
-              >
-                <Pencil />
-              </TooltipTrigger>
-              <TooltipContent>{`Edit ${title.toLowerCase()}`}</TooltipContent>
-            </Tooltip>
-          </CardAction>
+        {canEdit && (
+          <CardEditButton
+            label={`Edit ${title.toLowerCase()}`}
+            editing={mode !== "view"}
+            onEdit={() => setMode("edit")}
+          />
         )}
       </CardHeader>
       <CardContent>{entry.render(ctx)}</CardContent>

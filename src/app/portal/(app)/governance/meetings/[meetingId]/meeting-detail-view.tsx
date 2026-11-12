@@ -1,8 +1,9 @@
 "use client";
 
+import { CardEditButton } from "@/components/portal/card-edit-button";
 import { ReactNode, useEffect, useRef, useState } from "react";
 import { useUrlTabState } from "@/components/portal/use-url-tab-state";
-import { Pencil } from "lucide-react";
+
 import type { MeetingRow } from "../meeting-badges";
 import { MeetingStatusBadge, MeetingTypeBadge } from "../meeting-badges";
 import { AttendeesTab } from "../attendees-tab";
@@ -22,20 +23,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+
 import { formatDateTime } from "@/lib/format";
 
 type TabValue = "overview" | "agenda" | "minutes";
@@ -104,25 +95,12 @@ function AgendaCard({
         <CardTitle className="app-muted text-sm font-semibold">
           Agenda
         </CardTitle>
-        {canManage && mode === "view" && !readOnly && (
-          <CardAction>
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label="Edit agenda"
-                    onClick={() => onModeChange("edit")}
-                  />
-                }
-              >
-                <Pencil />
-              </TooltipTrigger>
-              <TooltipContent>Edit agenda</TooltipContent>
-            </Tooltip>
-          </CardAction>
+        {canManage && !readOnly && (
+          <CardEditButton
+            label={"Edit agenda"}
+            editing={mode !== "view"}
+            onEdit={() => onModeChange("edit")}
+          />
         )}
       </CardHeader>
       <CardContent>

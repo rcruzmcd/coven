@@ -1,8 +1,9 @@
 "use client";
 
+import { CardEditButton } from "@/components/portal/card-edit-button";
 import { FormEvent, ReactNode, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Pencil } from "lucide-react";
+
 import { updateAssetAction } from "../../actions";
 import {
   packAssetFormData,
@@ -25,18 +26,8 @@ import type {
 } from "@/lib/portal/access-management/types";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -156,26 +147,7 @@ function EditableCard({
         <CardTitle className="app-muted text-sm font-semibold">
           {title}
         </CardTitle>
-        {!editing && (
-          <CardAction>
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label={editLabel}
-                    onClick={onEdit}
-                  />
-                }
-              >
-                <Pencil />
-              </TooltipTrigger>
-              <TooltipContent>{editLabel}</TooltipContent>
-            </Tooltip>
-          </CardAction>
-        )}
+        <CardEditButton label={editLabel} editing={editing} onEdit={onEdit} />
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         {error && (

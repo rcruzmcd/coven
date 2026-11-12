@@ -1,9 +1,10 @@
 "use client";
 
+import { CardEditButton } from "@/components/portal/card-edit-button";
 import { FormEvent, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Pencil } from "lucide-react";
+
 import {
   removePublicTeamMemberAction,
   savePublicTeamMemberAction,
@@ -20,14 +21,9 @@ import {
 import { parseImageCrop, withTypedSrc } from "@/lib/image-crop";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+
 import {
   Card,
-  CardAction,
   CardContent,
   CardFooter,
   CardHeader,
@@ -223,25 +219,12 @@ export function PublicTeamCard({
         <CardTitle className="app-muted text-sm font-semibold">
           Public team page
         </CardTitle>
-        {canManage && listed && mode === "view" && (
-          <CardAction>
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label="Edit team page listing"
-                    onClick={() => setMode("edit")}
-                  />
-                }
-              >
-                <Pencil />
-              </TooltipTrigger>
-              <TooltipContent>Edit team page listing</TooltipContent>
-            </Tooltip>
-          </CardAction>
+        {canManage && listed && (
+          <CardEditButton
+            label={"Edit team page listing"}
+            editing={mode !== "view"}
+            onEdit={() => setMode("edit")}
+          />
         )}
       </CardHeader>
       <CardContent>
