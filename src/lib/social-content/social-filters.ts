@@ -8,13 +8,15 @@ import { CONTENT_STATUSES } from "./pieces";
 export type SocialView = "month" | "list";
 
 /**
- * What a post is related to. `event` and `community_date` mean "has one"
- * (a post related to both matches either); `standalone` means neither.
+ * What a post is related to. `event`, `community_date` and `program` mean
+ * "has one" (a post related to several matches each); `standalone` means
+ * none of them.
  */
 export const SOCIAL_LINKED_TO = [
   { value: "all", label: "Anything" },
   { value: "event", label: "An event" },
   { value: "community_date", label: "A community date" },
+  { value: "program", label: "A program" },
   { value: "standalone", label: "Nothing (standalone)" },
 ] as const;
 
@@ -33,6 +35,8 @@ export type SocialFilters = {
   linkedTo: SocialLinkedTo;
   /** One event's id, narrowing `linkedTo: event` to that event (#1795), or `all`. */
   event: string;
+  /** One program's id, narrowing `linkedTo: program` to that program (#1838), or `all`. */
+  program: string;
   /** Draw events and community dates on the month view for context. */
   overlay: boolean;
 };
@@ -88,10 +92,15 @@ export function parseSocialFilters(
   const status = first(params, "status");
   const linkedTo = first(params, "linked");
   const event = first(params, "event");
+  const program = first(params, "program");
 
   // A single event only makes sense under "linked to an event", so naming
-  // one implies it.
+  // one implies it; likewise a program. The event wins if a link names both.
   const eventId = event && UUID_PATTERN.test(event) ? event : "all";
+  const programId =
+    eventId === "all" && program && UUID_PATTERN.test(program)
+      ? program
+      : "all";
 
   return {
     view,
@@ -102,10 +111,13 @@ export function parseSocialFilters(
     linkedTo:
       eventId !== "all"
         ? "event"
-        : linkedTo && LINKED_VALUES.includes(linkedTo)
-          ? (linkedTo as SocialLinkedTo)
-          : "all",
+        : programId !== "all"
+          ? "program"
+          : linkedTo && LINKED_VALUES.includes(linkedTo)
+            ? (linkedTo as SocialLinkedTo)
+            : "all",
     event: eventId,
+    program: programId,
     overlay: first(params, "overlay") === "1",
   };
 }
@@ -119,6 +131,7 @@ export function socialHref(filters: SocialFilters): string {
   if (filters.owner !== "all") sp.set("owner", filters.owner);
   if (filters.reviewer !== "all") sp.set("reviewer", filters.reviewer);
   if (filters.event !== "all") sp.set("event", filters.event);
+  else if (filters.program !== "all") sp.set("program", filters.program);
   else if (filters.linkedTo !== "all") sp.set("linked", filters.linkedTo);
   if (filters.overlay) sp.set("overlay", "1");
   return `/portal/social?${sp.toString()}`;
@@ -130,13 +143,20 @@ export function activeSocialFilterCount(filters: SocialFilters): number {
     filters.status !== "all",
     filters.owner !== "all",
     filters.reviewer !== "all",
-    filters.linkedTo !== "all" || filters.event !== "all",
+    filters.linkedTo !== "all" ||
+      filters.event !== "all" ||
+      filters.program !== "all",
   ].filter(Boolean).length;
 }
 
 /** Where a post on `/portal/social` opens. The one place this route is written. */
 export function socialPieceHref(id: string): string {
   return `/portal/social/${id}`;
+}
+
+/** The posts linked to one program (#1838). */
+export function programSocialHref(programId: string): string {
+  return `/portal/social?program=${programId}`;
 }
 
 /** An event's Social content section (#1795). */

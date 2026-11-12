@@ -25,6 +25,7 @@ function piece(overrides: Partial<ContentPieceRow> = {}): ContentPieceRow {
     id: "piece-1",
     calendar_item_id: null,
     event_id: "event-1",
+    program_id: null,
     title: "Save the date",
     content: null,
     post_format: null,

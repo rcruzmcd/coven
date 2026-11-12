@@ -22,7 +22,12 @@ export const ACTION_VALUES = ["insert", "update", "delete"] as const;
  * What a social post entry was related to (#1797). Any value but "all" also
  * narrows the log to social posts, the only table whose rows carry the links.
  */
-export const RELATED_VALUES = ["event", "calendar_item", "none"] as const;
+export const RELATED_VALUES = [
+  "event",
+  "calendar_item",
+  "program",
+  "none",
+] as const;
 
 export const SORTABLE_COLUMNS = [
   "occurred_at",

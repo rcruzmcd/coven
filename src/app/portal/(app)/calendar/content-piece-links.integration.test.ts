@@ -1,7 +1,8 @@
 // Integration test (#1792): a content piece stands on its own and can be
-// linked to a calendar item, an event, both or neither. Deleting the item or
-// event clears the link and keeps the piece, and the composite
-// (tenant_id, event_id) key refuses another tenant's event. Requires
+// linked to a calendar item, an event, both or neither -- and, since #1838, a
+// program. Deleting the item, event or program clears the link and keeps the
+// piece, and the composite (tenant_id, event_id) and (tenant_id, program_id)
+// keys refuse another tenant's event or program. Requires
 // `bun run db:start && bun run db:reset` first; run via
 // `bun run test:integration`. Not picked up by `bun run test`.
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
@@ -9,6 +10,7 @@ import {
   adminClient,
   createCalendarItem,
   createContentPiece,
+  createProgram,
   createPublishedEvent,
   serviceRoleClient,
 } from "../../../../../test/integration-setup";
@@ -84,6 +86,22 @@ describe("content piece links (integration)", () => {
     expect(await links(id)).toEqual({ calendar_item_id: null, event_id: null });
   });
 
+  test("deleting the program clears the link and keeps the piece (#1838)", async () => {
+    const program = await createProgram();
+    const created = await createContentPiece(null, { programId: program.id });
+    pieceIds.push(created.id);
+
+    await program.cleanup();
+
+    const { data, error } = await adminClient
+      .from("content_opportunities")
+      .select("program_id")
+      .eq("id", created.id)
+      .single();
+    expect(error).toBeNull();
+    expect(data).toEqual({ program_id: null });
+  });
+
   test("deleting the calendar item clears the link and keeps the piece", async () => {
     const item = await createCalendarItem();
     const id = await piece(item.id);
@@ -105,6 +123,7 @@ describe("content piece links (integration)", () => {
     const run = crypto.randomUUID().slice(0, 8);
     let tenantId: string;
     let otherEventId: string;
+    let otherProgramId: string;
 
     beforeAll(async () => {
       const { data: tenant, error } = await service
@@ -138,10 +157,23 @@ describe("content piece links (integration)", () => {
         .single();
       if (eventError) throw eventError;
       otherEventId = event.id as string;
+
+      const { data: program, error: programError } = await service
+        .from("programs")
+        .insert({
+          tenant_id: tenantId,
+          created_by: user!.id,
+          name: `Other tenant program ${run}`,
+        })
+        .select("id")
+        .single();
+      if (programError) throw programError;
+      otherProgramId = program.id as string;
     });
 
     afterAll(async () => {
       await service.from("events").delete().eq("id", otherEventId);
+      await service.from("programs").delete().eq("id", otherProgramId);
       // A new tenant is provisioned with retention policies of its own.
       await service
         .from("retention_policies")
@@ -167,6 +199,20 @@ describe("content piece links (integration)", () => {
         .eq("id", id);
       expect(updateError?.code).toBe("23503");
       expect((await links(id)).event_id).toBeNull();
+    });
+
+    test("another tenant's program is refused on insert and on update (#1838)", async () => {
+      const { error: insertError } = await adminClient
+        .from("content_opportunities")
+        .insert({ title: `Cross-tenant ${run}`, program_id: otherProgramId });
+      expect(insertError?.code).toBe("23503");
+
+      const id = await piece(null);
+      const { error: updateError } = await service
+        .from("content_opportunities")
+        .update({ program_id: otherProgramId })
+        .eq("id", id);
+      expect(updateError?.code).toBe("23503");
     });
   });
 });

@@ -41,9 +41,11 @@ export async function fetchAuditLogEntries(
         .is("old_data->>event_id", null)
         .is("new_data->>event_id", null)
         .is("old_data->>calendar_item_id", null)
-        .is("new_data->>calendar_item_id", null);
+        .is("new_data->>calendar_item_id", null)
+        .is("old_data->>program_id", null)
+        .is("new_data->>program_id", null);
     } else {
-      const key = filters.related === "event" ? "event_id" : "calendar_item_id";
+      const key = `${filters.related}_id`;
       query = query.or(
         `old_data->>${key}.not.is.null,new_data->>${key}.not.is.null`,
       );

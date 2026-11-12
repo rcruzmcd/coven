@@ -77,17 +77,19 @@ function FilterSelect({
 
 /**
  * Status, owner, reviewer and what a post is related to (#1794), down to one
- * event (#1795). Applying writes them to the URL, which is where the page
+ * event (#1795) or program (#1838). Applying writes them to the URL, which is where the page
  * reads them from, so they survive a reload.
  */
 export function SocialFiltersSheet({
   filters,
   owners,
   events,
+  programs,
 }: {
   filters: SocialFilters;
   owners: CalendarOwner[];
   events: SocialContentLinkOption[];
+  programs: SocialContentLinkOption[];
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -170,8 +172,9 @@ export function SocialFiltersSheet({
               setDraft((prev) => ({
                 ...prev,
                 linkedTo: value as SocialLinkedTo,
-                // One event only narrows "an event".
+                // One event only narrows "an event", one program "a program".
                 event: value === "event" ? prev.event : "all",
+                program: value === "program" ? prev.program : "all",
               }))
             }
           />
@@ -184,10 +187,27 @@ export function SocialFiltersSheet({
                 { value: "all", label: "Any event" },
                 ...events.map((event) => ({
                   value: event.id,
-                  label: `${event.label} · ${formatInstantDate(event.starts_at)}`,
+                  label: event.starts_at
+                    ? `${event.label} · ${formatInstantDate(event.starts_at)}`
+                    : event.label,
                 })),
               ]}
               onChange={(value) => update("event", value)}
+            />
+          )}
+          {draft.linkedTo === "program" && programs.length > 0 && (
+            <FilterSelect
+              id="social-filter-program"
+              label="Program"
+              value={draft.program}
+              options={[
+                { value: "all", label: "Any program" },
+                ...programs.map((program) => ({
+                  value: program.id,
+                  label: program.label,
+                })),
+              ]}
+              onChange={(value) => update("program", value)}
             />
           )}
         </div>
@@ -204,6 +224,7 @@ export function SocialFiltersSheet({
                 reviewer: "all",
                 linkedTo: "all",
                 event: "all",
+                program: "all",
               })
             }
           >

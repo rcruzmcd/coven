@@ -11,6 +11,7 @@ function piece(id: string): SocialPieceRow {
     id,
     calendar_item_id: null,
     event_id: null,
+    program_id: null,
     title: `Post ${id}`,
     content: null,
     post_format: null,
@@ -28,6 +29,7 @@ function piece(id: string): SocialPieceRow {
     status_changed_at: null,
     event: null,
     calendar_item: null,
+    program: null,
   };
 }
 

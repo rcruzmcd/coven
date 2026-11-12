@@ -142,11 +142,24 @@ describe("parseContentPieceForm", () => {
 describe("parseContentPieceForm: Related to (#1793)", () => {
   const ITEM = "11111111-1111-4111-8111-111111111111";
   const EVENT = "22222222-2222-4222-8222-222222222222";
+  const PROGRAM = "33333333-3333-4333-8333-333333333333";
 
   test("relates a piece to nothing by default", () => {
     const result = parseContentPieceForm(formData(validFields));
     expect("data" in result && result.data.calendarItemId).toBeNull();
     expect("data" in result && result.data.eventId).toBeNull();
+    expect("data" in result && result.data.programId).toBeNull();
+  });
+
+  test("relates a piece to a program alongside the other links (#1838)", () => {
+    const result = parseContentPieceForm(
+      formData({ ...validFields, eventId: EVENT, programId: PROGRAM }),
+    );
+    expect("data" in result && result.data.eventId).toBe(EVENT);
+    expect("data" in result && result.data.programId).toBe(PROGRAM);
+    expect(
+      parseContentPieceForm(formData({ ...validFields, programId: "nope" })),
+    ).toEqual({ error: "Select a valid program.", field: "programId" });
   });
 
   test("relates a piece to a community date, an event, or both", () => {
