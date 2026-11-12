@@ -153,12 +153,14 @@ test("checks in a registrant from the Happening Now quick action", async ({
       await sheet.getByRole("button", { name: "In 1" }).click();
       await expect(toggle).toHaveAttribute("aria-pressed", "true");
     } else {
-      // exact: true -- otherwise this also matches "+ Check in walk-in".
+      // Each row's toggle names its registrant (#663).
       await sheet
-        .getByRole("button", { name: "Check in", exact: true })
+        .getByRole("button", { name: `Check in ${fixture.registrantName}` })
         .click();
       await expect(
-        sheet.getByRole("button", { name: "Undo check-in" }),
+        sheet.getByRole("button", {
+          name: `Undo check-in for ${fixture.registrantName}`,
+        }),
       ).toBeVisible();
     }
   } finally {
@@ -202,9 +204,9 @@ test("deep-links from the awaiting check-in attention item to the event's Regist
     await expect(page.getByText(fixture.registrantName)).toBeVisible({
       timeout: 10000,
     });
-    // exact: true -- otherwise this also matches "+ Check in walk-in".
+    // Each row's toggle names its registrant (#663).
     await expect(
-      page.getByRole("button", { name: "Check in", exact: true }),
+      page.getByRole("button", { name: `Check in ${fixture.registrantName}` }),
     ).toBeVisible();
   } finally {
     await fixture.cleanup();

@@ -156,6 +156,8 @@ function StatTile({
       <dd className="flex flex-col gap-1">
         <span className="text-2xl font-semibold tabular-nums">
           {value}
+          {/* A real space: `ml-1` alone is read as "0of 120" (#663). */}
+          {of && " "}
           {of && (
             <span className="app-muted ml-1 text-sm font-medium">{of}</span>
           )}
@@ -512,7 +514,18 @@ export function RegistrantsPage({
               size="sm"
               aria-label={`Check in ${registrant.name}`}
               disabled={isRowPending(registrant)}
-              onClick={() => toggleCheckIn(registrant)}
+              onClick={(event) => {
+                // This button is about to disable and then give way to the
+                // badge, and either one drops focus to <body> -- a keyboard
+                // or screen reader user at the door lost their place after
+                // every check-in (#663). Hand focus to the row's own menu
+                // first: it stays mounted, and it is where Undo lives.
+                event.currentTarget
+                  .closest("tr")
+                  ?.querySelector<HTMLElement>("[data-row-menu-trigger]")
+                  ?.focus();
+                toggleCheckIn(registrant);
+              }}
             >
               Check in
             </Button>
@@ -1247,6 +1260,10 @@ function GroupChatBulkBar({
  * The row's less frequent actions (#1511): undo a check-in, the group chat
  * (#1648), cancel. Check-in itself is the labelled
  * button beside it.
+ *
+ * The trigger never disables, even while the row's action runs: it is where
+ * focus waits during a check-in, and a disabled button drops focus to <body>
+ * (#663). The items disable instead.
  */
 function RowMenu({
   registrant,
@@ -1275,7 +1292,7 @@ function RowMenu({
             variant="ghost"
             size="icon-sm"
             aria-label={`More actions for ${registrant.name}`}
-            disabled={pending}
+            data-row-menu-trigger=""
           />
         }
       >
@@ -1283,7 +1300,7 @@ function RowMenu({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         {checkedIn && (
-          <DropdownMenuItem onClick={onUndoCheckIn}>
+          <DropdownMenuItem disabled={pending} onClick={onUndoCheckIn}>
             <Undo2 /> Undo check-in
           </DropdownMenuItem>
         )}
@@ -1306,7 +1323,11 @@ function RowMenu({
         {/* #1418. Not once they are through the door: undo the check-in
             first, which the database insists on too. */}
         {!checkedIn && (
-          <DropdownMenuItem variant="destructive" onClick={onCancel}>
+          <DropdownMenuItem
+            variant="destructive"
+            disabled={pending}
+            onClick={onCancel}
+          >
             <Ban /> Cancel registration
           </DropdownMenuItem>
         )}
