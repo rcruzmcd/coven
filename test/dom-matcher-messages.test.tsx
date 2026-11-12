@@ -54,3 +54,13 @@ test("a non-element received value still produces a message", () => {
   expect(message.length).toBeLessThan(LIMIT);
   expect(message).toContain("value must be an HTMLElement");
 });
+
+test("matchers that call this.equals still pass and fail", () => {
+  render(<a href="/somewhere">Somewhere</a>);
+  const link = screen.getByRole("link", { name: "Somewhere" });
+  expect(link).toHaveAttribute("href", "/somewhere");
+  const message = failureMessage(() =>
+    expect(link).toHaveAttribute("href", "/elsewhere"),
+  );
+  expect(message).toContain("/somewhere");
+});

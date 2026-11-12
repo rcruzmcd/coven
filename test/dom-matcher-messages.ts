@@ -93,8 +93,12 @@ export function withCompactDomMessages<T extends Record<string, unknown>>(
     wrapped[name] = function (this: { utils: Utils }, ...args: never[]) {
       const utils = compactUtils(this.utils);
       const proxy = new Proxy(this, {
-        get: (target, prop) =>
-          prop === "utils" ? utils : Reflect.get(target, prop, target),
+        get: (target, prop) => {
+          if (prop === "utils") return utils;
+          const value = Reflect.get(target, prop, target);
+          // `equals` and friends are native and check their receiver.
+          return typeof value === "function" ? value.bind(target) : value;
+        },
       });
       return (matcher as MatcherFn).apply(proxy, args);
     };
