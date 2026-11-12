@@ -39,10 +39,12 @@ export type SocialPostSeriesRow = SeriesSchedule & {
   paused_at: string | null;
   ended_at: string | null;
   title: string;
+  /** Dates the generator reached too late to create (#1840), ascending. */
+  missed_occurrences: string[];
 };
 
 export const SERIES_COLUMNS =
-  "id, cadence, anchor_date, publish_time, time_zone, ends_on, lead_time_days, auto_approve, paused_at, ended_at, title";
+  "id, cadence, anchor_date, publish_time, time_zone, ends_on, lead_time_days, auto_approve, paused_at, ended_at, title, missed_occurrences";
 
 const WEEKDAYS = [
   "Sunday",
@@ -63,7 +65,7 @@ function formatDay(year: number, month: number, date: number): string {
   return `${year}-${String(month).padStart(2, "0")}-${String(date).padStart(2, "0")}`;
 }
 
-function addDaysToDay(day: string, days: number): string {
+export function addDaysToDay(day: string, days: number): string {
   const { year, month, date } = parseDay(day);
   const next = new Date(Date.UTC(year, month - 1, date + days));
   return formatDay(
