@@ -469,8 +469,11 @@ export function EditReimbursementModal({
                 <FieldGroup>
                   <RequiredFieldsNote />
                   <Field>
-                    <FieldLabel>Requester</FieldLabel>
+                    <FieldLabel htmlFor="edit-reimbursement-requester">
+                      Requester
+                    </FieldLabel>
                     <PersonPicker
+                      id="edit-reimbursement-requester"
                       people={availablePeople}
                       selected={selectedPerson}
                       onSelect={setSelectedPerson}

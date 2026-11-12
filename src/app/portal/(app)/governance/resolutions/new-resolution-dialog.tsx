@@ -161,8 +161,9 @@ export function NewResolutionDialog({
         </Field>
 
         <Field>
-          <FieldLabel>Mover</FieldLabel>
+          <FieldLabel htmlFor="new-resolution-mover">Mover</FieldLabel>
           <PersonPicker
+            id="new-resolution-mover"
             people={availablePeople}
             selected={selectedMover}
             onSelect={setSelectedMover}
@@ -171,8 +172,9 @@ export function NewResolutionDialog({
         </Field>
 
         <Field>
-          <FieldLabel>Seconder</FieldLabel>
+          <FieldLabel htmlFor="new-resolution-seconder">Seconder</FieldLabel>
           <PersonPicker
+            id="new-resolution-seconder"
             people={availablePeople}
             selected={selectedSeconder}
             onSelect={setSelectedSeconder}

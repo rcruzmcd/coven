@@ -353,8 +353,14 @@ export function EditResolutionModal({
                   </ReadOnlyField>
 
                   <div className="flex flex-col gap-1.5">
-                    <span className="text-sm font-medium">Mover</span>
+                    <label
+                      htmlFor="edit-resolution-mover"
+                      className="text-sm font-medium"
+                    >
+                      Mover
+                    </label>
                     <PersonPicker
+                      id="edit-resolution-mover"
                       people={availablePeople}
                       selected={selectedMover}
                       onSelect={setSelectedMover}
@@ -363,8 +369,14 @@ export function EditResolutionModal({
                   </div>
 
                   <div className="flex flex-col gap-1.5">
-                    <span className="text-sm font-medium">Seconder</span>
+                    <label
+                      htmlFor="edit-resolution-seconder"
+                      className="text-sm font-medium"
+                    >
+                      Seconder
+                    </label>
                     <PersonPicker
+                      id="edit-resolution-seconder"
                       people={availablePeople}
                       selected={selectedSeconder}
                       onSelect={setSelectedSeconder}

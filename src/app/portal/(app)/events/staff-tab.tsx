@@ -89,8 +89,9 @@ export function AddStaffForm({
     >
       <FieldGroup>
         <Field>
-          <FieldLabel>Staff member</FieldLabel>
+          <FieldLabel htmlFor="staff-member">Staff member</FieldLabel>
           <PersonPicker
+            id="staff-member"
             people={people}
             selected={selectedPerson}
             onSelect={setSelectedPerson}

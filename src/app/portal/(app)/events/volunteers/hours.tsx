@@ -174,13 +174,14 @@ export function AddHoursForm({
     >
       <FieldGroup>
         <Field>
-          <FieldLabel>Volunteer</FieldLabel>
+          <FieldLabel htmlFor="hours-volunteer">Volunteer</FieldLabel>
           {lockedPerson ? (
             <p className="app-muted rounded-md border border-[var(--line)] px-3 py-2 text-sm">
               {personDisplayName(lockedPerson)}
             </p>
           ) : (
             <PersonPicker
+              id="hours-volunteer"
               people={people}
               selected={selectedPerson}
               onSelect={handleSelectPerson}

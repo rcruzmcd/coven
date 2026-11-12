@@ -320,8 +320,14 @@ export function VolunteerHoursDetailsSheet({
                 <FieldGroup>
                   <RequiredFieldsNote />
                   <Field>
-                    <FieldLabel required>Volunteer</FieldLabel>
+                    <FieldLabel
+                      htmlFor="volunteer-hours-details-volunteer"
+                      required
+                    >
+                      Volunteer
+                    </FieldLabel>
                     <PersonPicker
+                      id="volunteer-hours-details-volunteer"
                       required
                       people={people}
                       selected={selectedPerson}

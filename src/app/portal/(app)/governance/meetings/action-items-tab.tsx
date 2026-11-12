@@ -107,8 +107,9 @@ function AddActionItemForm({
       <FieldGroup>
         <RequiredFieldsNote />
         <Field>
-          <FieldLabel>Owner</FieldLabel>
+          <FieldLabel htmlFor="add-action-item-owner">Owner</FieldLabel>
           <PersonPicker
+            id="add-action-item-owner"
             people={people}
             selected={selectedOwner}
             onSelect={setSelectedOwner}
@@ -232,8 +233,9 @@ function EditActionItemDialog({
     >
       <FieldGroup>
         <Field>
-          <FieldLabel>Owner</FieldLabel>
+          <FieldLabel htmlFor="edit-action-item-owner">Owner</FieldLabel>
           <PersonPicker
+            id="edit-action-item-owner"
             people={people}
             selected={selectedOwner}
             onSelect={setSelectedOwner}

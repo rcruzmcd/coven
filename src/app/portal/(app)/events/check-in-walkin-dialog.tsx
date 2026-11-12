@@ -183,8 +183,9 @@ export function CheckInWalkInDialog({
     >
       <FieldGroup>
         <Field>
-          <FieldLabel>Walk-in</FieldLabel>
+          <FieldLabel htmlFor="walk-in-person">Walk-in</FieldLabel>
           <PersonPicker
+            id="walk-in-person"
             people={people}
             selected={selectedPerson}
             onSelect={setSelectedPerson}

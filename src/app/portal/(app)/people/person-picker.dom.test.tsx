@@ -65,6 +65,7 @@ describe("PersonPicker", () => {
     const onSelect = mock(() => {});
     render(
       <PersonPicker
+        aria-label="Person"
         people={people}
         selected={{
           id: "1",
@@ -87,6 +88,7 @@ describe("PersonPicker", () => {
     const onSelect = mock(() => {});
     render(
       <PersonPicker
+        aria-label="Person"
         people={people}
         selected={null}
         onSelect={onSelect}
@@ -108,6 +110,7 @@ describe("PersonPicker", () => {
     const user = userEvent.setup();
     render(
       <PersonPicker
+        aria-label="Person"
         people={people}
         selected={null}
         onSelect={noop}
@@ -131,6 +134,7 @@ describe("PersonPicker", () => {
     const user = userEvent.setup();
     render(
       <PersonPicker
+        aria-label="Person"
         people={people}
         selected={null}
         onSelect={mock(() => {})}
@@ -151,6 +155,7 @@ describe("PersonPicker", () => {
     const user = userEvent.setup();
     render(
       <PersonPicker
+        aria-label="Person"
         people={people}
         selected={null}
         onSelect={mock(() => {})}
@@ -173,6 +178,7 @@ describe("PersonPicker", () => {
     const onPersonCreated = mock(() => {});
     render(
       <PersonPicker
+        aria-label="Person"
         people={people}
         selected={null}
         onSelect={onSelect}
@@ -205,6 +211,7 @@ describe("PersonPicker", () => {
     const user = userEvent.setup();
     render(
       <PersonPicker
+        aria-label="Person"
         people={people}
         selected={null}
         onSelect={noop}
@@ -229,6 +236,7 @@ describe("PersonPicker portal accounts and preferred names", () => {
     const user = userEvent.setup();
     render(
       <PersonPicker
+        aria-label="Person"
         people={people}
         selected={null}
         onSelect={noop}
@@ -252,6 +260,7 @@ describe("PersonPicker portal accounts and preferred names", () => {
     const user = userEvent.setup();
     render(
       <PersonPicker
+        aria-label="Person"
         people={people}
         selected={null}
         onSelect={noop}
@@ -272,6 +281,7 @@ describe("PersonPicker portal accounts and preferred names", () => {
     const user = userEvent.setup();
     render(
       <PersonPicker
+        aria-label="Person"
         people={people}
         selected={null}
         onSelect={noop}
@@ -291,6 +301,7 @@ describe("PersonPicker portal accounts and preferred names", () => {
     const user = userEvent.setup();
     render(
       <PersonPicker
+        aria-label="Person"
         people={people}
         selected={null}
         onSelect={noop}
@@ -308,6 +319,7 @@ describe("PersonPicker portal accounts and preferred names", () => {
   test("the selected chip badges the account and uses the preferred name", () => {
     render(
       <PersonPicker
+        aria-label="Person"
         people={people}
         selected={{
           id: "2",
@@ -327,6 +339,79 @@ describe("PersonPicker portal accounts and preferred names", () => {
     expect(screen.getByText("Portal access")).toBeInTheDocument();
   });
 
+  // #1854. The input used to name itself after its placeholder whenever a
+  // caller passed no id, so "Walk-in", "Mover" and "Seconder" were all read
+  // as "Search by name or email...".
+  describe("accessible name", () => {
+    test("takes its name from the label pointed at its id", () => {
+      render(
+        <>
+          <label htmlFor="walk-in">Walk-in</label>
+          <PersonPicker
+            id="walk-in"
+            people={people}
+            selected={null}
+            onSelect={noop}
+            onPersonCreated={noop}
+          />
+        </>,
+      );
+
+      expect(
+        screen.getByRole("combobox", { name: "Walk-in" }),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole("combobox", { name: "Search by name or email..." }),
+      ).toBeNull();
+    });
+
+    test("two pickers in one form are told apart by their labels", () => {
+      render(
+        <>
+          <label htmlFor="mover">Mover</label>
+          <PersonPicker
+            id="mover"
+            people={people}
+            selected={null}
+            onSelect={noop}
+            onPersonCreated={noop}
+          />
+          <label htmlFor="seconder">Seconder</label>
+          <PersonPicker
+            id="seconder"
+            people={people}
+            selected={null}
+            onSelect={noop}
+            onPersonCreated={noop}
+          />
+        </>,
+      );
+
+      expect(
+        screen.getByRole("combobox", { name: "Mover" }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("combobox", { name: "Seconder" }),
+      ).toBeInTheDocument();
+    });
+
+    test("takes an aria-label where there is no visible label", () => {
+      render(
+        <PersonPicker
+          aria-label="Duplicate record"
+          people={people}
+          selected={null}
+          onSelect={noop}
+          onPersonCreated={noop}
+        />,
+      );
+
+      expect(
+        screen.getByRole("combobox", { name: "Duplicate record" }),
+      ).toBeInTheDocument();
+    });
+  });
+
   // Issue #567. The picker used to be an input followed by a flat list of
   // <button>s: no combobox or listbox roles, no arrow keys, no Escape, and
   // focus simply dropped to <body> whenever the field swapped for the chip.
@@ -335,6 +420,7 @@ describe("PersonPicker portal accounts and preferred names", () => {
       const user = userEvent.setup();
       render(
         <PersonPicker
+          aria-label="Person"
           people={people}
           selected={null}
           onSelect={noop}
@@ -342,9 +428,7 @@ describe("PersonPicker portal accounts and preferred names", () => {
         />,
       );
 
-      const input = screen.getByRole("combobox", {
-        name: "Search by name or email...",
-      });
+      const input = screen.getByRole("combobox", { name: "Person" });
       expect(input.getAttribute("aria-expanded")).toBe("false");
       expect(input.getAttribute("aria-haspopup")).toBe("listbox");
 
@@ -360,6 +444,7 @@ describe("PersonPicker portal accounts and preferred names", () => {
       const user = userEvent.setup();
       render(
         <PersonPicker
+          aria-label="Person"
           people={people}
           selected={null}
           onSelect={noop}
@@ -392,6 +477,7 @@ describe("PersonPicker portal accounts and preferred names", () => {
       const user = userEvent.setup();
       render(
         <PersonPicker
+          aria-label="Person"
           people={people}
           selected={null}
           onSelect={noop}
@@ -410,6 +496,7 @@ describe("PersonPicker portal accounts and preferred names", () => {
       const onSelect = mock((_person: unknown) => {});
       render(
         <PersonPicker
+          aria-label="Person"
           people={people}
           selected={null}
           onSelect={onSelect}
@@ -429,6 +516,7 @@ describe("PersonPicker portal accounts and preferred names", () => {
       const user = userEvent.setup();
       render(
         <PersonPicker
+          aria-label="Person"
           people={people}
           selected={null}
           onSelect={noop}
@@ -458,6 +546,7 @@ describe("PersonPicker portal accounts and preferred names", () => {
         const [selected, setSelected] = useState<PickedPerson | null>(null);
         return (
           <PersonPicker
+            aria-label="Person"
             people={people}
             selected={selected}
             onSelect={setSelected}
@@ -483,6 +572,7 @@ describe("PersonPicker portal accounts and preferred names", () => {
     test("announces the person that was picked", async () => {
       render(
         <PersonPicker
+          aria-label="Person"
           people={people}
           selected={people[0] as PickedPerson}
           onSelect={noop}
@@ -505,6 +595,7 @@ describe("PersonPicker portal accounts and preferred names", () => {
         <Dialog open>
           <DialogContent title="Add person">
             <PersonPicker
+              aria-label="Person"
               people={people}
               selected={null}
               onSelect={noop}
@@ -529,6 +620,7 @@ describe("PersonPicker portal accounts and preferred names", () => {
       const user = userEvent.setup();
       render(
         <PersonPicker
+          aria-label="Person"
           people={people}
           selected={null}
           onSelect={noop}

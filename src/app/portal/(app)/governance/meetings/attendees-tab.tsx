@@ -76,8 +76,9 @@ function AddAttendeeForm({
     >
       <FieldGroup>
         <Field>
-          <FieldLabel>Person</FieldLabel>
+          <FieldLabel htmlFor="attendees-person">Person</FieldLabel>
           <PersonPicker
+            id="attendees-person"
             people={people}
             selected={selectedPerson}
             onSelect={setSelectedPerson}

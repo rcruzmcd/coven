@@ -421,8 +421,9 @@ function PeopleNotesCard({
         <form onSubmit={card.handleSubmit}>
           <FieldGroup>
             <Field>
-              <FieldLabel>Facilitator</FieldLabel>
+              <FieldLabel htmlFor="meeting-facilitator">Facilitator</FieldLabel>
               <PersonPicker
+                id="meeting-facilitator"
                 people={people}
                 selected={form.facilitator}
                 onSelect={(person) => update("facilitator", person)}
@@ -430,8 +431,9 @@ function PeopleNotesCard({
               />
             </Field>
             <Field>
-              <FieldLabel>Notes-taker</FieldLabel>
+              <FieldLabel htmlFor="meeting-notes-taker">Notes-taker</FieldLabel>
               <PersonPicker
+                id="meeting-notes-taker"
                 people={people}
                 selected={form.notetaker}
                 onSelect={(person) => update("notetaker", person)}

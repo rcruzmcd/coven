@@ -177,8 +177,9 @@ export function NewExpenseDialog({
         <FieldGroup>
           <RequiredFieldsNote />
           <Field>
-            <FieldLabel>Paid by</FieldLabel>
+            <FieldLabel htmlFor="new-expense-paid-by">Paid by</FieldLabel>
             <PersonPicker
+              id="new-expense-paid-by"
               people={people}
               selected={selectedPayer}
               onSelect={setSelectedPayer}

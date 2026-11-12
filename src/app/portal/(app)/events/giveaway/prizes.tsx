@@ -253,8 +253,9 @@ export function PrizeForm({
         </Field>
 
         <Field>
-          <FieldLabel>Prize donor</FieldLabel>
+          <FieldLabel htmlFor="prizes-prize-donor">Prize donor</FieldLabel>
           <PersonPicker
+            id="prizes-prize-donor"
             people={people}
             selected={selectedDonor}
             onSelect={setSelectedDonor}

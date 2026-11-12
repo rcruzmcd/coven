@@ -114,8 +114,9 @@ export function NewBoardMemberDialog({ people }: { people: PersonListItem[] }) {
       <FieldGroup>
         <RequiredFieldsNote />
         <Field>
-          <FieldLabel>Person</FieldLabel>
+          <FieldLabel htmlFor="new-board-member-person">Person</FieldLabel>
           <PersonPicker
+            id="new-board-member-person"
             people={availablePeople}
             selected={selectedPerson}
             onSelect={setSelectedPerson}

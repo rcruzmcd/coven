@@ -148,8 +148,11 @@ export function NewReimbursementDialog({
         <FieldGroup>
           <RequiredFieldsNote />
           <Field>
-            <FieldLabel>Requester</FieldLabel>
+            <FieldLabel htmlFor="new-reimbursement-requester">
+              Requester
+            </FieldLabel>
             <PersonPicker
+              id="new-reimbursement-requester"
               people={availablePeople}
               selected={selectedPerson}
               onSelect={setSelectedPerson}

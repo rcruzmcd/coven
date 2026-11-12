@@ -120,8 +120,9 @@ export function NewDisclosureDialog({
       <FieldGroup>
         <RequiredFieldsNote />
         <Field>
-          <FieldLabel>Person</FieldLabel>
+          <FieldLabel htmlFor="new-disclosure-person">Person</FieldLabel>
           <PersonPicker
+            id="new-disclosure-person"
             people={availablePeople}
             selected={selectedPerson}
             onSelect={setSelectedPerson}

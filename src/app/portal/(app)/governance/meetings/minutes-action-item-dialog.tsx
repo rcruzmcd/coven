@@ -124,8 +124,9 @@ export function MinutesActionItemDialog({
       <FieldGroup>
         <RequiredFieldsNote />
         <Field>
-          <FieldLabel>Owner</FieldLabel>
+          <FieldLabel htmlFor="minutes-action-item-owner">Owner</FieldLabel>
           <PersonPicker
+            id="minutes-action-item-owner"
             people={people}
             selected={selectedOwner}
             onSelect={setSelectedOwner}

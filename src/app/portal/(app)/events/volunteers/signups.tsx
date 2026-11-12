@@ -86,8 +86,9 @@ export function AddVolunteerForm({
     >
       <FieldGroup>
         <Field>
-          <FieldLabel>Volunteer</FieldLabel>
+          <FieldLabel htmlFor="signups-volunteer">Volunteer</FieldLabel>
           <PersonPicker
+            id="signups-volunteer"
             people={people}
             selected={selectedPerson}
             onSelect={setSelectedPerson}

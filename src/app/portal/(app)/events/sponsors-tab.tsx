@@ -281,8 +281,11 @@ export function SponsorForm({
           </Field>
         ) : (
           <Field>
-            <FieldLabel>Sponsor / partner</FieldLabel>
+            <FieldLabel htmlFor="sponsors-sponsor-partner">
+              Sponsor / partner
+            </FieldLabel>
             <PersonPicker
+              id="sponsors-sponsor-partner"
               people={people}
               selected={selectedPerson}
               onSelect={setSelectedPerson}

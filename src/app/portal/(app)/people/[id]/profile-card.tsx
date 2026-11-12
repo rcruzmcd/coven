@@ -327,10 +327,11 @@ export function ProfileCard({
               />
 
               <Field>
-                <FieldLabel>
+                <FieldLabel htmlFor="profile-primary-contact">
                   Primary contact person (for an organization)
                 </FieldLabel>
                 <PersonPicker
+                  id="profile-primary-contact"
                   people={availablePeople.filter((p) => p.id !== person.id)}
                   selected={contact}
                   onSelect={setContact}

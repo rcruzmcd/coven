@@ -108,8 +108,11 @@ export function NewPartnershipDialog({ people }: { people: PersonListItem[] }) {
     >
       <FieldGroup>
         <Field>
-          <FieldLabel>Partner organization</FieldLabel>
+          <FieldLabel htmlFor="new-partnership-partner-organization">
+            Partner organization
+          </FieldLabel>
           <PersonPicker
+            id="new-partnership-partner-organization"
             people={availablePeople}
             selected={organization}
             onSelect={setOrganization}
@@ -125,8 +128,11 @@ export function NewPartnershipDialog({ people }: { people: PersonListItem[] }) {
         />
 
         <Field>
-          <FieldLabel>Internal owner</FieldLabel>
+          <FieldLabel htmlFor="new-partnership-internal-owner">
+            Internal owner
+          </FieldLabel>
           <PersonPicker
+            id="new-partnership-internal-owner"
             people={availablePeople}
             selected={owner}
             onSelect={setOwner}

@@ -114,8 +114,9 @@ function AddResolutionForm({
       <FieldGroup>
         <RequiredFieldsNote />
         <Field>
-          <FieldLabel>Mover</FieldLabel>
+          <FieldLabel htmlFor="add-meeting-resolution-mover">Mover</FieldLabel>
           <PersonPicker
+            id="add-meeting-resolution-mover"
             people={people}
             selected={selectedMover}
             onSelect={setSelectedMover}
@@ -124,8 +125,11 @@ function AddResolutionForm({
         </Field>
 
         <Field>
-          <FieldLabel>Seconder</FieldLabel>
+          <FieldLabel htmlFor="add-meeting-resolution-seconder">
+            Seconder
+          </FieldLabel>
           <PersonPicker
+            id="add-meeting-resolution-seconder"
             people={people}
             selected={selectedSeconder}
             onSelect={setSelectedSeconder}
@@ -256,8 +260,9 @@ function EditResolutionDialog({
     >
       <FieldGroup>
         <Field>
-          <FieldLabel>Mover</FieldLabel>
+          <FieldLabel htmlFor="edit-meeting-resolution-mover">Mover</FieldLabel>
           <PersonPicker
+            id="edit-meeting-resolution-mover"
             people={people}
             selected={selectedMover}
             onSelect={setSelectedMover}
@@ -266,8 +271,11 @@ function EditResolutionDialog({
         </Field>
 
         <Field>
-          <FieldLabel>Seconder</FieldLabel>
+          <FieldLabel htmlFor="edit-meeting-resolution-seconder">
+            Seconder
+          </FieldLabel>
           <PersonPicker
+            id="edit-meeting-resolution-seconder"
             people={people}
             selected={selectedSeconder}
             onSelect={setSelectedSeconder}
