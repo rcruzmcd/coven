@@ -262,6 +262,12 @@ describe("ProfileQuestionsEditor", () => {
   });
 
   test("reorders with Alt+Arrow and saves the new order", async () => {
+    const t0 = performance.now();
+    const step = (label: string) =>
+      console.error(
+        `[1786] ${label} +${Math.round(performance.now() - t0)}ms rss=${Math.round(process.memoryUsage().rss / 1e6)}MB`,
+      );
+    step("start");
     const user = userEvent.setup();
     render(
       <ProfileQuestionsEditor
@@ -274,20 +280,28 @@ describe("ProfileQuestionsEditor", () => {
         usage={{}}
       />,
     );
+    step("rendered");
     screen.getByRole("button", { name: /Home mountain/ }).focus();
+    step("focused");
     await user.keyboard("{Alt>}{ArrowDown}{/Alt}");
+    step("moved");
     expect(screen.getByText("1 unsaved change to the questions")).toBeVisible();
     // Focus follows the moved row, so a second Alt+Arrow keeps moving it.
     expect(screen.getByRole("button", { name: /Home mountain/ })).toHaveFocus();
 
+    step("before save click");
     await user.click(screen.getByRole("button", { name: "Save questions" }));
+    step("save clicked");
     await waitFor(() => expect(saveMock).toHaveBeenCalledTimes(1));
+    step("save called");
     const [payload] = saveMock.mock.calls[0] as [{ id: string }[]];
     expect(payload.map((q) => q.id)).toEqual(["q-level", "q-mountain"]);
+    step("payload checked");
     // Saved, so the bar goes.
     await waitFor(() =>
       expect(screen.queryByText(/unsaved change/)).not.toBeInTheDocument(),
     );
+    step("done");
   });
 
   test("counts unsaved changes, warns before leaving and discards", async () => {
