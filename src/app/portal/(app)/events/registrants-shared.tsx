@@ -145,6 +145,7 @@ export function CancelledRegistrations({
                       size="sm"
                       aria-label={`Mark ${registrant.name} removed from ${groupChat.label}`}
                       disabled={groupChatPending}
+                      focusableWhenDisabled
                       onClick={() =>
                         startGroupChat(async () => {
                           await runAction(
@@ -171,6 +172,7 @@ export function CancelledRegistrations({
                     size="sm"
                     aria-label={`Restore registration for ${registrant.name}`}
                     disabled={isRowPending(registrant)}
+                    focusableWhenDisabled
                     onClick={() => onRestore(registrant)}
                   >
                     <RotateCcw /> Restore
@@ -312,6 +314,7 @@ export function TestRegistrations({
             variant="ghost"
             size="sm"
             disabled={pending}
+            focusableWhenDisabled
             onClick={() => setConfirming(true)}
           >
             Clear test registrations

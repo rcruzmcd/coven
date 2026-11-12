@@ -170,6 +170,7 @@ export function CalendarItemDetailView({
                     size="icon-sm"
                     aria-label="Generate next year"
                     disabled={isPending}
+                    focusableWhenDisabled
                     onClick={handleGenerateNextYear}
                   />
                 }
@@ -188,6 +189,7 @@ export function CalendarItemDetailView({
                   size="icon-sm"
                   aria-label="Duplicate"
                   disabled={isPending}
+                  focusableWhenDisabled
                   onClick={handleDuplicate}
                 />
               }
@@ -206,6 +208,7 @@ export function CalendarItemDetailView({
                     size="icon-sm"
                     aria-label="Restore"
                     disabled={isPending}
+                    focusableWhenDisabled
                     onClick={handleRestore}
                   />
                 }
@@ -224,6 +227,7 @@ export function CalendarItemDetailView({
                     size="icon-sm"
                     aria-label="Archive"
                     disabled={isPending}
+                    focusableWhenDisabled
                     onClick={handleArchive}
                   />
                 }
@@ -242,6 +246,7 @@ export function CalendarItemDetailView({
                   size="icon-sm"
                   aria-label="Delete calendar item"
                   disabled={isPending}
+                  focusableWhenDisabled
                   onClick={() => setConfirmDelete(true)}
                 />
               }

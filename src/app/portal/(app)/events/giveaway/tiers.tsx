@@ -130,7 +130,12 @@ export function TiersSection({
         description="Set up Gold, Silver and Bronze with the standard ticket grants. You can change the numbers afterwards."
         action={
           canEdit ? (
-            <Button type="button" onClick={handleSeed} disabled={isPending}>
+            <Button
+              type="button"
+              onClick={handleSeed}
+              disabled={isPending}
+              focusableWhenDisabled
+            >
               {isPending ? (
                 <>
                   <Spinner /> Setting up...
@@ -215,10 +220,16 @@ export function TiersSection({
             variant="secondary"
             onClick={() => setDraft({})}
             disabled={isPending}
+            focusableWhenDisabled
           >
             Discard changes
           </Button>
-          <Button type="button" onClick={handleSaveMatrix} disabled={isPending}>
+          <Button
+            type="button"
+            onClick={handleSaveMatrix}
+            disabled={isPending}
+            focusableWhenDisabled
+          >
             {isPending ? (
               <>
                 <Spinner /> Saving...
@@ -260,6 +271,7 @@ export function TiersSection({
                           variant="ghost"
                           size="sm"
                           disabled={isPending}
+                          focusableWhenDisabled
                           aria-label={`Remove keyword ${rule.match_text}`}
                           onClick={() => handleRemoveKeyword(rule.id)}
                         />

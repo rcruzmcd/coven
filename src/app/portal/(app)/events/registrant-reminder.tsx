@@ -57,6 +57,7 @@ export function RegistrantReminder({
           size="sm"
           className="h-auto p-0 align-baseline"
           disabled={isPending}
+          focusableWhenDisabled
           onClick={send}
         >
           Send reminder now

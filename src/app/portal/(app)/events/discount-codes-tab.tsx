@@ -387,6 +387,7 @@ export function DiscountCodesTab({
               variant="secondary"
               size="sm"
               disabled={isPending}
+              focusableWhenDisabled
               onClick={() => handleMarkSent(code.id)}
             >
               Mark as sent

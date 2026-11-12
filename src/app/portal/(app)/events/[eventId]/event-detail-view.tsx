@@ -156,7 +156,12 @@ function EditableTabCard({
           <Button type="button" variant="ghost" onClick={cancel}>
             Cancel
           </Button>
-          <Button type="submit" form={formId} disabled={pending}>
+          <Button
+            type="submit"
+            form={formId}
+            disabled={pending}
+            focusableWhenDisabled
+          >
             {pending ? (
               <>
                 <Spinner /> Saving...

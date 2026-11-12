@@ -431,6 +431,7 @@ export function DoorCheckIn({
                       aria-pressed={checkedIn}
                       aria-label={`Check in ${registrant.name}`}
                       disabled={pendingIds.has(registrant.id)}
+                      focusableWhenDisabled
                       onClick={() => toggle(registrant, checkedIn)}
                       className="h-12 min-w-20 text-base"
                     >
@@ -473,6 +474,7 @@ export function DoorCheckIn({
                       className="h-11"
                       aria-label={`Restore registration for ${registrant.name}`}
                       disabled={isRestorePending(registrant)}
+                      focusableWhenDisabled
                       onClick={() => restore(registrant)}
                     >
                       <RotateCcw /> Restore

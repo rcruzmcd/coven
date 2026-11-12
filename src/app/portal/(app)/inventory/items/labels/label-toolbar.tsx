@@ -233,6 +233,7 @@ export function CreateCodesButton({ itemIds }: { itemIds: string[] }) {
       type="button"
       size="sm"
       disabled={isPending}
+      focusableWhenDisabled
       onClick={() =>
         startTransition(async () => {
           await runAction(() => createAssetTagsAction(itemIds), {

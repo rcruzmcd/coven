@@ -575,7 +575,7 @@ export function SponsorForm({
               Cancel
             </Button>
           )}
-          <Button type="submit" disabled={isPending}>
+          <Button type="submit" disabled={isPending} focusableWhenDisabled>
             {isPending ? (
               <>
                 <Spinner /> Saving...

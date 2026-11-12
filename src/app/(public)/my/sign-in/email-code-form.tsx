@@ -193,7 +193,7 @@ export function EmailCodeForm({
           <FieldDescription>Sent to {email.trim()}.</FieldDescription>
         </Field>
         <div className="flex flex-wrap gap-3">
-          <Button type="submit" disabled={isPending}>
+          <Button type="submit" disabled={isPending} focusableWhenDisabled>
             {isPending ? <Spinner /> : null}
             {verifyLabel}
           </Button>

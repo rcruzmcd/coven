@@ -87,7 +87,12 @@ export function VolunteerStatusLookupForm() {
           </Alert>
         )}
 
-        <Button type="submit" disabled={isPending} className="w-full sm:w-fit">
+        <Button
+          type="submit"
+          disabled={isPending}
+          focusableWhenDisabled
+          className="w-full sm:w-fit"
+        >
           {isPending ? "Checking..." : "Check status"}
         </Button>
       </FieldGroup>

@@ -131,6 +131,7 @@ export function AssignNumberedCodeButton({
                 <Button
                   type="button"
                   disabled={isPending}
+                  focusableWhenDisabled
                   onClick={() => assign(held.scanned, true)}
                 >
                   {isPending && <Spinner />} Move {held.code} here

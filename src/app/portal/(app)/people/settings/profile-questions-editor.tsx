@@ -384,11 +384,17 @@ export function ProfileQuestionsEditor({
               type="button"
               variant="secondary"
               disabled={isPending}
+              focusableWhenDisabled
               onClick={discard}
             >
               Discard
             </Button>
-            <Button type="button" disabled={isPending} onClick={save}>
+            <Button
+              type="button"
+              disabled={isPending}
+              focusableWhenDisabled
+              onClick={save}
+            >
               {isPending ? (
                 <>
                   <Spinner /> Saving...

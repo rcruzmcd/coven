@@ -115,11 +115,16 @@ export function PhotoConsentCard({
             variant="outline"
             onClick={() => save(true)}
             disabled={isPending}
+            focusableWhenDisabled
           >
             {isPending ? "Saving…" : PHOTO_OBJECTION_WITHDRAW_ACTION}
           </Button>
         ) : (
-          <Button onClick={() => save(false)} disabled={isPending}>
+          <Button
+            onClick={() => save(false)}
+            disabled={isPending}
+            focusableWhenDisabled
+          >
             {isPending ? "Saving…" : PHOTO_OBJECTION_ACTION}
           </Button>
         )}

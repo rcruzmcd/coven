@@ -297,7 +297,7 @@ export function PrizeForm({
           <Button type="button" variant="secondary" onClick={onCancel}>
             Cancel
           </Button>
-          <Button type="submit" disabled={isPending}>
+          <Button type="submit" disabled={isPending} focusableWhenDisabled>
             {isPending ? (
               <>
                 <Spinner /> Saving...

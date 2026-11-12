@@ -128,7 +128,7 @@ export function PersonRolesPanel({ stored }: { stored: StoredLabels }) {
           )}
 
           <div className="mt-6 flex flex-wrap gap-2">
-            <Button type="submit" disabled={isPending}>
+            <Button type="submit" disabled={isPending} focusableWhenDisabled>
               {isPending ? (
                 <>
                   <Spinner /> Saving...
@@ -141,6 +141,7 @@ export function PersonRolesPanel({ stored }: { stored: StoredLabels }) {
               type="button"
               variant="secondary"
               disabled={isPending}
+              focusableWhenDisabled
               onClick={() =>
                 setLabels(
                   Object.fromEntries(

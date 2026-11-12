@@ -570,7 +570,7 @@ function SenderIdentityCard({
             )}
 
             <div>
-              <Button type="submit" disabled={isPending}>
+              <Button type="submit" disabled={isPending} focusableWhenDisabled>
                 {isPending ? (
                   <>
                     <Spinner /> Saving...
@@ -655,7 +655,7 @@ function OpsReportRecipientsCard({ recipients }: { recipients: string[] }) {
             )}
 
             <div>
-              <Button type="submit" disabled={isPending}>
+              <Button type="submit" disabled={isPending} focusableWhenDisabled>
                 {isPending ? (
                   <>
                     <Spinner /> Saving...

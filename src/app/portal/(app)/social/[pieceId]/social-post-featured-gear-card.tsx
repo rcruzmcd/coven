@@ -121,6 +121,7 @@ export function SocialPostFeaturedGearCard({
               variant="secondary"
               onClick={() => request(null)}
               disabled={isPending}
+              focusableWhenDisabled
             >
               Pick another
             </Button>
@@ -130,6 +131,7 @@ export function SocialPostFeaturedGearCard({
               variant="secondary"
               onClick={() => setChoosing(true)}
               disabled={isPending}
+              focusableWhenDisabled
             >
               Choose item
             </Button>

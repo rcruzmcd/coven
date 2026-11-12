@@ -243,6 +243,7 @@ export function ScannedDistributionList({
                       variant="ghost"
                       className="h-auto w-full justify-start py-2 text-left whitespace-normal"
                       disabled={isPending}
+                      focusableWhenDisabled
                       onClick={() => addPicked(item)}
                     >
                       Add {itemLabel(item)} ·{" "}
@@ -337,6 +338,7 @@ export function ScannedDistributionList({
                           size="icon"
                           aria-label={`Remove ${itemLabel(item)}`}
                           disabled={isPending}
+                          focusableWhenDisabled
                           onClick={() => remove(item.id)}
                         />
                       }

@@ -514,6 +514,7 @@ export function RegistrantsPage({
               size="sm"
               aria-label={`Check in ${registrant.name}`}
               disabled={isRowPending(registrant)}
+              focusableWhenDisabled
               onClick={(event) => {
                 // This button is about to disable and then give way to the
                 // badge, and either one drops focus to <body> -- a keyboard
@@ -1234,6 +1235,7 @@ function GroupChatBulkBar({
             variant="secondary"
             size="sm"
             disabled={pending}
+            focusableWhenDisabled
             onClick={() => onMark(true)}
           >
             <MessageCircle /> Mark added to {groupChat.label}
@@ -1243,6 +1245,7 @@ function GroupChatBulkBar({
             variant="outline"
             size="sm"
             disabled={pending}
+            focusableWhenDisabled
             onClick={() => onMark(false)}
           >
             <MessageCircleOff /> Mark not added

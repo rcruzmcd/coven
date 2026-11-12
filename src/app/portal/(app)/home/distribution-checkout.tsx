@@ -295,6 +295,7 @@ export function DistributionCheckout({
                   type="button"
                   variant="secondary"
                   disabled={isPending}
+                  focusableWhenDisabled
                   onClick={showCode}
                 >
                   <QrCode />
@@ -305,6 +306,7 @@ export function DistributionCheckout({
                 type="button"
                 variant="secondary"
                 disabled={isPending}
+                focusableWhenDisabled
                 onClick={handToRecipient}
               >
                 <Smartphone />
@@ -433,7 +435,7 @@ export function DistributionCheckout({
         description="Read this, then type your name and tick the box."
         onSubmit={acknowledgeHere}
         footer={
-          <Button type="submit" disabled={isPending}>
+          <Button type="submit" disabled={isPending} focusableWhenDisabled>
             {isPending ? (
               <>
                 <Spinner /> Saving...

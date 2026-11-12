@@ -75,6 +75,7 @@ export function PackCatalog({
                   variant={pack.adoptedAt ? "outline" : "default"}
                   size="sm"
                   disabled={isPending}
+                  focusableWhenDisabled
                   onClick={() =>
                     run(() => adoptContentPackAction(pack.id), {
                       success: (result) =>

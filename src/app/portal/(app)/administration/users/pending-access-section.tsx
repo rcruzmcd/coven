@@ -207,6 +207,7 @@ export function PendingAccessSection({
                 size="sm"
                 variant="secondary"
                 disabled={isPending}
+                focusableWhenDisabled
                 onClick={() => handleInvite(grant)}
               >
                 {grant.invited_at ? "Resend link" : "Invite"}
@@ -216,6 +217,7 @@ export function PendingAccessSection({
                 size="sm"
                 variant="secondary"
                 disabled={isPending}
+                focusableWhenDisabled
                 onClick={() => setRevokeTarget(grant)}
               >
                 Revoke

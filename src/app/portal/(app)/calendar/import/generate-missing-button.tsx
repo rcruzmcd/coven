@@ -35,7 +35,12 @@ export function GenerateMissingButton({ targetYear }: { targetYear: number }) {
 
   return (
     <div className="flex flex-col items-end gap-2">
-      <Button type="button" onClick={handleGenerateAll} disabled={isPending}>
+      <Button
+        type="button"
+        onClick={handleGenerateAll}
+        disabled={isPending}
+        focusableWhenDisabled
+      >
         {isPending ? (
           <>
             <Spinner /> Generating…

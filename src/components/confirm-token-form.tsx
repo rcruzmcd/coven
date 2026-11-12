@@ -107,7 +107,12 @@ export function ConfirmTokenForm({
   return (
     <div className="space-y-4">
       <p>{prompt}</p>
-      <Button type="button" disabled={isPending} onClick={onConfirm}>
+      <Button
+        type="button"
+        disabled={isPending}
+        focusableWhenDisabled
+        onClick={onConfirm}
+      >
         {isPending ? (
           <>
             <Spinner /> Confirming...

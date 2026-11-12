@@ -184,7 +184,12 @@ export function AsIsAcknowledgementForm({
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
-      <Button type="submit" disabled={isPending} className="w-full sm:w-fit">
+      <Button
+        type="submit"
+        disabled={isPending}
+        focusableWhenDisabled
+        className="w-full sm:w-fit"
+      >
         {isPending ? (
           <>
             <Spinner /> Saving...

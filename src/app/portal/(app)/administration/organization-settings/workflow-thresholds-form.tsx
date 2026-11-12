@@ -106,7 +106,7 @@ function ThresholdCard({
                   onChange={(event) => setValue(event.target.value)}
                 />
               </Field>
-              <Button type="submit" disabled={isPending}>
+              <Button type="submit" disabled={isPending} focusableWhenDisabled>
                 {isPending ? (
                   <>
                     <Spinner /> Saving...

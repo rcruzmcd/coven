@@ -275,7 +275,7 @@ function CardFormActions({
       <Button type="button" variant="ghost" onClick={onCancel}>
         Cancel
       </Button>
-      <Button type="submit" disabled={isPending}>
+      <Button type="submit" disabled={isPending} focusableWhenDisabled>
         {isPending ? (
           <>
             <Spinner /> Saving...

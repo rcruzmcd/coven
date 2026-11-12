@@ -158,11 +158,17 @@ export function RegistrantAnswers({
               type="button"
               variant="secondary"
               disabled={isPending}
+              focusableWhenDisabled
               onClick={() => setEditing(false)}
             >
               Cancel
             </Button>
-            <Button type="button" disabled={isPending} onClick={handleSave}>
+            <Button
+              type="button"
+              disabled={isPending}
+              focusableWhenDisabled
+              onClick={handleSave}
+            >
               {isPending ? (
                 <>
                   <Spinner /> Saving...

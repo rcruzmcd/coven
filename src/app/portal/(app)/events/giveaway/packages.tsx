@@ -232,6 +232,7 @@ export function PackagesSection({
                       variant="ghost"
                       size="sm"
                       disabled={isPending}
+                      focusableWhenDisabled
                       onClick={() =>
                         handleTogglePackage(pkg.id, !pkg.is_active)
                       }
@@ -243,6 +244,7 @@ export function PackagesSection({
                       variant="ghost"
                       size="sm"
                       disabled={isPending}
+                      focusableWhenDisabled
                       onClick={() => handleDeletePackage(pkg.id)}
                     >
                       Remove
@@ -331,6 +333,7 @@ export function PackagesSection({
             variant="secondary"
             onClick={() => setShowAdd(false)}
             disabled={isPending}
+            focusableWhenDisabled
           >
             Cancel
           </Button>
@@ -432,6 +435,7 @@ export function PackagesSection({
                       variant="ghost"
                       size="sm"
                       disabled={isPending}
+                      focusableWhenDisabled
                       onClick={() => handleVoidSale(sale.id)}
                     >
                       Void

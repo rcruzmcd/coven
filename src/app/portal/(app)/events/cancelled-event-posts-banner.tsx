@@ -56,6 +56,7 @@ export function CancelledEventPostsBanner({
             variant="secondary"
             size="sm"
             disabled={isPending}
+            focusableWhenDisabled
             onClick={handleSkipAll}
           >
             {isPending ? <Spinner /> : null}
