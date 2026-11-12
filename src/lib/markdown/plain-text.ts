@@ -121,3 +121,18 @@ export function plainBlock(markdown: string, indent: string): string {
     .map((line) => (line === "" ? "" : `${indent}${line}`))
     .join("\n");
 }
+
+/**
+ * `markdownToPlainText` on one line, cut to at most `max` characters at a word
+ * boundary with an ellipsis -- for a page's meta description or a listing
+ * excerpt, where line breaks mean nothing and a search result shows ~160
+ * characters. Empty for empty input.
+ */
+export function plainExcerpt(markdown: string, max = 160): string {
+  const text = markdownToPlainText(markdown).replace(/\s+/g, " ").trim();
+  if (text.length <= max) return text;
+  // A space at `max - 1` ends a whole word, so look one character further.
+  const space = text.slice(0, max).lastIndexOf(" ");
+  const cut = space > max / 2 ? text.slice(0, space) : text.slice(0, max - 1);
+  return `${cut.trimEnd()}…`;
+}

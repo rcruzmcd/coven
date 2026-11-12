@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { markdownToPlainText, plainBlock } from "./plain-text";
+import { markdownToPlainText, plainBlock, plainExcerpt } from "./plain-text";
 
 describe("markdownToPlainText", () => {
   test("passes plain text through unchanged", () => {
@@ -63,5 +63,23 @@ describe("plainBlock", () => {
 
   test("is empty for empty input", () => {
     expect(plainBlock(" ", "  ")).toBe("");
+  });
+});
+
+describe("plainExcerpt", () => {
+  test("flattens Markdown onto one line", () => {
+    expect(
+      plainExcerpt("**Bring** water\n\n- helmet\n- [map](https://x.test)"),
+    ).toBe("Bring water - helmet - map (https://x.test)");
+  });
+
+  test("cuts long text at a word boundary with an ellipsis", () => {
+    const excerpt = plainExcerpt("word ".repeat(100), 30);
+    expect(excerpt.length).toBeLessThanOrEqual(30);
+    expect(excerpt).toBe("word word word word word word…");
+  });
+
+  test("is empty for empty input", () => {
+    expect(plainExcerpt("  ")).toBe("");
   });
 });

@@ -1,5 +1,7 @@
 "use client";
 
+import { MarkdownText } from "@/components/portal/markdown-text";
+import { MarkdownTextarea } from "@/components/portal/markdown-textarea";
 import {
   FormEvent,
   Ref,
@@ -37,7 +39,6 @@ import {
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -264,9 +265,11 @@ export function OverviewTab({
           </ReadOnlyField>
 
           <ReadOnlyField label="Description" htmlFor="details-description">
-            <span className="whitespace-pre-line">
-              {form.description || "—"}
-            </span>
+            {form.description.trim() ? (
+              <MarkdownText>{form.description}</MarkdownText>
+            ) : (
+              "—"
+            )}
           </ReadOnlyField>
 
           <ReadOnlyField label="Flier" htmlFor="details-flier">
@@ -451,7 +454,7 @@ export function OverviewTab({
 
           <Field>
             <FieldLabel htmlFor="details-description">Description</FieldLabel>
-            <Textarea
+            <MarkdownTextarea
               id="details-description"
               value={form.description}
               onChange={(changeEvent) =>
