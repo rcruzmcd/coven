@@ -28,6 +28,10 @@ type SendInput = { messageId: string; subject: string; body: string };
 
 const DEFAULT_SUBJECT = "Your gear request — Chatter Snow";
 
+// A loaded CI runner can take well over Testing Library's 1s default to commit
+// a transition's result; the waits here are bounded, so only the ceiling moves.
+const SETTLE = { timeout: 4_000 };
+
 function renderDialog(
   sendMessage: (
     input: SendInput,
@@ -165,6 +169,8 @@ describe("the message id", () => {
     expect(
       await screen.findByText(
         "The message could not be sent. Please try again.",
+        {},
+        SETTLE,
       ),
     ).toBeTruthy();
     // The text survives the failure: retyping a paragraph because the provider
@@ -173,14 +179,13 @@ describe("the message id", () => {
       "Ready Saturday.",
     );
 
-    // The error renders inside the transition, so the button can still be
-    // disabled for a moment after it shows; a click then would be swallowed.
-    await waitFor(() =>
-      expect(
-        screen.getByRole("button", { name: "Send message" }),
-      ).toBeEnabled(),
-    );
+    // The error and the end of the pending state commit together, so Send is
+    // usable the moment the error shows -- no gap where a retry is swallowed
+    // (#1716). While pending, the spinner's "Loading" is part of the button's
+    // name, so this lookup would also fail if the button were still pending.
+    expect(screen.getByRole("button", { name: "Send message" })).toBeEnabled();
     await user.click(screen.getByRole("button", { name: "Send message" }));
+    await waitFor(() => expect(seen).toHaveLength(2), SETTLE);
     // A new id, because the first one is spent: the delivery ledger already
     // holds a row for it, and retrying under it would answer "already sent"
     // for a message that never left.
