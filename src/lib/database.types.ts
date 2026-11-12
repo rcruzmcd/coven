@@ -4673,7 +4673,6 @@ export type Database = {
       };
       events: {
         Row: {
-          adults_only: boolean;
           attendance_count: number | null;
           attendance_notes: string | null;
           auto_assign_discount_codes: boolean;
@@ -4722,7 +4721,6 @@ export type Database = {
           visibility: string;
         };
         Insert: {
-          adults_only?: boolean;
           attendance_count?: number | null;
           attendance_notes?: string | null;
           auto_assign_discount_codes?: boolean;
@@ -4771,7 +4769,6 @@ export type Database = {
           visibility?: string;
         };
         Update: {
-          adults_only?: boolean;
           attendance_count?: number | null;
           attendance_notes?: string | null;
           auto_assign_discount_codes?: boolean;
@@ -11336,7 +11333,6 @@ export type Database = {
       };
       public_events: {
         Row: {
-          adults_only: boolean | null;
           capacity: number | null;
           carpool_cost_notice: Json | null;
           carpools_enabled: boolean | null;
@@ -11353,7 +11349,6 @@ export type Database = {
           timezone: string | null;
         };
         Insert: {
-          adults_only?: boolean | null;
           capacity?: number | null;
           carpool_cost_notice?: Json | null;
           carpools_enabled?: boolean | null;
@@ -11370,7 +11365,6 @@ export type Database = {
           timezone?: string | null;
         };
         Update: {
-          adults_only?: boolean | null;
           capacity?: number | null;
           carpool_cost_notice?: Json | null;
           carpools_enabled?: boolean | null;
@@ -13899,7 +13893,6 @@ export type Database = {
       reopen_event_report: {
         Args: { p_id: string; p_reason: string };
         Returns: {
-          adults_only: boolean;
           attendance_count: number | null;
           attendance_notes: string | null;
           auto_assign_discount_codes: boolean;
@@ -14675,7 +14668,6 @@ export type Database = {
       submit_event_report: {
         Args: { p_id: string };
         Returns: {
-          adults_only: boolean;
           attendance_count: number | null;
           attendance_notes: string | null;
           auto_assign_discount_codes: boolean;

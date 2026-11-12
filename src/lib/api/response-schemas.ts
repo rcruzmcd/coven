@@ -165,8 +165,9 @@ const eventSchema = z
     registration_deadline: z.union([z.string(), z.null()]),
     flier_url: z.union([z.string(), z.null()]),
     adults_only: z.boolean().meta({
+      deprecated: true,
       description:
-        "Whether the event has an age requirement (minimum_age is set). Registering for one requires adults_only_confirmed.",
+        "Deprecated: use minimum_age. True exactly when minimum_age is set. Registering for such an event requires adults_only_confirmed.",
     }),
     minimum_age: z.union([z.literal(18), z.literal(21), z.null()]).meta({
       description:
