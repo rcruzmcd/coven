@@ -1985,7 +1985,7 @@ export type Database = {
           content: string | null;
           content_status: string;
           created_at: string;
-          created_by: string;
+          created_by: string | null;
           draft_due_at: string | null;
           event_id: string | null;
           id: string;
@@ -2013,7 +2013,7 @@ export type Database = {
           content?: string | null;
           content_status?: string;
           created_at?: string;
-          created_by?: string;
+          created_by?: string | null;
           draft_due_at?: string | null;
           event_id?: string | null;
           id?: string;
@@ -2041,7 +2041,7 @@ export type Database = {
           content?: string | null;
           content_status?: string;
           created_at?: string;
-          created_by?: string;
+          created_by?: string | null;
           draft_due_at?: string | null;
           event_id?: string | null;
           id?: string;
@@ -10289,9 +10289,11 @@ export type Database = {
           ended_at: string | null;
           ends_on: string | null;
           event_id: string | null;
+          generated_through: string | null;
           id: string;
           internal_notes: string | null;
           lead_time_days: number;
+          missed_occurrences: string[];
           owner_id: string | null;
           paused_at: string | null;
           post_format: string | null;
@@ -10316,9 +10318,11 @@ export type Database = {
           ended_at?: string | null;
           ends_on?: string | null;
           event_id?: string | null;
+          generated_through?: string | null;
           id?: string;
           internal_notes?: string | null;
           lead_time_days: number;
+          missed_occurrences?: string[];
           owner_id?: string | null;
           paused_at?: string | null;
           post_format?: string | null;
@@ -10343,9 +10347,11 @@ export type Database = {
           ended_at?: string | null;
           ends_on?: string | null;
           event_id?: string | null;
+          generated_through?: string | null;
           id?: string;
           internal_notes?: string | null;
           lead_time_days?: number;
+          missed_occurrences?: string[];
           owner_id?: string | null;
           paused_at?: string | null;
           post_format?: string | null;
@@ -12650,6 +12656,15 @@ export type Database = {
           number: number;
           value: string;
         }[];
+      };
+      generate_social_post_series_posts: {
+        Args: {
+          p_missed: string[];
+          p_posts: Json;
+          p_series_id: string;
+          p_through: string;
+        };
+        Returns: number;
       };
       generate_volunteer_reference_code: {
         Args: { p_tenant_id?: string };

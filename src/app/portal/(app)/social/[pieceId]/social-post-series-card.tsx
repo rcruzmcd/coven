@@ -56,6 +56,8 @@ import {
 
 const NO_REPEAT = "none";
 const UPCOMING_COUNT = 4;
+/** The newest missed dates the card lists (#1840). */
+const MISSED_SHOWN = 5;
 
 const STATE_LABELS = {
   active: "Active",
@@ -320,6 +322,21 @@ function SeriesDetails({
               </li>
             ))}
           </ul>
+        </div>
+      )}
+
+      {series.missed_occurrences.length > 0 && (
+        <div className="flex flex-col gap-1">
+          <h3 className="app-muted text-xs font-semibold">Not created</h3>
+          <p className="app-muted text-xs">
+            These dates had passed before their post could be made, so they were
+            skipped:{" "}
+            {series.missed_occurrences
+              .slice(-MISSED_SHOWN)
+              .map((day) => formatCalendarDate(day))
+              .join(", ")}
+            .
+          </p>
         </div>
       )}
 
