@@ -200,6 +200,19 @@ describe("formatMinutesMarkdown", () => {
     expect(markdown).toContain("Adjourned at 19:30.");
   });
 
+  test("makes the line breaks in a note explicit for the clipboard (#1871)", () => {
+    const md = formatMinutesMarkdown({
+      ...emptyInput,
+      minutes: minutes({
+        notes: { opening: "Motion passed 4-0\nTreasurer to send report" },
+        body_text: "Adjourned\nat 8pm",
+      }),
+    });
+
+    expect(md).toContain("Motion passed 4-0\\\nTreasurer to send report");
+    expect(md).toContain("Adjourned\\\nat 8pm");
+  });
+
   test("groups action items under the item they were raised under", () => {
     const markdown = formatMinutesMarkdown({
       ...emptyInput,
@@ -249,6 +262,18 @@ describe("formatMinutesMarkdown", () => {
 });
 
 describe("formatMinutesPlainText", () => {
+  test("writes notes as plain text, every line indented (#1873)", () => {
+    const text = formatMinutesPlainText({
+      ...emptyInput,
+      minutes: minutes({
+        notes: { opening: "**Motion** passed\n- send report" },
+      }),
+    });
+
+    expect(text).toContain("OPENING\n  Motion passed\n\n  - send report");
+    expect(text).not.toContain("**");
+  });
+
   test("uses plain uppercase headers instead of markdown syntax", () => {
     const text = formatMinutesPlainText({
       ...emptyInput,
