@@ -1988,6 +1988,8 @@ export type Database = {
           created_by: string | null;
           draft_due_at: string | null;
           event_id: string | null;
+          featured_inventory_item_id: string | null;
+          featured_media_id: string | null;
           id: string;
           internal_notes: string | null;
           lead_time_days: number;
@@ -2016,6 +2018,8 @@ export type Database = {
           created_by?: string | null;
           draft_due_at?: string | null;
           event_id?: string | null;
+          featured_inventory_item_id?: string | null;
+          featured_media_id?: string | null;
           id?: string;
           internal_notes?: string | null;
           lead_time_days?: number;
@@ -2044,6 +2048,8 @@ export type Database = {
           created_by?: string | null;
           draft_due_at?: string | null;
           event_id?: string | null;
+          featured_inventory_item_id?: string | null;
+          featured_media_id?: string | null;
           id?: string;
           internal_notes?: string | null;
           lead_time_days?: number;
@@ -2077,6 +2083,20 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: "events";
             referencedColumns: ["tenant_id", "id"];
+          },
+          {
+            foreignKeyName: "content_opportunities_featured_inventory_item_fkey";
+            columns: ["tenant_id", "featured_inventory_item_id"];
+            isOneToOne: false;
+            referencedRelation: "inventory_items";
+            referencedColumns: ["tenant_id", "id"];
+          },
+          {
+            foreignKeyName: "content_opportunities_featured_media_fkey";
+            columns: ["featured_media_id"];
+            isOneToOne: false;
+            referencedRelation: "social_post_media";
+            referencedColumns: ["id"];
           },
           {
             foreignKeyName: "content_opportunities_owner_id_fkey";
@@ -10284,6 +10304,7 @@ export type Database = {
           calendar_item_id: string | null;
           collaborator_handles: string[];
           content: string | null;
+          content_source: string;
           created_at: string;
           created_by: string | null;
           ended_at: string | null;
@@ -10294,10 +10315,12 @@ export type Database = {
           internal_notes: string | null;
           lead_time_days: number;
           missed_occurrences: string[];
+          no_gear_occurrences: string[];
           owner_id: string | null;
           paused_at: string | null;
           post_format: string | null;
           publish_time: string;
+          recent_exclusion_count: number;
           reviewer_id: string | null;
           tags: Json;
           tenant_id: string;
@@ -10313,6 +10336,7 @@ export type Database = {
           calendar_item_id?: string | null;
           collaborator_handles?: string[];
           content?: string | null;
+          content_source?: string;
           created_at?: string;
           created_by?: string | null;
           ended_at?: string | null;
@@ -10323,10 +10347,12 @@ export type Database = {
           internal_notes?: string | null;
           lead_time_days: number;
           missed_occurrences?: string[];
+          no_gear_occurrences?: string[];
           owner_id?: string | null;
           paused_at?: string | null;
           post_format?: string | null;
           publish_time: string;
+          recent_exclusion_count?: number;
           reviewer_id?: string | null;
           tags?: Json;
           tenant_id?: string;
@@ -10342,6 +10368,7 @@ export type Database = {
           calendar_item_id?: string | null;
           collaborator_handles?: string[];
           content?: string | null;
+          content_source?: string;
           created_at?: string;
           created_by?: string | null;
           ended_at?: string | null;
@@ -10352,10 +10379,12 @@ export type Database = {
           internal_notes?: string | null;
           lead_time_days?: number;
           missed_occurrences?: string[];
+          no_gear_occurrences?: string[];
           owner_id?: string | null;
           paused_at?: string | null;
           post_format?: string | null;
           publish_time?: string;
+          recent_exclusion_count?: number;
           reviewer_id?: string | null;
           tags?: Json;
           tenant_id?: string;
@@ -12664,7 +12693,7 @@ export type Database = {
           p_series_id: string;
           p_through: string;
         };
-        Returns: number;
+        Returns: Json;
       };
       generate_volunteer_reference_code: {
         Args: { p_tenant_id?: string };
@@ -12848,6 +12877,12 @@ export type Database = {
           recorded_by: string;
           recorded_by_name: string;
         }[];
+      };
+      inventory_item_is_featurable: {
+        Args: {
+          p_item: Database["public"]["Tables"]["inventory_items"]["Row"];
+        };
+        Returns: boolean;
       };
       inventory_numbered_tag_number: {
         Args: { p_code: string };
@@ -14774,6 +14809,10 @@ export type Database = {
         Args: { p_mode: string; p_policy_key: string };
         Returns: undefined;
       };
+      set_social_post_featured_gear: {
+        Args: { p_item_id?: string; p_post_id: string };
+        Returns: string;
+      };
       set_social_post_tags: {
         Args: { p_post_id: string; p_tags: Json };
         Returns: undefined;
@@ -14789,6 +14828,28 @@ export type Database = {
       show_limit: { Args: never; Returns: number };
       show_trgm: { Args: { "": string }; Returns: string[] };
       site_content_approver_count: { Args: never; Returns: number };
+      social_post_gear_items: {
+        Args: { p_post_id: string };
+        Returns: {
+          category_label: string;
+          condition: string;
+          description: string;
+          featured: boolean;
+          id: string;
+          photo_url: string;
+          qualifies: boolean;
+          size: string;
+          status: string;
+        }[];
+      };
+      social_post_gear_pick: {
+        Args: {
+          p_exclude_item?: string;
+          p_post_id?: string;
+          p_series_id: string;
+        };
+        Returns: string;
+      };
       social_post_media_path_post_id: {
         Args: { p_name: string };
         Returns: string;

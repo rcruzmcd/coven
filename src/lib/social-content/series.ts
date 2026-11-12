@@ -3,6 +3,7 @@ import {
   utcIsoToDatetimeLocalInZone,
   zonedWallTimeToUtcIso,
 } from "@/lib/time";
+import type { SeriesContentSource } from "./series-gear";
 
 /**
  * Recurring social posts (#1839): how often a series repeats and which dates
@@ -41,10 +42,16 @@ export type SocialPostSeriesRow = SeriesSchedule & {
   title: string;
   /** Dates the generator reached too late to create (#1840), ascending. */
   missed_occurrences: string[];
+  /** What each new post features (#1841). */
+  content_source: SeriesContentSource;
+  /** A gear series' posts avoid items featured in this many latest posts. */
+  recent_exclusion_count: number;
+  /** Dates a gear series skipped for want of an item (#1841), ascending. */
+  no_gear_occurrences: string[];
 };
 
 export const SERIES_COLUMNS =
-  "id, cadence, anchor_date, publish_time, time_zone, ends_on, lead_time_days, auto_approve, paused_at, ended_at, title, missed_occurrences";
+  "id, cadence, anchor_date, publish_time, time_zone, ends_on, lead_time_days, auto_approve, paused_at, ended_at, title, missed_occurrences, content_source, recent_exclusion_count, no_gear_occurrences";
 
 const WEEKDAYS = [
   "Sunday",
