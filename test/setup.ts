@@ -1,8 +1,11 @@
 import { afterEach, expect, mock, setDefaultTimeout } from "bun:test";
 import { cleanup } from "@testing-library/react";
 import * as matchers from "@testing-library/jest-dom/matchers";
+import { withCompactDomMessages } from "./dom-matcher-messages";
 
-expect.extend(matchers);
+// Wrapped so a failure prints the element's markup instead of happy-dom's
+// whole object graph, which can abort a CI shard (#1853).
+expect.extend(withCompactDomMessages(matchers));
 afterEach(cleanup);
 
 // Bun's 5s default is sized for pure-logic tests. A DOM test that renders a
