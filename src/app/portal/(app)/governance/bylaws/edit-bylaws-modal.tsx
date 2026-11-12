@@ -1,5 +1,6 @@
 "use client";
 
+import { MarkdownText } from "@/components/portal/markdown-text";
 import { FormEvent, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Eye, Pencil } from "lucide-react";
@@ -238,9 +239,9 @@ export function EditBylawsModal({ bylaws }: { bylaws: Bylaws }) {
                   label="What changed"
                   htmlFor="edit-bylaws-amendment-summary"
                 >
-                  <span className="whitespace-pre-wrap">
-                    {bylaws.amendment_summary || "—"}
-                  </span>
+                  <MarkdownText fallback="—">
+                    {bylaws.amendment_summary}
+                  </MarkdownText>
                 </ReadOnlyField>
                 <ReadOnlyField label="Document" htmlFor="edit-bylaws-document">
                   <DocumentPreview
@@ -253,9 +254,7 @@ export function EditBylawsModal({ bylaws }: { bylaws: Bylaws }) {
                   label="Bylaws text"
                   htmlFor="edit-bylaws-body-text"
                 >
-                  <span className="whitespace-pre-wrap">
-                    {bylaws.body_text || "—"}
-                  </span>
+                  <MarkdownText fallback="—">{bylaws.body_text}</MarkdownText>
                 </ReadOnlyField>
               </FieldGroup>
             </div>

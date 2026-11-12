@@ -1,5 +1,6 @@
 "use client";
 
+import { MarkdownText } from "@/components/portal/markdown-text";
 import { FormEvent, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Eye, Pencil } from "lucide-react";
@@ -295,9 +296,9 @@ export function EditRequirementModal({
                   />
                 </ReadOnlyField>
                 <ReadOnlyField label="Notes" htmlFor="edit-requirement-notes">
-                  <span className="whitespace-pre-wrap">
-                    {requirement.body_text || "—"}
-                  </span>
+                  <MarkdownText fallback="—">
+                    {requirement.body_text}
+                  </MarkdownText>
                 </ReadOnlyField>
               </FieldGroup>
             </div>

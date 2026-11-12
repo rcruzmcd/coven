@@ -1,5 +1,6 @@
 "use client";
 
+import { MarkdownText } from "@/components/portal/markdown-text";
 import { FormEvent, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Eye, Pencil } from "lucide-react";
@@ -253,9 +254,7 @@ export function EditPolicyModal({ policy }: { policy: Policy }) {
                   label="Policy text"
                   htmlFor="edit-policy-body-text"
                 >
-                  <span className="whitespace-pre-wrap">
-                    {policy.body_text || "—"}
-                  </span>
+                  <MarkdownText fallback="—">{policy.body_text}</MarkdownText>
                 </ReadOnlyField>
               </FieldGroup>
             </div>

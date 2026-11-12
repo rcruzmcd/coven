@@ -1,5 +1,6 @@
 "use client";
 
+import { MarkdownTextarea } from "@/components/portal/markdown-textarea";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import {
@@ -9,7 +10,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import type { MilestoneStatus } from "./nonprofit-status-form";
 
 export type MilestoneFormState = {
@@ -52,7 +52,7 @@ export function NonprofitStatusFormFields({
         <FieldLabel htmlFor={`${idPrefix}-description`} required>
           Description
         </FieldLabel>
-        <Textarea
+        <MarkdownTextarea
           id={`${idPrefix}-description`}
           required
           value={form.description}
@@ -111,7 +111,7 @@ export function NonprofitStatusFormFields({
 
       <Field>
         <FieldLabel htmlFor={`${idPrefix}-notes`}>Notes</FieldLabel>
-        <Textarea
+        <MarkdownTextarea
           id={`${idPrefix}-notes`}
           value={form.notes}
           onChange={(event) => update("notes", event.target.value)}

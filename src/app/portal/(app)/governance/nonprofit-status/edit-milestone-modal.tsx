@@ -1,5 +1,6 @@
 "use client";
 
+import { MarkdownText } from "@/components/portal/markdown-text";
 import { FormEvent, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Eye, Pencil, Trash2 } from "lucide-react";
@@ -278,9 +279,9 @@ export function EditMilestoneModal({
                   label="Description"
                   htmlFor="edit-milestone-description"
                 >
-                  <span className="whitespace-pre-wrap">
+                  <MarkdownText fallback="—">
                     {milestone.description}
-                  </span>
+                  </MarkdownText>
                 </ReadOnlyField>
                 <ReadOnlyField label="Owner" htmlFor="edit-milestone-owner">
                   {personDisplayName(milestone.owner)}
@@ -295,9 +296,7 @@ export function EditMilestoneModal({
                   <MilestoneStatusBadge status={milestone.status} />
                 </ReadOnlyField>
                 <ReadOnlyField label="Notes" htmlFor="edit-milestone-notes">
-                  <span className="whitespace-pre-wrap">
-                    {milestone.notes || "—"}
-                  </span>
+                  <MarkdownText fallback="—">{milestone.notes}</MarkdownText>
                 </ReadOnlyField>
 
                 {error && (

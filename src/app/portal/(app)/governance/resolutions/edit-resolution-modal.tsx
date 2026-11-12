@@ -1,5 +1,6 @@
 "use client";
 
+import { MarkdownText } from "@/components/portal/markdown-text";
 import { FormEvent, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Eye, Pencil } from "lucide-react";
@@ -291,9 +292,9 @@ export function EditResolutionModal({
                   label="Motion text"
                   htmlFor="edit-resolution-motion-text"
                 >
-                  <span className="whitespace-pre-wrap">
+                  <MarkdownText fallback="—">
                     {resolution.motion_text}
-                  </span>
+                  </MarkdownText>
                 </ReadOnlyField>
                 <ReadOnlyField label="Mover" htmlFor="edit-resolution-mover">
                   {resolution.mover.name || "—"}
@@ -330,9 +331,9 @@ export function EditResolutionModal({
                   label="Resolution text"
                   htmlFor="edit-resolution-body-text"
                 >
-                  <span className="whitespace-pre-wrap">
-                    {resolution.body_text || "—"}
-                  </span>
+                  <MarkdownText fallback="—">
+                    {resolution.body_text}
+                  </MarkdownText>
                 </ReadOnlyField>
               </FieldGroup>
             </div>

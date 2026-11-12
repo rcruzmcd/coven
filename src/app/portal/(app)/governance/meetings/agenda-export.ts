@@ -23,7 +23,7 @@ import {
   personDisplayName,
 } from "@/lib/format";
 import { withHardLineBreaks } from "@/lib/markdown/hard-line-breaks";
-import { plainBlock } from "@/lib/markdown/plain-text";
+import { plainBlock, markdownToPlainText } from "@/lib/markdown/plain-text";
 import { documentNameFromPath } from "@/lib/storage/documents";
 
 export type AgendaExportInput = {
@@ -63,7 +63,12 @@ function actionItemLine(item: ActionItem): string {
 function decisionLine(decision: Decision): string {
   const topic = decision.topic ? `${decision.topic}: ` : "";
   const vote = decision.vote_result ? ` (${decision.vote_result})` : "";
-  return `${topic}${decision.description}${vote}`;
+  // One list item per decision: the discussion is Markdown (#1875), and its
+  // own line breaks or bullets would end the item or nest a list inside it.
+  const discussion = markdownToPlainText(decision.description)
+    .replace(/\s+/g, " ")
+    .trim();
+  return `${topic}${discussion}${vote}`;
 }
 
 /**

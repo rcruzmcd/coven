@@ -265,11 +265,7 @@ export function OverviewTab({
           </ReadOnlyField>
 
           <ReadOnlyField label="Description" htmlFor="details-description">
-            {form.description.trim() ? (
-              <MarkdownText>{form.description}</MarkdownText>
-            ) : (
-              "—"
-            )}
+            <MarkdownText fallback="—">{form.description}</MarkdownText>
           </ReadOnlyField>
 
           <ReadOnlyField label="Flier" htmlFor="details-flier">

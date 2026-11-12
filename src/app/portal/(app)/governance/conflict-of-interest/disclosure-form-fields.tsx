@@ -1,9 +1,9 @@
 "use client";
 
+import { MarkdownTextarea } from "@/components/portal/markdown-textarea";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { DocumentField } from "@/components/portal/document-field";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 
 export type DisclosureFormState = {
   disclosureYear: string;
@@ -75,7 +75,7 @@ export function DisclosureFormFields({
 
       <Field>
         <FieldLabel htmlFor={`${idPrefix}-notes`}>Notes</FieldLabel>
-        <Textarea
+        <MarkdownTextarea
           id={`${idPrefix}-notes`}
           placeholder="Any noted conflicts..."
           value={form.notes}
@@ -98,7 +98,7 @@ export function DisclosureFormFields({
         <FieldLabel htmlFor={`${idPrefix}-body-text`}>
           Disclosure details
         </FieldLabel>
-        <Textarea
+        <MarkdownTextarea
           id={`${idPrefix}-body-text`}
           value={form.bodyText}
           onChange={(event) => update("bodyText", event.target.value)}
