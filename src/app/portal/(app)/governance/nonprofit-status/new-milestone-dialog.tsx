@@ -113,8 +113,9 @@ export function NewMilestoneDialog({
       <FieldGroup>
         <RequiredFieldsNote />
         <Field>
-          <FieldLabel>Owner</FieldLabel>
+          <FieldLabel htmlFor="new-milestone-owner">Owner</FieldLabel>
           <PersonPicker
+            id="new-milestone-owner"
             people={availablePeople}
             selected={selectedOwner}
             onSelect={setSelectedOwner}

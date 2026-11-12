@@ -604,8 +604,11 @@ export function EditExpenseModal({
                 <FieldGroup>
                   <RequiredFieldsNote />
                   <Field>
-                    <FieldLabel>Paid by</FieldLabel>
+                    <FieldLabel htmlFor="edit-expense-paid-by">
+                      Paid by
+                    </FieldLabel>
                     <PersonPicker
+                      id="edit-expense-paid-by"
                       people={people}
                       selected={selectedPayer}
                       onSelect={setSelectedPayer}

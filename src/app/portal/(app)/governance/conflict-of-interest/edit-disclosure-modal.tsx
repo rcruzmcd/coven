@@ -306,8 +306,14 @@ export function EditDisclosureModal({
                 <FieldGroup>
                   <RequiredFieldsNote />
                   <div className="flex flex-col gap-1.5">
-                    <span className="text-sm font-medium">Person</span>
+                    <label
+                      htmlFor="edit-disclosure-person"
+                      className="text-sm font-medium"
+                    >
+                      Person
+                    </label>
                     <PersonPicker
+                      id="edit-disclosure-person"
                       people={availablePeople}
                       selected={selectedPerson}
                       onSelect={setSelectedPerson}

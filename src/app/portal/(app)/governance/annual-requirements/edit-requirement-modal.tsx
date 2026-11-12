@@ -318,10 +318,14 @@ export function EditRequirementModal({
                   />
 
                   <div className="flex flex-col gap-1.5">
-                    <span className="text-sm font-medium">
+                    <label
+                      htmlFor="edit-requirement-responsible-person"
+                      className="text-sm font-medium"
+                    >
                       Responsible person
-                    </span>
+                    </label>
                     <PersonPicker
+                      id="edit-requirement-responsible-person"
                       people={availablePeople}
                       selected={selectedResponsible}
                       onSelect={setSelectedResponsible}

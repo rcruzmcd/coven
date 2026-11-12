@@ -224,6 +224,7 @@ export function RetroSection({ eventId }: { eventId: string }) {
                             size="icon-sm"
                             aria-label="Edit retro item"
                             disabled={pendingIds.has(item.id)}
+                            focusableWhenDisabled
                             onClick={() =>
                               setDialog({ item, kind, key: Date.now() })
                             }

@@ -77,7 +77,14 @@ function LifecycleButton({
   return (
     <AlertDialog>
       <AlertDialogTrigger
-        render={<Button type="button" variant="secondary" disabled={pending} />}
+        render={
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={pending}
+            focusableWhenDisabled
+          />
+        }
       >
         {pending ? (
           <>

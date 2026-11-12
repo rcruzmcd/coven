@@ -115,6 +115,7 @@ export function CaseActionsCard({
                       variant="ghost"
                       size="sm"
                       disabled={isPending}
+                      focusableWhenDisabled
                       onClick={() => handleLift(action.id)}
                     >
                       Lift today
@@ -174,7 +175,7 @@ export function CaseActionsCard({
                 onChange={(event) => setTakenOn(event.target.value)}
               />
             </Field>
-            <Button type="submit" disabled={isPending}>
+            <Button type="submit" disabled={isPending} focusableWhenDisabled>
               {isPending ? (
                 <>
                   <Spinner /> Recording...

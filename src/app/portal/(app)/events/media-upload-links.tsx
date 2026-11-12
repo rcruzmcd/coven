@@ -277,7 +277,7 @@ function CreateUploadLinkDialog({
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={isPending}>
+            <Button type="submit" disabled={isPending} focusableWhenDisabled>
               {isPending ? <Spinner /> : "Create link"}
             </Button>
           </>
@@ -428,6 +428,7 @@ function EmailUploadLink({ eventId, url }: { eventId: string; url: string }) {
           variant="secondary"
           onClick={handleSend}
           disabled={isPending}
+          focusableWhenDisabled
         >
           {isPending ? <Spinner /> : <Mail className="size-4" />}
           Send

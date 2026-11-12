@@ -114,8 +114,11 @@ export function NewRequirementDialog({ people }: { people: PersonListItem[] }) {
         />
 
         <Field>
-          <FieldLabel>Responsible person</FieldLabel>
+          <FieldLabel htmlFor="new-requirement-responsible-person">
+            Responsible person
+          </FieldLabel>
           <PersonPicker
+            id="new-requirement-responsible-person"
             people={availablePeople}
             selected={selectedResponsible}
             onSelect={setSelectedResponsible}

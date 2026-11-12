@@ -45,6 +45,7 @@ export function SearchSubmitButton() {
             size="icon-sm"
             aria-label="Search"
             disabled={pending}
+            focusableWhenDisabled
             aria-busy={pending || undefined}
           />
         }

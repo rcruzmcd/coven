@@ -318,6 +318,7 @@ export function UsersTable({
                 size="sm"
                 variant="ghost"
                 disabled={isPending}
+                focusableWhenDisabled
                 onClick={() => {
                   setAddingFor(null);
                   setPendingRole("");
@@ -373,6 +374,7 @@ export function UsersTable({
               size="sm"
               variant="secondary"
               disabled={isPending}
+              focusableWhenDisabled
               onClick={() =>
                 submit(
                   () => reactivateUserAction(portalUser.user_id),

@@ -204,6 +204,7 @@ export function BulkAssignCodesButton({
                     <Button
                       type="button"
                       disabled={isPending}
+                      focusableWhenDisabled
                       onClick={() => assign(current, held.scanned, true)}
                     >
                       {isPending && <Spinner />} Move {held.code} here
@@ -256,6 +257,7 @@ export function BulkAssignCodesButton({
                     type="button"
                     variant="secondary"
                     disabled={isPending}
+                    focusableWhenDisabled
                     onClick={() =>
                       skip({
                         id: current.id,

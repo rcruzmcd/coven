@@ -128,6 +128,7 @@ export function PlanningTab({
         <Field>
           <FieldLabel htmlFor="planning-eventLeadId">Event lead</FieldLabel>
           <PersonPicker
+            id="planning-eventLeadId"
             people={people}
             selected={form.eventLead}
             onSelect={(person) =>

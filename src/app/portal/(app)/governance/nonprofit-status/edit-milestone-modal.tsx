@@ -317,8 +317,14 @@ export function EditMilestoneModal({
                 <FieldGroup>
                   <RequiredFieldsNote />
                   <div className="flex flex-col gap-1.5">
-                    <span className="text-sm font-medium">Owner</span>
+                    <label
+                      htmlFor="edit-milestone-owner"
+                      className="text-sm font-medium"
+                    >
+                      Owner
+                    </label>
                     <PersonPicker
+                      id="edit-milestone-owner"
                       people={availablePeople}
                       selected={selectedOwner}
                       onSelect={setSelectedOwner}

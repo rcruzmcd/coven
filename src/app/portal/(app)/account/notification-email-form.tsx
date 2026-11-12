@@ -157,6 +157,7 @@ export function NotificationEmailForm({
               size="sm"
               className="ml-1 h-7 px-2 underline underline-offset-4"
               disabled={isPending}
+              focusableWhenDisabled
               onClick={() =>
                 submit(
                   () =>

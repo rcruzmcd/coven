@@ -107,8 +107,9 @@ function AddActionItemForm({
       <FieldGroup>
         <RequiredFieldsNote />
         <Field>
-          <FieldLabel>Owner</FieldLabel>
+          <FieldLabel htmlFor="add-action-item-owner">Owner</FieldLabel>
           <PersonPicker
+            id="add-action-item-owner"
             people={people}
             selected={selectedOwner}
             onSelect={setSelectedOwner}
@@ -132,7 +133,7 @@ function AddActionItemForm({
           <Button type="button" variant="secondary" onClick={onCancel}>
             Cancel
           </Button>
-          <Button type="submit" disabled={isPending}>
+          <Button type="submit" disabled={isPending} focusableWhenDisabled>
             {isPending ? (
               <>
                 <Spinner /> Saving...
@@ -218,7 +219,7 @@ function EditActionItemDialog({
           >
             Cancel
           </PortalFormSurfaceClose>
-          <Button type="submit" disabled={isPending}>
+          <Button type="submit" disabled={isPending} focusableWhenDisabled>
             {isPending ? (
               <>
                 <Spinner /> Saving...
@@ -232,8 +233,9 @@ function EditActionItemDialog({
     >
       <FieldGroup>
         <Field>
-          <FieldLabel>Owner</FieldLabel>
+          <FieldLabel htmlFor="edit-action-item-owner">Owner</FieldLabel>
           <PersonPicker
+            id="edit-action-item-owner"
             people={people}
             selected={selectedOwner}
             onSelect={setSelectedOwner}

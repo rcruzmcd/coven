@@ -96,6 +96,7 @@ export function ReminderPreviewButton({
         variant="secondary"
         size="sm"
         disabled={isPending}
+        focusableWhenDisabled
         onClick={open}
       >
         {isPending ? <Spinner /> : <Eye />}

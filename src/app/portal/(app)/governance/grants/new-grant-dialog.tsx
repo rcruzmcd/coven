@@ -107,8 +107,9 @@ export function NewGrantDialog({ people }: { people: PersonListItem[] }) {
         <GrantFormFields form={form} update={update} idPrefix="new-grant" />
 
         <Field>
-          <FieldLabel>Owner</FieldLabel>
+          <FieldLabel htmlFor="new-grant-owner">Owner</FieldLabel>
           <PersonPicker
+            id="new-grant-owner"
             people={availablePeople}
             selected={owner}
             onSelect={setOwner}

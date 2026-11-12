@@ -242,6 +242,7 @@ export function RegistrationSteps({
           className="h-auto p-0"
           onClick={() => goTo(owner)}
           disabled={isPending}
+          focusableWhenDisabled
           aria-label={`Edit ${LEGENDS[owner].toLowerCase()}`}
         >
           Edit
@@ -300,6 +301,7 @@ export function RegistrationSteps({
               variant="ghost"
               onClick={close}
               disabled={isPending}
+              focusableWhenDisabled
             >
               Cancel
             </Button>
@@ -310,6 +312,7 @@ export function RegistrationSteps({
               variant="outline"
               onClick={() => goTo(REGISTRATION_STEPS[index - 1])}
               disabled={isPending}
+              focusableWhenDisabled
             >
               Back
             </Button>
@@ -328,6 +331,7 @@ export function RegistrationSteps({
               type="submit"
               variant={submitVariant}
               disabled={isPending}
+              focusableWhenDisabled
               className="flex-1 sm:flex-none"
             >
               {isPending ? "Registering…" : "Complete registration"}

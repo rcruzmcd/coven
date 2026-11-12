@@ -63,6 +63,7 @@ function VerifyButton({
       variant="ghost"
       size="sm"
       disabled={isPending}
+      focusableWhenDisabled
       onClick={() =>
         startTransition(async () => {
           await runAction(() => verifyAccessGrantAction(grantId, assetId), {

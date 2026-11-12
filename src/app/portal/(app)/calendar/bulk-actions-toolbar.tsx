@@ -145,6 +145,7 @@ export function BulkActionsToolbar({
           variant="ghost"
           size="sm"
           disabled={isPending}
+          focusableWhenDisabled
           onClick={onDone}
         >
           Clear selection

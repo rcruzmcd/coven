@@ -272,7 +272,12 @@ export function ArtworkSubmissionForm({
           </Alert>
         )}
 
-        <Button type="submit" disabled={isPending} className="w-full sm:w-fit">
+        <Button
+          type="submit"
+          disabled={isPending}
+          focusableWhenDisabled
+          className="w-full sm:w-fit"
+        >
           {isPending ? "Sending..." : "Submit my artwork"}
         </Button>
       </FieldGroup>

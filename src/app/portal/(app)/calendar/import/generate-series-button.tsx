@@ -31,6 +31,7 @@ export function GenerateSeriesButton({ itemId }: { itemId: string }) {
         size="sm"
         onClick={handleGenerate}
         disabled={isPending}
+        focusableWhenDisabled
       >
         {isPending ? (
           <>

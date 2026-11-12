@@ -211,6 +211,7 @@ export function CodeActions({
                 size="icon-sm"
                 aria-label={`More actions for ${row.value}`}
                 disabled={isPending}
+                focusableWhenDisabled
               />
             }
           >
@@ -342,7 +343,12 @@ export function RetireCodesDialog({
           >
             Cancel
           </PortalFormSurfaceClose>
-          <Button type="submit" variant="destructive" disabled={isPending}>
+          <Button
+            type="submit"
+            variant="destructive"
+            disabled={isPending}
+            focusableWhenDisabled
+          >
             {isPending && <Spinner />} {confirming ? "Retire anyway" : "Retire"}
           </Button>
         </>

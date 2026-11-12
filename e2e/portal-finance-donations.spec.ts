@@ -166,9 +166,7 @@ test.describe("portal finance donations", () => {
       dialog.getByRole("heading", { name: "Add donation" }),
     ).toBeVisible();
 
-    const search = dialog.getByRole("combobox", {
-      name: "Search donors by name or email...",
-    });
+    const search = dialog.getByRole("combobox", { name: "Donor", exact: true });
     await search.fill("Jamie");
     await expect(dialog.getByRole("option").first()).toBeVisible();
 

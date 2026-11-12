@@ -101,6 +101,7 @@ export function ScreeningList({
                         variant="ghost"
                         size="icon-sm"
                         disabled={isPending}
+                        focusableWhenDisabled
                         aria-label={`Remove the ${level} outcome`}
                         onClick={() => setPendingRemoval(screening)}
                       />

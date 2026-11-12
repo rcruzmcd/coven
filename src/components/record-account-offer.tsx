@@ -168,7 +168,12 @@ export function RecordAccountOffer({
             Make an account
           </Link>
         ) : (
-          <Button variant="rainbow" onClick={handleClaim} disabled={isPending}>
+          <Button
+            variant="rainbow"
+            onClick={handleClaim}
+            disabled={isPending}
+            focusableWhenDisabled
+          >
             {isPending ? "Sending..." : "Add to my account"}
           </Button>
         )}

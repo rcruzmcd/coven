@@ -101,7 +101,12 @@ export function GearRequestStatusActions({
                 disabled={isPending}
               />
             </Field>
-            <Button type="submit" variant="secondary" disabled={isPending}>
+            <Button
+              type="submit"
+              variant="secondary"
+              disabled={isPending}
+              focusableWhenDisabled
+            >
               Record quote
             </Button>
           </form>
@@ -116,6 +121,7 @@ export function GearRequestStatusActions({
               type="button"
               variant="secondary"
               disabled={isPending}
+              focusableWhenDisabled
               onClick={() => move("paid", null, "Postage marked as paid.")}
             >
               Mark paid
@@ -125,6 +131,7 @@ export function GearRequestStatusActions({
             <Button
               type="button"
               disabled={isPending}
+              focusableWhenDisabled
               onClick={() =>
                 move("fulfilled", null, "Request fulfilled; items distributed.")
               }
@@ -137,6 +144,7 @@ export function GearRequestStatusActions({
               type="button"
               variant="ghost"
               disabled={isPending}
+              focusableWhenDisabled
               onClick={() =>
                 move(
                   "fulfilled",
@@ -160,6 +168,7 @@ export function GearRequestStatusActions({
                 variant="destructive"
                 size="sm"
                 disabled={isPending}
+                focusableWhenDisabled
                 onClick={() =>
                   move("cancelled", null, "Request cancelled; items released.")
                 }
@@ -171,6 +180,7 @@ export function GearRequestStatusActions({
                 variant="ghost"
                 size="sm"
                 disabled={isPending}
+                focusableWhenDisabled
                 onClick={() => setConfirmingCancel(false)}
               >
                 Keep
@@ -181,6 +191,7 @@ export function GearRequestStatusActions({
               type="button"
               variant="ghost"
               disabled={isPending}
+              focusableWhenDisabled
               onClick={() => setConfirmingCancel(true)}
             >
               Cancel request

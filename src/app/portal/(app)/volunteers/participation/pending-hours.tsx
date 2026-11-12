@@ -113,7 +113,12 @@ function PendingRow({
           onChange={(event) => setHours(event.target.value)}
           disabled={isPending}
         />
-        <Button size="sm" onClick={() => decide(true)} disabled={isPending}>
+        <Button
+          size="sm"
+          onClick={() => decide(true)}
+          disabled={isPending}
+          focusableWhenDisabled
+        >
           Confirm
         </Button>
         <Button
@@ -121,6 +126,7 @@ function PendingRow({
           variant="outline"
           onClick={() => decide(false)}
           disabled={isPending}
+          focusableWhenDisabled
         >
           Decline
         </Button>

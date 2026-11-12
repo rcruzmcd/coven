@@ -265,8 +265,11 @@ export function EditDistributionSheet({
                 </Field>
 
                 <Field>
-                  <FieldLabel>Recipient</FieldLabel>
+                  <FieldLabel htmlFor="edit-distribution-recipient">
+                    Recipient
+                  </FieldLabel>
                   <PersonPicker
+                    id="edit-distribution-recipient"
                     people={people}
                     selected={form.recipient}
                     onSelect={(person) => update("recipient", person)}

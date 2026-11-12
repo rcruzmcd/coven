@@ -162,6 +162,7 @@ export function OrganizationsCard({
           (showAdd ? (
             <div className="rounded-md border border-[var(--line)] p-3">
               <PersonPicker
+                aria-label={`${isOrganization ? "Person" : "Organization"} to link`}
                 people={availablePeople}
                 selected={selected}
                 onSelect={setSelected}

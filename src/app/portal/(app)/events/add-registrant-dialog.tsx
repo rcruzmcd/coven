@@ -171,8 +171,11 @@ export function AddRegistrantDialog({
     >
       <FieldGroup>
         <Field>
-          <FieldLabel>Registrant</FieldLabel>
+          <FieldLabel htmlFor="add-registrant-registrant">
+            Registrant
+          </FieldLabel>
           <PersonPicker
+            id="add-registrant-registrant"
             people={people}
             selected={selectedPerson}
             onSelect={setSelectedPerson}

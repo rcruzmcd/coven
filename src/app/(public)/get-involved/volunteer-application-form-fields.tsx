@@ -191,6 +191,7 @@ export function VolunteerApplicationForm({
           type="submit"
           variant="rainbow"
           disabled={isPending}
+          focusableWhenDisabled
           className="w-full sm:w-fit"
         >
           {isPending ? "Submitting..." : "Apply to volunteer"}

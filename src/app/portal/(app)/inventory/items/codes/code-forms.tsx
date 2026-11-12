@@ -77,7 +77,12 @@ export function PrefixForm({ current }: { current: string | null }) {
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
-        <Button type="submit" className="self-start" disabled={isPending}>
+        <Button
+          type="submit"
+          className="self-start"
+          disabled={isPending}
+          focusableWhenDisabled
+        >
           {isPending && <Spinner />} Save prefix
         </Button>
       </FieldGroup>
@@ -131,7 +136,12 @@ export function GenerateCodesForm() {
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
-        <Button type="submit" className="self-start" disabled={isPending}>
+        <Button
+          type="submit"
+          className="self-start"
+          disabled={isPending}
+          focusableWhenDisabled
+        >
           {isPending && <Spinner />} Create codes
         </Button>
       </FieldGroup>

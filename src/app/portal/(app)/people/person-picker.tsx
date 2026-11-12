@@ -39,6 +39,18 @@ export type PickedPerson = {
   has_portal_access?: boolean | null;
 };
 
+/**
+ * How the search input gets its accessible name (#1854). One of the two is
+ * required, so a new call site cannot fall back to being announced by its
+ * placeholder ("Search by name or email...") instead of its label.
+ *
+ * - `id`: put it on the search input and point the field's visible label at
+ *   it (`<FieldLabel htmlFor={id}>`). The usual case.
+ * - `aria-label`: only where there is no visible label to point.
+ */
+export type PersonPickerName =
+  { id: string; "aria-label"?: never } | { id?: never; "aria-label": string };
+
 export function PersonPicker({
   people,
   selected,
@@ -49,9 +61,10 @@ export function PersonPicker({
   allowCreate = true,
   onlyOrganizations = false,
   id,
+  "aria-label": ariaLabel,
   required = false,
   initialQuery = "",
-}: {
+}: PersonPickerName & {
   people: PersonListItem[];
   selected: PickedPerson | null;
   onSelect: (person: PickedPerson | null) => void;
@@ -67,12 +80,6 @@ export function PersonPicker({
   allowCreate?: boolean;
   /** Restrict search/create to organization people rows. */
   onlyOrganizations?: boolean;
-  /**
-   * Applied to the search input so a caller can point a FieldLabel at it.
-   * Without one the input falls back to labelling itself with `placeholder`,
-   * so every existing call site still has an accessible name.
-   */
-  id?: string;
   /**
    * States on the search input that a person has to be picked (#1071). The
    * asterisk a FieldLabel renders is aria-hidden, so without this a required
@@ -227,7 +234,7 @@ export function PersonPicker({
         <Autocomplete.Input
           ref={inputRef}
           id={id}
-          aria-label={id ? undefined : placeholder}
+          aria-label={ariaLabel}
           aria-required={required || undefined}
           placeholder={placeholder}
           onKeyDown={(event) => {

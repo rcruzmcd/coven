@@ -64,6 +64,7 @@ export function RetentionPoliciesPanel({
           <Button
             variant="outline"
             disabled={isPending}
+            focusableWhenDisabled
             onClick={() =>
               run(runRetentionDryRunAction, {
                 success: "Preview run finished.",

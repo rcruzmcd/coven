@@ -189,6 +189,7 @@ export function AccountCard({
                   variant="outline"
                   size="sm"
                   disabled={isPending}
+                  focusableWhenDisabled
                   onClick={() => setConfirmingUnlink(true)}
                 >
                   Unlink account
@@ -223,6 +224,7 @@ export function AccountCard({
                   variant="outline"
                   size="sm"
                   disabled={isPending}
+                  focusableWhenDisabled
                   onClick={() => link(candidate.user_id)}
                 >
                   {isPending ? (
@@ -376,6 +378,7 @@ function NotificationEmailRow({
                     size="icon"
                     className="size-7"
                     disabled={isPending}
+                    focusableWhenDisabled
                     aria-label="Save notification email"
                     onClick={save}
                   />
@@ -394,6 +397,7 @@ function NotificationEmailRow({
                     size="icon"
                     className="size-7"
                     disabled={isPending}
+                    focusableWhenDisabled
                     aria-label="Cancel editing notification email"
                     onClick={() => setIsEditing(false)}
                   />
@@ -419,6 +423,7 @@ function NotificationEmailRow({
                       size="icon"
                       className="size-7"
                       disabled={isPending}
+                      focusableWhenDisabled
                       aria-label="Edit notification email"
                       onClick={start}
                     />

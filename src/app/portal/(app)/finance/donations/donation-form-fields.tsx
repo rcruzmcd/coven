@@ -141,8 +141,9 @@ export function DonationFormFields({
   return (
     <>
       <Field>
-        <FieldLabel>Donor</FieldLabel>
+        <FieldLabel htmlFor={`${idPrefix}-donor`}>Donor</FieldLabel>
         <PersonPicker
+          id={`${idPrefix}-donor`}
           people={people}
           selected={form.donor}
           onSelect={(person) => update("donor", person)}

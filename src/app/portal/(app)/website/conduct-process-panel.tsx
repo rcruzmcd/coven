@@ -120,6 +120,7 @@ export function ConductProcessPanel({
                   type="button"
                   variant="secondary"
                   disabled={isPending}
+                  focusableWhenDisabled
                   onClick={() => {
                     const raw = (drafts[setting.key] ?? "").trim();
                     save(setting.key, raw === "" ? null : Number(raw));

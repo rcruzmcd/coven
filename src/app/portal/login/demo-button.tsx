@@ -34,6 +34,7 @@ export function DemoButton() {
           variant="secondary"
           onClick={handleClick}
           disabled={isPending}
+          focusableWhenDisabled
           className="w-full"
         >
           {isPending ? (

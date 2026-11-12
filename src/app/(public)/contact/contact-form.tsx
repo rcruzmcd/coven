@@ -181,7 +181,12 @@ export function ContactForm({
 
         <PrivacyNotice surface="contact" />
 
-        <Button type="submit" disabled={isPending} className="w-full sm:w-fit">
+        <Button
+          type="submit"
+          disabled={isPending}
+          focusableWhenDisabled
+          className="w-full sm:w-fit"
+        >
           {isPending ? "Sending..." : "Send message"}
         </Button>
       </FieldGroup>

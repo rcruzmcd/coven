@@ -296,8 +296,11 @@ export function EditPartnershipModal({
               <div className="flex-1 overflow-y-auto px-4 pb-4">
                 <FieldGroup>
                   <Field>
-                    <FieldLabel>Partner organization</FieldLabel>
+                    <FieldLabel htmlFor="edit-partnership-partner-organization">
+                      Partner organization
+                    </FieldLabel>
                     <PersonPicker
+                      id="edit-partnership-partner-organization"
                       people={availablePeople}
                       selected={organization}
                       onSelect={setOrganization}
@@ -313,8 +316,11 @@ export function EditPartnershipModal({
                   />
 
                   <Field>
-                    <FieldLabel>Internal owner</FieldLabel>
+                    <FieldLabel htmlFor="edit-partnership-internal-owner">
+                      Internal owner
+                    </FieldLabel>
                     <PersonPicker
+                      id="edit-partnership-internal-owner"
                       people={availablePeople}
                       selected={owner}
                       onSelect={setOwner}

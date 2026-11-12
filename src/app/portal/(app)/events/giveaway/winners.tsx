@@ -162,7 +162,12 @@ export function WinnerForm({
           >
             Cancel
           </Button>
-          <Button type="submit" size="sm" disabled={isPending}>
+          <Button
+            type="submit"
+            size="sm"
+            disabled={isPending}
+            focusableWhenDisabled
+          >
             {isPending ? (
               <>
                 <Spinner /> Saving...
