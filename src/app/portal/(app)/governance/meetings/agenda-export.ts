@@ -22,6 +22,7 @@ import {
   formatInstantDate,
   personDisplayName,
 } from "@/lib/format";
+import { withHardLineBreaks } from "@/lib/markdown/hard-line-breaks";
 import { documentNameFromPath } from "@/lib/storage/documents";
 
 export type AgendaExportInput = {
@@ -171,7 +172,7 @@ function formatSimpleAgendaMarkdown(input: AgendaExportInput): string {
     agenda.items.forEach((item, index) => {
       lines.push(`### ${index + 1}. ${item.title}`);
       if (item.source) lines.push(`_From ${itemSourceLine(item.source)}_`);
-      if (item.notes) lines.push(item.notes);
+      if (item.notes) lines.push(withHardLineBreaks(item.notes));
       lines.push("");
     });
   }
@@ -349,7 +350,7 @@ export function formatAgendaMarkdown(input: AgendaExportInput): string {
   lines.push("");
 
   lines.push("## Agenda notes");
-  lines.push(agenda.body_text || "—");
+  lines.push(withHardLineBreaks(agenda.body_text || "—"));
 
   return lines.join("\n");
 }

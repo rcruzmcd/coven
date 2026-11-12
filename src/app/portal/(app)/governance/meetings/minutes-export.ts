@@ -13,6 +13,7 @@ import {
   formatInstantDate,
   personDisplayName,
 } from "@/lib/format";
+import { withHardLineBreaks } from "@/lib/markdown/hard-line-breaks";
 
 /**
  * Minutes, as something to send to a board member (#1201).
@@ -29,6 +30,10 @@ import {
  * Everything else -- raised out of band, or created before #1199 added the
  * column -- lands under a plain "Action items" heading at the end rather than
  * being silently dropped.
+ *
+ * Notes go into the Markdown with their line breaks made explicit (#1871):
+ * the print view renders a newline as a break, and a paste into any other
+ * Markdown tool would otherwise join those lines into one paragraph.
  */
 
 export type MinutesExportInput = {
@@ -97,7 +102,11 @@ export function formatMinutesMarkdown(input: MinutesExportInput): string {
 
   for (const item of items) {
     lines.push(`## ${item.label}`);
-    lines.push(minutes.notes[item.key]?.trim() || "No notes recorded.");
+    lines.push(
+      withHardLineBreaks(
+        minutes.notes[item.key]?.trim() || "No notes recorded.",
+      ),
+    );
     const context = topicContextLines({
       itemKey: item.key,
       context: input.topicContext,
@@ -125,7 +134,7 @@ export function formatMinutesMarkdown(input: MinutesExportInput): string {
   }
 
   lines.push("## Closing notes");
-  lines.push(minutes.body_text?.trim() || "None.");
+  lines.push(withHardLineBreaks(minutes.body_text?.trim() || "None."));
   lines.push("");
 
   lines.push("## Action items");
