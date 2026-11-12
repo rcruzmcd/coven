@@ -11,6 +11,8 @@ import { SocialPostDetail } from "./social-post-detail";
 import { SocialPostAuditHistory } from "./social-post-audit-history";
 import { SocialPostSeriesCard } from "./social-post-series-card";
 import { getOrgTimeZone } from "@/lib/org-timezone";
+import { loadPostFeaturedGear } from "@/lib/social-content/series-gear-fill";
+import { SocialPostFeaturedGearCard } from "./social-post-featured-gear-card";
 
 export async function generateMetadata({
   params,
@@ -56,7 +58,8 @@ export default async function SocialPostPage({
   }
   if (!piece) notFound();
 
-  const [ownersResult, { data: leadTimeSetting }, orgTimeZone] =
+  const featuresGear = piece.series?.content_source === "random_gear_item";
+  const [ownersResult, { data: leadTimeSetting }, orgTimeZone, featuredGear] =
     await Promise.all([
       listCalendarOwnersAction(),
       supabase
@@ -65,6 +68,7 @@ export default async function SocialPostPage({
         .eq("key", "content.default_lead_time_days")
         .maybeSingle(),
       getOrgTimeZone(supabase),
+      featuresGear ? loadPostFeaturedGear(supabase, piece) : null,
     ]);
   const owners = "data" in ownersResult ? ownersResult.data : [];
   const defaultLeadTimeDays =
@@ -79,6 +83,18 @@ export default async function SocialPostPage({
         defaultLeadTimeDays={defaultLeadTimeDays}
         canManage={canManage}
       />
+      {featuredGear && (
+        <div className="mt-4">
+          <SocialPostFeaturedGearCard
+            postId={piece.id}
+            published={piece.content_status === "published"}
+            canManage={canManage}
+            featured={featuredGear.featured}
+            options={featuredGear.options}
+            captionEdited={featuredGear.captionEdited}
+          />
+        </div>
+      )}
       <div className="mt-4">
         <SocialPostSeriesCard
           piece={piece}

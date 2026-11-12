@@ -8,6 +8,7 @@ import { checkUser } from "@/lib/auth/current-user";
 import { getOrgTimeZone } from "@/lib/org-timezone";
 import type { Database } from "@/lib/database.types";
 import { isSeriesCadence } from "./series";
+import { gearTemplateFromPost } from "./series-gear-fill";
 
 /**
  * Recurring social posts (#1839): make a series from a post, change how
@@ -199,6 +200,23 @@ export async function updateSeriesTemplateFromPostAction(
     return error.message.includes("NOT_IN_SERIES")
       ? { error: "This post doesn't repeat." }
       : { error: "Could not update the series. Please try again." };
+  }
+
+  // A gear post's caption names its own item (#1841); the series keeps the
+  // caption without it, so later posts don't carry this one's item too.
+  const gearTemplate = await gearTemplateFromPost(supabase, postId);
+  if (gearTemplate !== null) {
+    const { data: post } = await supabase
+      .from("content_opportunities")
+      .select("series_id")
+      .eq("id", postId)
+      .single();
+    if (post?.series_id) {
+      await supabase
+        .from("social_post_series")
+        .update({ content: gearTemplate || null })
+        .eq("id", post.series_id);
+    }
   }
 
   revalidateSocial();

@@ -139,6 +139,8 @@ export type ContentPieceRow = {
   /** The recurring series that made it (#1839), and which of its dates it fills. */
   series_id: string | null;
   occurrence_date: string | null;
+  /** The Gear Library item it features (#1841), picked by its series. */
+  featured_inventory_item_id?: string | null;
 };
 
 /** Statuses a piece needs no more work in. */

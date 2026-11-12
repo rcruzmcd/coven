@@ -3,6 +3,10 @@ import type { Database } from "@/lib/database.types";
 import { activeTenantIds } from "@/lib/notifications/active-tenants";
 import { leadTimeSchedule } from "./pieces";
 import {
+  fillGeneratedGearPosts,
+  type GeneratedPost,
+} from "./series-gear-generate";
+import {
   addDaysToDay,
   occurrencePublishAt,
   occurrencesFrom,
@@ -160,7 +164,21 @@ export async function generateSeriesPosts(
       result.failed += 1;
       continue;
     }
-    result.created += data ?? 0;
+    const created = (Array.isArray(data) ? data : []) as GeneratedPost[];
+    result.created += created.length;
+    // A gear series' posts are made with their item picked; the caption and
+    // photo are filled in here (#1841). A failure leaves the post as the
+    // template with its item recorded, for someone to finish by hand.
+    if (created.some((post) => post.featured_inventory_item_id)) {
+      try {
+        await fillGeneratedGearPosts(admin, row.id, created);
+      } catch (fillError) {
+        console.error(
+          `${LOG_PREFIX} series ${row.id} gear fill failed`,
+          fillError,
+        );
+      }
+    }
   }
   return result;
 }

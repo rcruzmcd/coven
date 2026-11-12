@@ -25,7 +25,7 @@ export type SocialPieceRow = ContentPieceRow & {
 };
 
 export const PIECE_COLUMNS =
-  "id, calendar_item_id, event_id, program_id, title, content, post_format, collaborator_handles, content_status, skip_reason, internal_notes, owner_id, reviewer_id, lead_time_days, publish_due_at, review_due_at, draft_due_at, status_changed_by, status_changed_at, series_id, occurrence_date";
+  "id, calendar_item_id, event_id, program_id, title, content, post_format, collaborator_handles, content_status, skip_reason, internal_notes, owner_id, reviewer_id, lead_time_days, publish_due_at, review_due_at, draft_due_at, status_changed_by, status_changed_at, series_id, occurrence_date, featured_inventory_item_id";
 
 // Named by constraint: the FKs are composite (tenant_id, ...) and `tenant_id`
 // alone also points at `tenants`, so an unnamed embed would be ambiguous.

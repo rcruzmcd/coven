@@ -47,6 +47,14 @@ import {
   type SocialPostSeriesRow,
 } from "@/lib/social-content/series";
 import {
+  DEFAULT_RECENT_EXCLUSION,
+  GEAR_PLACEHOLDERS,
+  MAX_RECENT_EXCLUSION,
+  SERIES_CONTENT_SOURCES,
+  type SeriesContentSource,
+} from "@/lib/social-content/series-gear";
+import { updateSeriesContentSourceAction } from "@/lib/social-content/series-gear-actions";
+import {
   createSeriesFromPostAction,
   setSeriesAutoApproveAction,
   setSeriesStateAction,
@@ -340,6 +348,34 @@ function SeriesDetails({
         </div>
       )}
 
+      {series.content_source === "random_gear_item" &&
+        series.no_gear_occurrences.length > 0 && (
+          <div className="flex flex-col gap-1">
+            <h3 className="app-muted text-xs font-semibold">
+              Skipped for want of gear
+            </h3>
+            <p className="app-muted text-xs">
+              {series.no_gear_occurrences
+                .slice(-MISSED_SHOWN)
+                .map(
+                  (day) =>
+                    `No available gear with a photo on ${formatCalendarDate(day)}`,
+                )
+                .join(". ")}
+              .
+            </p>
+          </div>
+        )}
+
+      {canManage && state !== "ended" && !editing && (
+        <ContentSourceFields series={series} />
+      )}
+      {!canManage && series.content_source === "random_gear_item" && (
+        <p className="app-muted text-xs">
+          Each post features a random Gear Library item.
+        </p>
+      )}
+
       {canManage && state !== "ended" && (
         <FieldGroup>
           {editing ? (
@@ -496,5 +532,109 @@ function SeriesDetails({
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  );
+}
+
+/**
+ * What each new post features (#1841): the template alone, or a random Gear
+ * Library item filled into the caption and photo.
+ */
+function ContentSourceFields({ series }: { series: SocialPostSeriesRow }) {
+  const router = useRouter();
+  const { isPending, run } = useActionToast();
+  const [source, setSource] = useState<SeriesContentSource>(
+    series.content_source,
+  );
+  const [recent, setRecent] = useState(String(series.recent_exclusion_count));
+  const changed =
+    source !== series.content_source ||
+    recent !== String(series.recent_exclusion_count);
+
+  function save() {
+    run(
+      () =>
+        updateSeriesContentSourceAction(
+          series.id,
+          source,
+          recent === "" ? DEFAULT_RECENT_EXCLUSION : Number(recent),
+        ),
+      {
+        success:
+          source === "random_gear_item"
+            ? "New posts will feature a random Gear Library item."
+            : "New posts will copy the series post.",
+        onSuccess: () => router.refresh(),
+      },
+    );
+  }
+
+  return (
+    <FieldGroup>
+      <Field>
+        <FieldLabel htmlFor="series-content-source">
+          Each post features
+        </FieldLabel>
+        <Select
+          value={source}
+          onValueChange={(next) =>
+            setSource((next as SeriesContentSource | null) ?? source)
+          }
+          disabled={isPending}
+        >
+          <SelectTrigger id="series-content-source" className="w-full">
+            <SelectValue>
+              {(value: string) =>
+                SERIES_CONTENT_SOURCES.find((option) => option.value === value)
+                  ?.label
+              }
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {SERIES_CONTENT_SOURCES.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {source === "random_gear_item" && (
+          <FieldDescription>
+            Picked from available Gear Library items with a photo. The photo is
+            added to the post, and the caption names the item with{" "}
+            {GEAR_PLACEHOLDERS.item}, {GEAR_PLACEHOLDERS.size},{" "}
+            {GEAR_PLACEHOLDERS.details} and {GEAR_PLACEHOLDERS.link}, or below
+            the caption when it uses none.
+          </FieldDescription>
+        )}
+      </Field>
+      {source === "random_gear_item" && (
+        <Field>
+          <FieldLabel htmlFor="series-recent-exclusion">
+            Don&apos;t repeat items from the last
+          </FieldLabel>
+          <div className="flex items-center gap-2">
+            <Input
+              id="series-recent-exclusion"
+              type="number"
+              inputMode="numeric"
+              min={0}
+              max={MAX_RECENT_EXCLUSION}
+              className="w-24"
+              value={recent}
+              onChange={(event) => setRecent(event.target.value)}
+              disabled={isPending}
+            />
+            <span className="text-sm">posts</span>
+          </div>
+        </Field>
+      )}
+      {changed && (
+        <div>
+          <Button type="button" size="sm" onClick={save} disabled={isPending}>
+            Save
+          </Button>
+        </div>
+      )}
+    </FieldGroup>
   );
 }

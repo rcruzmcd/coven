@@ -226,7 +226,7 @@ describe("social post series generator (#1840)", () => {
       },
     );
     expect(error).toBeNull();
-    expect(created).toBe(0);
+    expect(created).toEqual([]);
     expect(await postsOf(paused)).toEqual([]);
     expect(await postsOf(ended)).toEqual([]);
   });
