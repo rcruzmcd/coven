@@ -54,6 +54,26 @@ export function formatTakesCollaborators(format: PostFormat | null) {
 }
 
 /**
+ * How many more files a post can take, and of what kind, given its format
+ * and what it already holds: a reel is one video, a story one file, anything
+ * else up to the carousel limit. What the event media picker (#1827) lets
+ * someone tick; `mediaFormatIssue` is the warning for what is already there.
+ */
+export function mediaRoom(
+  format: PostFormat | null,
+  held: number,
+): { count: number; videoOnly: boolean } {
+  const max =
+    format === "instagram_reel" || format === "instagram_story"
+      ? 1
+      : MAX_POST_MEDIA;
+  return {
+    count: Math.max(0, max - held),
+    videoOnly: format === "instagram_reel",
+  };
+}
+
+/**
  * Why a post's media does not fit its format, or null when it does (or when
  * there is nothing yet to judge). A warning, not a refusal: media is added
  * one file at a time and the format can change after it.

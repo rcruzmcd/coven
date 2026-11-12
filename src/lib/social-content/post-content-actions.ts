@@ -5,6 +5,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { checkUser } from "@/lib/auth/current-user";
 import { checkPermission } from "@/lib/auth/permissions";
 import {
+  EVENT_MEDIA_BUCKET,
   EVENT_MEDIA_SIGNED_URL_TTL_SECONDS,
   eventMediaPath,
   planEventMediaFile,
@@ -38,6 +39,13 @@ export type SocialPostMedia = {
   original_filename: string;
   /** Short-lived; null when it could not be signed. */
   url: string | null;
+  /**
+   * The event photo or video this item references rather than holds (#1827);
+   * null for an upload, or for a reference whose event media was deleted.
+   */
+  event_media_id: string | null;
+  /** It referenced event media that has since been deleted. */
+  missing: boolean;
 };
 
 export type SocialPostExtras = {
@@ -78,7 +86,7 @@ export async function getSocialPostExtrasAction(
           .order("position", { ascending: true }),
         supabase
           .from("social_post_media")
-          .select("id, kind, original_filename, storage_path")
+          .select("id, kind, original_filename, storage_path, event_media_id")
           .eq("content_opportunity_id", postId)
           .order("position", { ascending: true }),
       ])
@@ -106,19 +114,14 @@ export async function getSocialPostExtrasAction(
   }
 
   const rows = mediaResult.data ?? [];
-  const urls = new Map<string, string>();
-  if (rows.length > 0) {
-    const { data: signed, error } = await supabase.storage
-      .from(SOCIAL_POST_MEDIA_BUCKET)
-      .createSignedUrls(
-        rows.map((row) => row.storage_path),
-        EVENT_MEDIA_SIGNED_URL_TTL_SECONDS,
-      );
-    if (error) console.error("Could not sign social post media URLs", error);
-    for (const entry of signed ?? []) {
-      if (entry.path && entry.signedUrl) urls.set(entry.path, entry.signedUrl);
-    }
-  }
+  const urls = await signUploads(
+    supabase,
+    rows.flatMap((row) => (row.storage_path ? [row.storage_path] : [])),
+  );
+  const eventUrls = await signEventMedia(
+    supabase,
+    rows.flatMap((row) => (row.event_media_id ? [row.event_media_id] : [])),
+  );
 
   return {
     tags,
@@ -133,9 +136,66 @@ export async function getSocialPostExtrasAction(
       id: row.id,
       kind: row.kind as EventMediaKind,
       original_filename: row.original_filename,
-      url: urls.get(row.storage_path) ?? null,
+      url: row.storage_path
+        ? (urls.get(row.storage_path) ?? null)
+        : row.event_media_id
+          ? (eventUrls.get(row.event_media_id) ?? null)
+          : null,
+      event_media_id: row.event_media_id,
+      missing: !row.storage_path && !row.event_media_id,
     })),
   };
+}
+
+type Supabase = Awaited<ReturnType<typeof createSupabaseServerClient>>;
+
+async function signUploads(supabase: Supabase, paths: string[]) {
+  const urls = new Map<string, string>();
+  if (paths.length === 0) return urls;
+  const { data, error } = await supabase.storage
+    .from(SOCIAL_POST_MEDIA_BUCKET)
+    .createSignedUrls(paths, EVENT_MEDIA_SIGNED_URL_TTL_SECONDS);
+  if (error) console.error("Could not sign social post media URLs", error);
+  for (const entry of data ?? []) {
+    if (entry.path && entry.signedUrl) urls.set(entry.path, entry.signedUrl);
+  }
+  return urls;
+}
+
+/**
+ * Signed URLs for referenced event media, by event media id: a photo's
+ * 2048px thumbnail where it has one, as the event's Media card shows. Read and
+ * signed with the reader's own session, so someone without events access gets
+ * no rows and no URLs -- the item still shows, by name.
+ */
+async function signEventMedia(supabase: Supabase, ids: string[]) {
+  const byId = new Map<string, string>();
+  if (ids.length === 0) return byId;
+  const { data: rows } = await supabase
+    .from("event_media")
+    .select("id, storage_path, thumb_path")
+    .in("id", ids);
+  const pathById = new Map(
+    (rows ?? []).map((row) => [row.id, row.thumb_path ?? row.storage_path]),
+  );
+  if (pathById.size === 0) return byId;
+  const { data, error } = await supabase.storage
+    .from(EVENT_MEDIA_BUCKET)
+    .createSignedUrls(
+      [...pathById.values()],
+      EVENT_MEDIA_SIGNED_URL_TTL_SECONDS,
+    );
+  if (error) console.error("Could not sign referenced event media", error);
+  const urlByPath = new Map(
+    (data ?? []).flatMap((entry) =>
+      entry.path && entry.signedUrl ? [[entry.path, entry.signedUrl]] : [],
+    ),
+  );
+  for (const [id, path] of pathById) {
+    const url = urlByPath.get(path);
+    if (url) byId.set(id, url);
+  }
+  return byId;
 }
 
 async function signedInManager(message: string) {
@@ -249,7 +309,51 @@ export async function recordSocialPostMediaAction(
   return { ok: true };
 }
 
-/** Removes one file: its row, then its object. */
+/**
+ * Adds event photos and videos to a post by reference (#1827), in the order
+ * given: the post shows the event's file rather than a copy. Each must be
+ * media of the event the post is related to; ones already on the post are
+ * skipped.
+ */
+export async function addSocialPostEventMediaAction(
+  postId: string,
+  mediaIds: string[],
+): Promise<{ added: number } | { error: string }> {
+  const context = await signedInManager(
+    "You must be signed in to add photos and videos.",
+  );
+  if ("error" in context) return context;
+  if (!Array.isArray(mediaIds) || mediaIds.length === 0) return { added: 0 };
+
+  const { data, error } = await context.supabase.rpc(
+    "add_social_post_event_media",
+    { p_post_id: String(postId), p_media_ids: mediaIds.map(String) },
+  );
+  if (error) {
+    console.error("Could not add event media to the post", error);
+    const messages: Record<string, string> = {
+      PERMISSION_DENIED:
+        "You need access to this event's media to add it to a post.",
+      POST_HAS_NO_EVENT:
+        "This post isn't related to an event. Save the event first.",
+      MEDIA_NOT_IN_EVENT:
+        "Some of those files aren't this event's anymore. Reopen the picker and try again.",
+      TOO_MANY_MEDIA: `A post holds up to ${MAX_POST_MEDIA} photos or videos.`,
+    };
+    return {
+      error:
+        messages[error.message] ??
+        "Could not add the files to the post. Please try again.",
+    };
+  }
+  revalidateSocial();
+  return { added: Number(data ?? 0) };
+}
+
+/**
+ * Removes one file: its row, then its object. A reference to event media
+ * removes only the reference.
+ */
 export async function deleteSocialPostMediaAction(
   mediaId: string,
 ): Promise<{ success: true } | { error: string }> {
@@ -268,9 +372,18 @@ export async function deleteSocialPostMediaAction(
     return { error: "Could not remove the file. Please try again." };
   }
 
+  // A reference to event media (#1827) has no object of its own: the event
+  // keeps its file.
+  const paths = deleted.flatMap((row) =>
+    row.storage_path ? [row.storage_path] : [],
+  );
+  if (paths.length === 0) {
+    revalidateSocial();
+    return { success: true };
+  }
   const { error: storageError } = await supabase.storage
     .from(SOCIAL_POST_MEDIA_BUCKET)
-    .remove(deleted.map((row) => row.storage_path));
+    .remove(paths);
   if (storageError) {
     // The row is gone, so nothing shows it; the object is only orphaned.
     console.error("Could not remove the social post object", storageError);

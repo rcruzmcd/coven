@@ -15,12 +15,14 @@ import type { EventMediaRow, EventMediaState } from "./media-actions";
 let state: EventMediaState;
 const deleteMock = mock(async () => ({ ok: true as const }));
 const setPublicMock = mock(async () => ({ ok: true as const, changed: 1 }));
+const setFlyerMock = mock(async () => ({ ok: true as const }));
 
 mock.module("./media-actions", () => ({
   ...MediaActions,
   getEventMediaAction: async () => ({ data: state }),
   deleteEventMediaAction: deleteMock,
   setEventMediaPublicAction: setPublicMock,
+  setEventFlyerAction: setFlyerMock,
 }));
 
 const { MediaTab } = await import("./media-tab");
@@ -55,6 +57,7 @@ function stateWith(overrides: Partial<EventMediaState>): EventMediaState {
     photoObjections: 0,
     retentionDays: null,
     eventExpiresAt: null,
+    flyerMediaId: null,
     items: [],
     ...overrides,
   };
@@ -96,9 +99,48 @@ function thumbSrc(filename: string) {
 beforeEach(() => {
   deleteMock.mockClear();
   setPublicMock.mockClear();
+  setFlyerMock.mockClear();
 });
 
 describe("MediaTab", () => {
+  test("flyer: events:manage picks a photo, which then shows as the flyer (#1827)", async () => {
+    const poster = item({ original_filename: "poster.jpg" });
+    state = stateWith({
+      canDelete: true,
+      items: [poster, item({ original_filename: "crowd.jpg" })],
+    });
+    const eventId = crypto.randomUUID();
+    const view = renderTab(eventId);
+    expect(await screen.findByText(/No flyer yet/)).toBeTruthy();
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Use poster.jpg as the flyer" }),
+    );
+    expect(setFlyerMock).toHaveBeenCalledWith(eventId, poster.id);
+
+    state = { ...state, flyerMediaId: poster.id };
+    view.unmount();
+    renderTab();
+    expect(
+      await screen.findByRole("img", { name: "Flyer: poster.jpg" }),
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole("button", { name: "Use poster.jpg as the flyer" }),
+    ).toBeNull();
+    await userEvent.click(
+      screen.getByRole("button", { name: "Remove as flyer" }),
+    );
+    expect(setFlyerMock).toHaveBeenLastCalledWith(expect.any(String), null);
+  });
+
+  test("flyer: a reader who can't manage sees no flyer controls", async () => {
+    state = stateWith({ items: [item({ original_filename: "a.jpg" })] });
+    renderTab();
+    await screen.findByRole("heading", { name: /Photos/ });
+    expect(screen.queryByRole("heading", { name: "Flyer" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /as the flyer/ })).toBeNull();
+  });
+
   test("empty: says so, with no gallery or notice", async () => {
     state = stateWith({});
     renderTab();

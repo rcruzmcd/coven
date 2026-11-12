@@ -261,15 +261,20 @@ export async function deleteContentPieceAction(
   if (permissionError) return permissionError;
 
   // The media rows cascade with the post; their objects would not, so they
-  // go first. An object that fails to go is orphaned, not shown.
+  // go first. An object that fails to go is orphaned, not shown. Event media
+  // the post only references (#1827) has no object of the post's to remove.
   const { data: media } = await supabase
     .from("social_post_media")
     .select("storage_path")
-    .eq("content_opportunity_id", id);
-  if (media && media.length > 0) {
+    .eq("content_opportunity_id", id)
+    .not("storage_path", "is", null);
+  const paths = (media ?? []).flatMap((row) =>
+    row.storage_path ? [row.storage_path] : [],
+  );
+  if (paths.length > 0) {
     const { error: storageError } = await supabase.storage
       .from(SOCIAL_POST_MEDIA_BUCKET)
-      .remove(media.map((row) => row.storage_path));
+      .remove(paths);
     if (storageError) {
       console.error("Could not remove the social post's media", storageError);
     }

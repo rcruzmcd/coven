@@ -1,7 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useState, type KeyboardEvent } from "react";
-import { AlertTriangle, ArrowLeft, ArrowRight, Film, X } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowLeft,
+  ArrowRight,
+  Film,
+  ImageOff,
+  X,
+} from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -422,7 +429,8 @@ export function TagList({
 
 /**
  * A post's media in carousel order. With `onMove`/`onRemove` it can be
- * reordered and pruned; without, it is read-only.
+ * reordered and pruned; without, it is read-only. An item taken from the
+ * event whose file has since been deleted there shows as missing (#1827).
  */
 export function PostMediaGrid({
   media,
@@ -455,6 +463,11 @@ export function PostMediaGrid({
                 aria-label={item.original_filename}
                 className="size-full object-cover"
               />
+            ) : item.missing ? (
+              <span className="flex size-full flex-col items-center justify-center gap-1 p-1 text-center text-xs text-destructive">
+                <ImageOff aria-hidden="true" className="size-4" />
+                Missing: deleted from the event
+              </span>
             ) : (
               <span className="app-muted flex size-full items-center justify-center p-1 text-center text-xs">
                 {item.original_filename}
