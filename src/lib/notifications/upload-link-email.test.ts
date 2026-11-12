@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { DATE_TIME_WITH_ZONE, formatDateTimeInZone } from "@/lib/time";
 import {
   renderUploadLinkEmail,
   type UploadLinkMessage,
@@ -25,7 +26,16 @@ describe("renderUploadLinkEmail", () => {
     );
     expect(email.text).toContain("It was made for Sam — photographer.");
     expect(email.text).toContain(`Upload photos and videos: ${BASE.url}`);
-    expect(email.text).toContain("works until Mar 20, 2026 at 11:59 PM MDT");
+    // The date-to-time joiner is ICU's call ("Mar 20, 2026, 11:59 PM MDT" on
+    // the CI runner, "… at 11:59 PM MDT" on macOS), so only pin the parts
+    // this module decides: the zone's local date and time, with its zone.
+    const expires = formatDateTimeInZone(
+      BASE.expiresAt,
+      BASE.timeZone,
+      DATE_TIME_WITH_ZONE,
+    );
+    expect(expires).toMatch(/^Mar 20, 2026.+11:59 PM MDT$/);
+    expect(email.text).toContain(`works until ${expires}.`);
     expect(email.html).toContain(`href="${BASE.url}"`);
   });
 
