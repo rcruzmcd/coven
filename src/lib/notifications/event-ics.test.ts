@@ -115,4 +115,19 @@ describe("renderEventIcs", () => {
     expect(lines(ics)).toContain(`URL:${base.url}`);
     expect(lines(ics)).toContain(`DESCRIPTION:${base.url}`);
   });
+
+  test("writes a Markdown description as plain text (#1873)", () => {
+    const ics = renderEventIcs(
+      { ...base, description: "**Bring** water\n\n- helmet\n- gloves" },
+      NOW,
+    );
+
+    const description = lines(ics).find((line) =>
+      line.startsWith("DESCRIPTION:"),
+    );
+    expect(description).toBe(
+      "DESCRIPTION:Bring water\\n\\n- helmet\\n- gloves",
+    );
+    expect(description).not.toContain("**");
+  });
 });

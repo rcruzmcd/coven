@@ -14,6 +14,7 @@ import {
   personDisplayName,
 } from "@/lib/format";
 import { withHardLineBreaks } from "@/lib/markdown/hard-line-breaks";
+import { plainBlock } from "@/lib/markdown/plain-text";
 
 /**
  * Minutes, as something to send to a board member (#1201).
@@ -165,7 +166,9 @@ export function formatMinutesPlainText(input: MinutesExportInput): string {
 
   for (const item of items) {
     lines.push(item.label.toUpperCase());
-    lines.push(`  ${minutes.notes[item.key]?.trim() || "No notes recorded."}`);
+    lines.push(
+      plainBlock(minutes.notes[item.key] ?? "", "  ") || "  No notes recorded.",
+    );
     lines.push(
       ...topicContextLines({
         itemKey: item.key,
@@ -182,7 +185,7 @@ export function formatMinutesPlainText(input: MinutesExportInput): string {
   }
 
   lines.push("CLOSING NOTES");
-  lines.push(`  ${minutes.body_text?.trim() || "None."}`);
+  lines.push(plainBlock(minutes.body_text ?? "", "  ") || "  None.");
   lines.push("");
 
   lines.push("ACTION ITEMS");

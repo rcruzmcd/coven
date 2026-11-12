@@ -262,6 +262,18 @@ describe("formatMinutesMarkdown", () => {
 });
 
 describe("formatMinutesPlainText", () => {
+  test("writes notes as plain text, every line indented (#1873)", () => {
+    const text = formatMinutesPlainText({
+      ...emptyInput,
+      minutes: minutes({
+        notes: { opening: "**Motion** passed\n- send report" },
+      }),
+    });
+
+    expect(text).toContain("OPENING\n  Motion passed\n\n  - send report");
+    expect(text).not.toContain("**");
+  });
+
   test("uses plain uppercase headers instead of markdown syntax", () => {
     const text = formatMinutesPlainText({
       ...emptyInput,

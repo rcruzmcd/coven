@@ -23,6 +23,7 @@ import {
   personDisplayName,
 } from "@/lib/format";
 import { withHardLineBreaks } from "@/lib/markdown/hard-line-breaks";
+import { plainBlock } from "@/lib/markdown/plain-text";
 import { documentNameFromPath } from "@/lib/storage/documents";
 
 export type AgendaExportInput = {
@@ -216,7 +217,7 @@ function formatSimpleAgendaPlainText(input: AgendaExportInput): string {
     agenda.items.forEach((item, index) => {
       lines.push(`  ${index + 1}. ${item.title}`);
       if (item.source) lines.push(`     From ${itemSourceLine(item.source)}`);
-      if (item.notes) lines.push(`     ${item.notes}`);
+      if (item.notes?.trim()) lines.push(plainBlock(item.notes, "     "));
     });
   }
   lines.push("");
@@ -464,7 +465,7 @@ export function formatAgendaPlainText(input: AgendaExportInput): string {
   lines.push("");
 
   lines.push("AGENDA NOTES");
-  lines.push(`  ${agenda.body_text || "—"}`);
+  lines.push(plainBlock(agenda.body_text ?? "", "  ") || "  —");
 
   return lines.join("\n");
 }
