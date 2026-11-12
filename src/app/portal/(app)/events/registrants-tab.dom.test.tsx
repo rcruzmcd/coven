@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, mock, test } from "bun:test";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type {
   EventRegistrant,
@@ -284,7 +284,36 @@ describe("RegistrantsTab", () => {
     render(<RegistrantsTab capacity={null} mode="view" {...slices()} />);
     await screen.findByText("Jamie Rivera");
 
-    expect(screen.queryByRole("button", { name: "Check in" })).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Check in Jamie Rivera" }),
+    ).toBeNull();
+  });
+
+  // Issue #663. The toggle disabled itself while its action ran, and a
+  // disabled button drops focus to <body>: a keyboard user at the door had to
+  // tab back from the top of the page after every check-in.
+  test("focus stays on the check-in toggle while its action runs", async () => {
+    const user = userEvent.setup();
+    render(<RegistrantsTab capacity={null} mode="edit" {...slices()} />);
+    const toggle = screen.getByRole("button", {
+      name: "Check in Jamie Rivera",
+    });
+    let finish: (result: ActionResult) => void = () => {};
+    checkInRegistrantActionMock.mockImplementationOnce(
+      () => new Promise<ActionResult>((resolve) => (finish = resolve)),
+    );
+    toggle.focus();
+    await user.keyboard("{Enter}");
+    // Mid-action the toggle is disabled, but focusably. A browser blurs a
+    // natively `disabled` button and happy-dom does not, so the contract the
+    // test can hold is the kind of disabled: aria-disabled, never the
+    // attribute that ejects focus.
+    await waitFor(() =>
+      expect(toggle.getAttribute("aria-disabled")).toBe("true"),
+    );
+    expect(toggle.hasAttribute("disabled")).toBe(false);
+    expect(toggle).toHaveFocus();
+    finish({ success: true });
   });
 
   test("checks in a registrant and shows undo for an already checked-in one", async () => {
@@ -293,10 +322,12 @@ describe("RegistrantsTab", () => {
     await screen.findByText("Jamie Rivera");
 
     expect(
-      screen.getByRole("button", { name: "Undo check-in" }),
+      screen.getByRole("button", { name: "Undo check-in for Alex Chen" }),
     ).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Check in" }));
+    await user.click(
+      screen.getByRole("button", { name: "Check in Jamie Rivera" }),
+    );
 
     expect(checkInRegistrantActionMock).toHaveBeenCalledWith("reg-1");
     // Checking someone in changes the derived figures too, so both shared
@@ -310,7 +341,9 @@ describe("RegistrantsTab", () => {
     render(<RegistrantsTab capacity={null} mode="edit" {...slices()} />);
     await screen.findByText("Alex Chen");
 
-    await user.click(screen.getByRole("button", { name: "Undo check-in" }));
+    await user.click(
+      screen.getByRole("button", { name: "Undo check-in for Alex Chen" }),
+    );
 
     expect(undoCheckInActionMock).toHaveBeenCalledWith("reg-2");
   });
@@ -329,7 +362,9 @@ describe("RegistrantsTab", () => {
     render(<RegistrantsTab capacity={null} mode="edit" {...slices()} />);
     await screen.findByText("Jamie Rivera");
 
-    await user.click(screen.getByRole("button", { name: "Check in" }));
+    await user.click(
+      screen.getByRole("button", { name: "Check in Jamie Rivera" }),
+    );
 
     expect(toastErrorMock).toHaveBeenCalledWith(
       "You do not have permission to manage events.",
@@ -349,7 +384,9 @@ describe("RegistrantsTab", () => {
     render(<RegistrantsTab capacity={null} mode="edit" {...slices()} />);
     await screen.findByText("Alex Chen");
 
-    await user.click(screen.getByRole("button", { name: "Undo check-in" }));
+    await user.click(
+      screen.getByRole("button", { name: "Undo check-in for Alex Chen" }),
+    );
 
     expect(toastErrorMock).toHaveBeenCalledWith(
       "You must be signed in to undo a check-in.",
@@ -362,7 +399,9 @@ describe("RegistrantsTab", () => {
     render(<RegistrantsTab capacity={null} mode="edit" {...slices()} />);
     await screen.findByText("Jamie Rivera");
 
-    await user.click(screen.getByRole("button", { name: "Check in" }));
+    await user.click(
+      screen.getByRole("button", { name: "Check in Jamie Rivera" }),
+    );
 
     expect(toastSuccessMock).toHaveBeenCalledWith(
       "Jamie Rivera checked in.",

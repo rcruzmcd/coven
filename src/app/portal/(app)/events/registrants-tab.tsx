@@ -600,10 +600,14 @@ export function RegistrantsTab({
                         size="icon-sm"
                         aria-label={
                           registrant.checked_in_at
-                            ? "Undo check-in"
-                            : "Check in"
+                            ? `Undo check-in for ${registrant.name}`
+                            : `Check in ${registrant.name}`
                         }
                         disabled={isRowPending(registrant)}
+                        // The same button swaps between the two, so focus
+                        // can stay on it -- unless disabling it throws focus
+                        // to <body> mid-action (#663).
+                        focusableWhenDisabled
                         onClick={() => toggleCheckIn(registrant)}
                       />
                     }
