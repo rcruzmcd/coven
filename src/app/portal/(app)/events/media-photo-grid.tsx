@@ -2,9 +2,12 @@
 
 import { useMemo, useState } from "react";
 import dynamic from "next/dynamic";
-import { Download, Eye, EyeOff, ImageOff } from "lucide-react";
+import { Download, Eye, EyeOff, ImageOff, Megaphone } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { TooltipIconButton } from "@/components/portal/tooltip-icon-button";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { PaginationNav, RowsPerPageSelect } from "@/components/ui/pagination";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "@/components/ui/toast";
 import { ConfirmDeleteButton } from "@/components/portal/confirm-delete-button";
@@ -18,6 +21,12 @@ import {
   MediaVisibilityToggle,
 } from "./media-visibility";
 
+/**
+ * Photos per page: rows of the 2/3/4-column grid. The first is the default, and
+ * the pager shows only past it.
+ */
+export const PHOTOS_PER_PAGE_OPTIONS = [24, 48, 96] as const;
+
 const MediaLightbox = dynamic(
   () => import("@/components/event-media/media-lightbox"),
   { ssr: false },
@@ -27,7 +36,8 @@ const MediaLightbox = dynamic(
  * The Media card's photos (#1607): a thumbnail grid that opens the lightbox,
  * a tick on each for a bulk download, and delete for events:manage. Each says
  * whether it is in the public gallery, and events:manage hides or shows one,
- * or the ticked ones together (#1654).
+ * or the ticked ones together (#1654). One may be the event's flyer (#1827),
+ * which events:manage chooses here.
  *
  * The thumbnail is the stored photo itself -- the browser already re-encoded
  * it at 2048px on upload (#1606), so there is no second rendition to keep.
@@ -40,6 +50,8 @@ export function MediaPhotoGrid({
   onDelete,
   publishing,
   onSetPublic,
+  flyerId = null,
+  onSetFlyer,
 }: {
   photos: EventMediaRow[];
   eventName: string;
@@ -49,10 +61,22 @@ export function MediaPhotoGrid({
   onDelete: (photo: EventMediaRow) => void;
   publishing: boolean;
   onSetPublic: (photos: EventMediaRow[], isPublic: boolean) => void;
+  /** The photo that is the event's flyer. */
+  flyerId?: string | null;
+  /** Makes a photo the flyer; omitted, nobody here may. */
+  onSetFlyer?: (photo: EventMediaRow) => void;
 }) {
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const [openIndex, setOpenIndex] = useState<number | null>(null);
   const [progress, setProgress] = useState<string | null>(null);
+  const [perPage, setPerPage] = useState<number>(PHOTOS_PER_PAGE_OPTIONS[0]);
+  const [requestedPage, setPage] = useState(1);
+  // Clamped rather than reset, so a delete on the last page lands on the one
+  // before it and an upload doesn't throw the reader back to page one.
+  const totalPages = Math.max(1, Math.ceil(photos.length / perPage));
+  const page = Math.min(requestedPage, totalPages);
+  const pagePhotos = photos.slice((page - 1) * perPage, page * perPage);
+  const showPager = photos.length > PHOTOS_PER_PAGE_OPTIONS[0];
 
   // Only photos that signed can be shown, opened or zipped.
   const viewable = useMemo(
@@ -166,7 +190,7 @@ export function MediaPhotoGrid({
       </div>
 
       <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-        {photos.map((photo) => {
+        {pagePhotos.map((photo) => {
           const index = viewable.findIndex((p) => p.id === photo.id);
           return (
             <li
@@ -177,6 +201,11 @@ export function MediaPhotoGrid({
                 item={photo}
                 className="pointer-events-none absolute top-1.5 left-1.5 z-10"
               />
+              {photo.id === flyerId && (
+                <Badge className="pointer-events-none absolute top-1.5 right-1.5 z-10">
+                  Flyer
+                </Badge>
+              )}
               {photo.url ? (
                 <button
                   type="button"
@@ -212,6 +241,15 @@ export function MediaPhotoGrid({
                 >
                   {photo.original_filename}
                 </span>
+                {onSetFlyer && photo.id !== flyerId && (
+                  <TooltipIconButton
+                    label={`Use ${photo.original_filename} as the flyer`}
+                    disabled={publishing}
+                    onClick={() => onSetFlyer(photo)}
+                  >
+                    <Megaphone />
+                  </TooltipIconButton>
+                )}
                 {canDelete && (
                   <MediaVisibilityToggle
                     item={photo}
@@ -235,6 +273,27 @@ export function MediaPhotoGrid({
         })}
       </ul>
 
+      {showPager && (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <RowsPerPageSelect
+            label="Photos per page"
+            value={perPage}
+            options={PHOTOS_PER_PAGE_OPTIONS}
+            onChange={(next) => {
+              setPerPage(next);
+              setPage(1);
+            }}
+          />
+          <PaginationNav
+            page={page}
+            totalPages={totalPages}
+            count={photos.length}
+            pageSize={perPage}
+            onPageChange={setPage}
+          />
+        </div>
+      )}
+
       {openIndex !== null && viewable[openIndex] && (
         <MediaLightbox
           photos={viewable.map((photo) => ({
@@ -245,7 +304,12 @@ export function MediaPhotoGrid({
               : null,
           }))}
           index={openIndex}
-          onIndexChange={setOpenIndex}
+          onIndexChange={(next) => {
+            setOpenIndex(next);
+            // Keep the grid on the page of the photo the lightbox is showing.
+            const at = photos.findIndex((p) => p.id === viewable[next]?.id);
+            if (at >= 0) setPage(Math.floor(at / perPage) + 1);
+          }}
           onClose={() => setOpenIndex(null)}
         />
       )}

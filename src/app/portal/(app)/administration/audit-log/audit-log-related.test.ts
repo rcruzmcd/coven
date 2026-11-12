@@ -19,17 +19,17 @@ describe("pieceLinksOf", () => {
         old_data: { event_id: null, calendar_item_id: "c0" },
         new_data: { event_id: "e1", calendar_item_id: null },
       }),
-    ).toEqual({ event_id: "e1", calendar_item_id: null });
+    ).toEqual({ event_id: "e1", calendar_item_id: null, program_id: null });
   });
 
   test("falls back to the row before a delete", () => {
     expect(
       pieceLinksOf({
         table_name: "content_opportunities",
-        old_data: { event_id: "e1", calendar_item_id: "c1" },
+        old_data: { event_id: "e1", calendar_item_id: "c1", program_id: "p1" },
         new_data: null,
       }),
-    ).toEqual({ event_id: "e1", calendar_item_id: "c1" });
+    ).toEqual({ event_id: "e1", calendar_item_id: "c1", program_id: "p1" });
   });
 
   test("treats a snapshot without the keys as standalone", () => {
@@ -39,6 +39,6 @@ describe("pieceLinksOf", () => {
         old_data: null,
         new_data: { title: "Older row" },
       }),
-    ).toEqual({ event_id: null, calendar_item_id: null });
+    ).toEqual({ event_id: null, calendar_item_id: null, program_id: null });
   });
 });

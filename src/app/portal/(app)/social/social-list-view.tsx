@@ -15,6 +15,7 @@ import { socialPieceHref } from "@/lib/social-content/social-filters";
 import type { SocialPieceRow } from "@/lib/social-content/queries";
 import { ownerName, type CalendarOwner } from "../calendar/calendar-shared";
 import { RelatedChips } from "./related-chips";
+import { RepeatMarker } from "@/components/portal/social-content/repeat-marker";
 
 /** The scheduled posts in publish-date order (#1794); undated ones are in the tray. */
 export function SocialListView({
@@ -54,7 +55,8 @@ export function SocialListView({
                       className="hover:underline"
                     >
                       {piece.title}
-                    </Link>
+                    </Link>{" "}
+                    <RepeatMarker seriesId={piece.series_id} />
                   </TableCell>
                   <TableCell>
                     <ViewerTime iso={piece.publish_due_at} fallbackZone="UTC" />

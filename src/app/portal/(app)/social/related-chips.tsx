@@ -1,14 +1,18 @@
 import Link from "next/link";
-import { CalendarDays, CalendarRange } from "lucide-react";
+import { CalendarDays, CalendarRange, Layers } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { calendarItemHref } from "../calendar/calendar-entries";
-import { eventSocialHref } from "@/lib/social-content/social-filters";
+import {
+  eventSocialHref,
+  programSocialHref,
+} from "@/lib/social-content/social-filters";
 import type { SocialPieceRow } from "@/lib/social-content/queries";
 
 /**
  * What a post is related to, as chips (#1794). An event chip opens that
  * event's Social content section (#1795); a community date opens its calendar
- * item. A link this reader cannot see the record behind (an event, without
+ * item; a program (#1838), which has no page of its own, lists the program's
+ * posts. A link this reader cannot see the record behind (an event, without
  * events access) is still named, generically and without a link.
  */
 export function RelatedChips({
@@ -17,7 +21,12 @@ export function RelatedChips({
 }: {
   piece: Pick<
     SocialPieceRow,
-    "event_id" | "event" | "calendar_item_id" | "calendar_item"
+    | "event_id"
+    | "event"
+    | "calendar_item_id"
+    | "calendar_item"
+    | "program_id"
+    | "program"
   >;
   /** Say "Standalone" when there is nothing, rather than rendering nothing. */
   showStandalone?: boolean;
@@ -58,6 +67,25 @@ export function RelatedChips({
       ) : (
         <Badge key="item" variant="outline">
           <CalendarRange aria-hidden />A community date
+        </Badge>
+      ),
+    );
+  }
+
+  if (piece.program_id) {
+    chips.push(
+      piece.program ? (
+        <Badge
+          key="program"
+          variant="outline"
+          render={<Link href={programSocialHref(piece.program.id)} />}
+        >
+          <Layers aria-hidden />
+          {piece.program.name}
+        </Badge>
+      ) : (
+        <Badge key="program" variant="outline">
+          <Layers aria-hidden />A program
         </Badge>
       ),
     );

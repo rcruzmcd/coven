@@ -34,6 +34,7 @@ import {
   type SocialPostTag,
 } from "@/lib/social-content/post-content-actions";
 import { MediaUploader } from "@/components/event-media/media-uploader";
+import { EventMediaPicker } from "./event-media-picker";
 import { createVideoUpload, uploadEventPhoto } from "@/lib/storage/event-media";
 import type { EventMediaQueueDeps } from "@/lib/storage/event-media-queue";
 import { ContentStatusBadge } from "./content-status-badge";
@@ -104,14 +105,15 @@ const INTERNAL_NOTES_POLICY =
 const NONE = "none";
 
 /**
- * What a new post starts out with when it is added from somewhere: the item
- * or event it is added from is its Related to link, and a publish date to
+ * What a new post starts out with when it is added from somewhere: the item,
+ * event or program it is added from is its Related to link, and a publish date to
  * suggest (the item's or event's start). All optional -- a post added from
  * `/portal/social` starts related to nothing and unscheduled.
  */
 export type SocialPostDefaults = {
   calendarItemId?: string | null;
   eventId?: string | null;
+  programId?: string | null;
   publishDueAt?: string | null;
 };
 
@@ -147,13 +149,16 @@ function formStateFor(
       ? (piece.calendar_item_id ?? "")
       : (defaults.calendarItemId ?? ""),
     eventId: piece ? (piece.event_id ?? "") : (defaults.eventId ?? ""),
+    programId: piece ? (piece.program_id ?? "") : (defaults.programId ?? ""),
   };
 }
 
 type FormState = ReturnType<typeof formStateFor>;
 
 function optionLabel(option: SocialContentLinkOption) {
-  return `${option.label} · ${formatInstantDate(option.starts_at)}`;
+  return option.starts_at
+    ? `${option.label} · ${formatInstantDate(option.starts_at)}`
+    : option.label;
 }
 
 /** Loads what the Related to picker offers, once per opening of the sheet. */
@@ -172,17 +177,21 @@ function useLinkOptions() {
 }
 
 /**
- * The media part of the Content section: upload, reorder, remove. Files save
- * as they go rather than with the form, so a post must exist first.
+ * The media part of the Content section: upload, choose from the related
+ * event (#1827), reorder, remove. Files save as they go rather than with the
+ * form, so a post must exist first.
  */
 function PostMediaEditor({
   postId,
+  eventId,
   media,
   format,
   onChanged,
   onError,
 }: {
   postId: string;
+  /** The saved post's event, whose media it can choose from. */
+  eventId: string | null;
   media: SocialPostMedia[];
   format: PostFormat | null;
   onChanged: () => void;
@@ -232,6 +241,19 @@ function PostMediaEditor({
         <Alert>
           <AlertDescription>{issue}</AlertDescription>
         </Alert>
+      )}
+      {eventId && (
+        <EventMediaPicker
+          postId={postId}
+          eventId={eventId}
+          format={format}
+          held={media.length}
+          referencedIds={
+            new Set(media.flatMap((item) => item.event_media_id ?? []))
+          }
+          onAdded={onChanged}
+          onError={onError}
+        />
       )}
       <MediaUploader
         deps={deps}
@@ -445,6 +467,7 @@ function SocialPostSheetBody({
     formData.set("leadTimeDays", form.leadTimeDays);
     formData.set("calendarItemId", form.calendarItemId);
     formData.set("eventId", form.eventId);
+    formData.set("programId", form.programId);
     // Converted here, in the browser, so each due instant is fixed using the
     // user's own timezone rather than the server's.
     for (const key of ["publishDueAt", "reviewDueAt", "draftDueAt"] as const) {
@@ -498,6 +521,11 @@ function SocialPostSheetBody({
     linkOptions?.calendarItems,
     piece?.calendar_item_id ?? null,
     "A community date",
+  );
+  const relatedProgram = linkedLabel(
+    linkOptions?.programs,
+    piece?.program_id ?? null,
+    "A program",
   );
 
   return (
@@ -569,8 +597,9 @@ function SocialPostSheetBody({
               </ReadOnlyField>
             )}
             <ReadOnlyField label="Related to" htmlFor="piece-view-related">
-              {[relatedEvent, relatedItem].filter(Boolean).join("; ") ||
-                "Nothing"}
+              {[relatedEvent, relatedItem, relatedProgram]
+                .filter(Boolean)
+                .join("; ") || "Nothing"}
             </ReadOnlyField>
             <Field orientation="responsive">
               <ReadOnlyField label="Owner" htmlFor="piece-view-owner">
@@ -670,9 +699,16 @@ function SocialPostSheetBody({
                   value={form.calendarItemId}
                   onChange={(next) => update("calendarItemId", next)}
                 />
-                <FieldDescription>
-                  An event, a community date, both, or neither.
-                </FieldDescription>
+                <RelatedToSelect
+                  id="piece-programId"
+                  label="Program"
+                  noneLabel="No program"
+                  unknownLabel="A program"
+                  options={linkOptions?.programs}
+                  value={form.programId}
+                  onChange={(next) => update("programId", next)}
+                />
+                <FieldDescription>Any of these, or none.</FieldDescription>
               </fieldset>
 
               <fieldset className="flex min-w-0 flex-col gap-4">
@@ -783,6 +819,7 @@ function SocialPostSheetBody({
                     <div id="piece-media">
                       <PostMediaEditor
                         postId={piece.id}
+                        eventId={piece.event_id}
                         media={extras.media}
                         format={form.postFormat || null}
                         onChanged={reloadExtras}

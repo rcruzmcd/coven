@@ -43,6 +43,14 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]
+      # Pinned at 20.11.6 (#1845): from 20.14.6 on (21.0.4 included) elements
+      # that should leave the DOM after a tab switch or a dialog closing stay
+      # mounted, and MeetingDetailView's tests run out of memory printing them.
+      # Drop these once the follow-up finds the cause.
+      - dependency-name: "happy-dom"
+        versions: [">=20.12.0"]
+      - dependency-name: "@happy-dom/global-registrator"
+        versions: [">=20.12.0"]
 
   - package-ecosystem: "github-actions"
     directory: "/"

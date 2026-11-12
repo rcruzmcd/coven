@@ -11,6 +11,7 @@ import {
   adminClient,
   anonClient,
   createCalendarItem,
+  createProgram,
   createPublishedEvent,
   signInAs,
 } from "../../../test/integration-setup";
@@ -28,6 +29,7 @@ const {
   updateContentPieceAction,
   deleteContentPieceAction,
   listSocialContentLinkOptionsAction,
+  countProgramPiecesAction,
   updateContentPieceStatusAction,
   generateEventPlanAction,
   shiftEventPostsAction,
@@ -46,6 +48,7 @@ function pieceForm(
     internalNotes?: string;
     calendarItemId?: string;
     eventId?: string;
+    programId?: string;
   } = {},
 ) {
   const fd = new FormData();
@@ -56,6 +59,7 @@ function pieceForm(
   if (overrides.calendarItemId)
     fd.set("calendarItemId", overrides.calendarItemId);
   if (overrides.eventId) fd.set("eventId", overrides.eventId);
+  if (overrides.programId) fd.set("programId", overrides.programId);
   return fd;
 }
 
@@ -210,6 +214,68 @@ describe("social post actions (integration)", () => {
     await event.cleanup();
   });
 
+  test("links a post to a program, filters by it, counts it and unlinks it (#1838)", async () => {
+    const program = await createProgram();
+    const event = await createPublishedEvent();
+    currentSupabase = await signInAs(SEEDED_USERS.admin);
+    const title = `Program link ${crypto.randomUUID()}`;
+
+    // Independent of the other links: a program and an event together.
+    expect(
+      await createContentPieceAction(
+        pieceForm({ title, programId: program.id, eventId: event.id }),
+      ),
+    ).toEqual({ success: true });
+    const { data: created } = await adminClient
+      .from("content_opportunities")
+      .select("id, program_id, event_id")
+      .eq("title", title)
+      .single();
+    expect(created).toMatchObject({
+      program_id: program.id,
+      event_id: event.id,
+    });
+
+    // `?program=` narrows /portal/social to it, with the program's name.
+    const filtered = await listSocialPieces(
+      currentSupabase,
+      parseSocialFilters({ program: program.id }),
+    );
+    expect(filtered.error).toBe(false);
+    expect(filtered.pieces.map((piece) => piece.id)).toEqual([created!.id]);
+    expect(filtered.pieces[0].program).toMatchObject({ id: program.id });
+    expect(await countProgramPiecesAction(program.id)).toBe(1);
+
+    // Linked to something, so not standalone.
+    const standalone = await listSocialPieces(
+      currentSupabase,
+      parseSocialFilters({ linked: "standalone" }),
+    );
+    expect(standalone.pieces.map((piece) => piece.id)).not.toContain(
+      created!.id,
+    );
+
+    // Unlinked: the program has no posts left.
+    expect(
+      await updateContentPieceAction(
+        created!.id,
+        pieceForm({ title, eventId: event.id }),
+      ),
+    ).toEqual({ success: true });
+    expect(await countProgramPiecesAction(program.id)).toBe(0);
+
+    // The count is for readers of social posts only.
+    currentSupabase = anonClient();
+    expect(await countProgramPiecesAction(program.id)).toBeNull();
+
+    await adminClient
+      .from("content_opportunities")
+      .delete()
+      .eq("id", created!.id);
+    await program.cleanup();
+    await event.cleanup();
+  });
+
   test("moves only the status, and asks for a reason to skip (#1794)", async () => {
     const event = await createPublishedEvent();
     currentSupabase = await signInAs(SEEDED_USERS.admin);
@@ -272,21 +338,25 @@ describe("social post actions (integration)", () => {
     ).toEqual({ error: "Could not add the social post. Please try again." });
   });
 
-  test("offers events and community dates to relate a post to", async () => {
+  test("offers events, community dates and programs to relate a post to", async () => {
     const item = await createCalendarItem();
+    const program = await createProgram();
     currentSupabase = await signInAs(SEEDED_USERS.admin);
 
     const options = await listSocialContentLinkOptionsAction();
     expect(options.calendarItems.map((option) => option.id)).toContain(item.id);
+    expect(options.programs.map((option) => option.id)).toContain(program.id);
     expect(options.events.length).toBeGreaterThan(0);
 
     currentSupabase = anonClient();
     expect(await listSocialContentLinkOptionsAction()).toEqual({
       events: [],
       calendarItems: [],
+      programs: [],
     });
 
     await item.cleanup();
+    await program.cleanup();
   });
 
   test("event_coordinator role (content_calendar manage) can add a piece", async () => {

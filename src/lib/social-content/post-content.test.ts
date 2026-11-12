@@ -2,7 +2,7 @@
 // collaborators, people to tag, and whether its media fits the format.
 import { describe, expect, test } from "bun:test";
 import { normalizeHandle, parseContentPieceForm } from "./piece-form";
-import { mediaFormatIssue } from "./pieces";
+import { mediaFormatIssue, mediaRoom } from "./pieces";
 
 const PERSON_ID = "6f1c1d2e-3a4b-4c5d-8e6f-7a8b9c0d1e2f";
 
@@ -143,5 +143,34 @@ describe("mediaFormatIssue", () => {
     expect(mediaFormatIssue("instagram_post", Array(11).fill(photo))).toMatch(
       /up to 10/,
     );
+  });
+});
+
+describe("mediaRoom (#1827)", () => {
+  test("a post or carousel fills to ten", () => {
+    expect(mediaRoom("instagram_post", 0)).toEqual({
+      count: 10,
+      videoOnly: false,
+    });
+    expect(mediaRoom(null, 7)).toEqual({ count: 3, videoOnly: false });
+    expect(mediaRoom("instagram_post", 12)).toEqual({
+      count: 0,
+      videoOnly: false,
+    });
+  });
+
+  test("a reel takes one video, a story one file", () => {
+    expect(mediaRoom("instagram_reel", 0)).toEqual({
+      count: 1,
+      videoOnly: true,
+    });
+    expect(mediaRoom("instagram_reel", 1)).toEqual({
+      count: 0,
+      videoOnly: true,
+    });
+    expect(mediaRoom("instagram_story", 0)).toEqual({
+      count: 1,
+      videoOnly: false,
+    });
   });
 });

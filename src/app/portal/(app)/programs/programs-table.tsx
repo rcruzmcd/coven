@@ -5,7 +5,10 @@ import {
   PortalDataTable,
   type PortalDataTableColumn,
 } from "@/components/portal/data-table";
-import { ProgramDetailsDialog } from "./program-details-dialog";
+import {
+  ProgramDetailsDialog,
+  type ProgramSocialAccess,
+} from "./program-details-dialog";
 import {
   ProgramPublicBadge,
   ProgramStatusBadge,
@@ -15,9 +18,11 @@ import {
 export function ProgramsTable({
   programs,
   canManage,
+  social,
 }: {
   programs: ProgramRow[];
   canManage: boolean;
+  social: ProgramSocialAccess;
 }) {
   // Rebuilt only when the permission behind the row action changes, which in
   // practice is never within a session.
@@ -62,11 +67,15 @@ export function ProgramsTable({
         headClassName: "w-0",
         cellClassName: "text-right",
         render: (program) => (
-          <ProgramDetailsDialog program={program} canManage={canManage} />
+          <ProgramDetailsDialog
+            program={program}
+            canManage={canManage}
+            social={social}
+          />
         ),
       },
     ],
-    [canManage],
+    [canManage, social],
   );
 
   return (

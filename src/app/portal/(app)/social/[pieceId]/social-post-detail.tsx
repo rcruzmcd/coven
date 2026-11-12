@@ -36,6 +36,8 @@ import {
   type CalendarOwner,
 } from "../../calendar/calendar-shared";
 import { RelatedChips } from "../related-chips";
+import { RepeatMarker } from "@/components/portal/social-content/repeat-marker";
+import { cadenceLabel } from "@/lib/social-content/series";
 
 export function SocialPostDetail({
   piece,
@@ -71,6 +73,12 @@ export function SocialPostDetail({
           <div className="flex flex-wrap items-center gap-2">
             <ContentStatusBadge status={piece.content_status} />
             <RelatedChips piece={piece} showStandalone />
+            {piece.series && (
+              <span className="app-muted inline-flex items-center gap-1 text-xs">
+                <RepeatMarker seriesId={piece.series_id} />
+                {cadenceLabel(piece.series.cadence, piece.series.anchor_date)}
+              </span>
+            )}
           </div>
         </div>
         {canManage && (

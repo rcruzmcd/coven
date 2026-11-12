@@ -1985,17 +1985,22 @@ export type Database = {
           content: string | null;
           content_status: string;
           created_at: string;
-          created_by: string;
+          created_by: string | null;
           draft_due_at: string | null;
           event_id: string | null;
+          featured_inventory_item_id: string | null;
+          featured_media_id: string | null;
           id: string;
           internal_notes: string | null;
           lead_time_days: number;
+          occurrence_date: string | null;
           owner_id: string | null;
           post_format: string | null;
+          program_id: string | null;
           publish_due_at: string | null;
           review_due_at: string | null;
           reviewer_id: string | null;
+          series_id: string | null;
           skip_reason: string | null;
           status_changed_at: string | null;
           status_changed_by: string | null;
@@ -2010,17 +2015,22 @@ export type Database = {
           content?: string | null;
           content_status?: string;
           created_at?: string;
-          created_by?: string;
+          created_by?: string | null;
           draft_due_at?: string | null;
           event_id?: string | null;
+          featured_inventory_item_id?: string | null;
+          featured_media_id?: string | null;
           id?: string;
           internal_notes?: string | null;
           lead_time_days?: number;
+          occurrence_date?: string | null;
           owner_id?: string | null;
           post_format?: string | null;
+          program_id?: string | null;
           publish_due_at?: string | null;
           review_due_at?: string | null;
           reviewer_id?: string | null;
+          series_id?: string | null;
           skip_reason?: string | null;
           status_changed_at?: string | null;
           status_changed_by?: string | null;
@@ -2035,17 +2045,22 @@ export type Database = {
           content?: string | null;
           content_status?: string;
           created_at?: string;
-          created_by?: string;
+          created_by?: string | null;
           draft_due_at?: string | null;
           event_id?: string | null;
+          featured_inventory_item_id?: string | null;
+          featured_media_id?: string | null;
           id?: string;
           internal_notes?: string | null;
           lead_time_days?: number;
+          occurrence_date?: string | null;
           owner_id?: string | null;
           post_format?: string | null;
+          program_id?: string | null;
           publish_due_at?: string | null;
           review_due_at?: string | null;
           reviewer_id?: string | null;
+          series_id?: string | null;
           skip_reason?: string | null;
           status_changed_at?: string | null;
           status_changed_by?: string | null;
@@ -2070,6 +2085,20 @@ export type Database = {
             referencedColumns: ["tenant_id", "id"];
           },
           {
+            foreignKeyName: "content_opportunities_featured_inventory_item_fkey";
+            columns: ["tenant_id", "featured_inventory_item_id"];
+            isOneToOne: false;
+            referencedRelation: "inventory_items";
+            referencedColumns: ["tenant_id", "id"];
+          },
+          {
+            foreignKeyName: "content_opportunities_featured_media_fkey";
+            columns: ["tenant_id", "featured_media_id"];
+            isOneToOne: false;
+            referencedRelation: "social_post_media";
+            referencedColumns: ["tenant_id", "id"];
+          },
+          {
             foreignKeyName: "content_opportunities_owner_id_fkey";
             columns: ["tenant_id", "owner_id"];
             isOneToOne: false;
@@ -2084,6 +2113,13 @@ export type Database = {
             referencedColumns: ["tenant_id", "id"];
           },
           {
+            foreignKeyName: "content_opportunities_program_id_fkey";
+            columns: ["tenant_id", "program_id"];
+            isOneToOne: false;
+            referencedRelation: "programs";
+            referencedColumns: ["tenant_id", "id"];
+          },
+          {
             foreignKeyName: "content_opportunities_reviewer_id_fkey";
             columns: ["tenant_id", "reviewer_id"];
             isOneToOne: false;
@@ -2095,6 +2131,13 @@ export type Database = {
             columns: ["tenant_id", "reviewer_id"];
             isOneToOne: false;
             referencedRelation: "people_with_roles";
+            referencedColumns: ["tenant_id", "id"];
+          },
+          {
+            foreignKeyName: "content_opportunities_series_id_fkey";
+            columns: ["tenant_id", "series_id"];
+            isOneToOne: false;
+            referencedRelation: "social_post_series";
             referencedColumns: ["tenant_id", "id"];
           },
           {
@@ -4673,7 +4716,6 @@ export type Database = {
       };
       events: {
         Row: {
-          adults_only: boolean;
           attendance_count: number | null;
           attendance_notes: string | null;
           auto_assign_discount_codes: boolean;
@@ -4691,6 +4733,7 @@ export type Database = {
           event_lead_id: string | null;
           feedback_notes: string | null;
           flier_url: string | null;
+          flyer_media_id: string | null;
           group_chat_enabled: boolean;
           group_chat_label: string | null;
           id: string;
@@ -4721,7 +4764,6 @@ export type Database = {
           visibility: string;
         };
         Insert: {
-          adults_only?: boolean;
           attendance_count?: number | null;
           attendance_notes?: string | null;
           auto_assign_discount_codes?: boolean;
@@ -4739,6 +4781,7 @@ export type Database = {
           event_lead_id?: string | null;
           feedback_notes?: string | null;
           flier_url?: string | null;
+          flyer_media_id?: string | null;
           group_chat_enabled?: boolean;
           group_chat_label?: string | null;
           id?: string;
@@ -4769,7 +4812,6 @@ export type Database = {
           visibility?: string;
         };
         Update: {
-          adults_only?: boolean;
           attendance_count?: number | null;
           attendance_notes?: string | null;
           auto_assign_discount_codes?: boolean;
@@ -4787,6 +4829,7 @@ export type Database = {
           event_lead_id?: string | null;
           feedback_notes?: string | null;
           flier_url?: string | null;
+          flyer_media_id?: string | null;
           group_chat_enabled?: boolean;
           group_chat_label?: string | null;
           id?: string;
@@ -4830,6 +4873,13 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: "people_with_roles";
             referencedColumns: ["tenant_id", "id"];
+          },
+          {
+            foreignKeyName: "events_flyer_media_fkey";
+            columns: ["id", "flyer_media_id"];
+            isOneToOne: false;
+            referencedRelation: "event_media";
+            referencedColumns: ["event_id", "id"];
           },
           {
             foreignKeyName: "events_tenant_id_fkey";
@@ -10176,12 +10226,13 @@ export type Database = {
         Row: {
           content_opportunity_id: string;
           content_type: string;
+          event_media_id: string | null;
           id: string;
           kind: string;
           original_filename: string;
           position: number;
           size_bytes: number;
-          storage_path: string;
+          storage_path: string | null;
           tenant_id: string;
           uploaded_at: string;
           uploaded_by: string | null;
@@ -10189,12 +10240,13 @@ export type Database = {
         Insert: {
           content_opportunity_id: string;
           content_type: string;
+          event_media_id?: string | null;
           id?: string;
           kind?: string;
           original_filename: string;
           position: number;
           size_bytes: number;
-          storage_path: string;
+          storage_path?: string | null;
           tenant_id?: string;
           uploaded_at?: string;
           uploaded_by?: string | null;
@@ -10202,17 +10254,25 @@ export type Database = {
         Update: {
           content_opportunity_id?: string;
           content_type?: string;
+          event_media_id?: string | null;
           id?: string;
           kind?: string;
           original_filename?: string;
           position?: number;
           size_bytes?: number;
-          storage_path?: string;
+          storage_path?: string | null;
           tenant_id?: string;
           uploaded_at?: string;
           uploaded_by?: string | null;
         };
         Relationships: [
+          {
+            foreignKeyName: "social_post_media_event_media_fkey";
+            columns: ["tenant_id", "event_media_id"];
+            isOneToOne: false;
+            referencedRelation: "event_media";
+            referencedColumns: ["tenant_id", "id"];
+          },
           {
             foreignKeyName: "social_post_media_post_fkey";
             columns: ["tenant_id", "content_opportunity_id"];
@@ -10229,6 +10289,162 @@ export type Database = {
           },
           {
             foreignKeyName: "social_post_media_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      social_post_series: {
+        Row: {
+          anchor_date: string;
+          auto_approve: boolean;
+          cadence: string;
+          calendar_item_id: string | null;
+          collaborator_handles: string[];
+          content: string | null;
+          content_source: string;
+          created_at: string;
+          created_by: string | null;
+          ended_at: string | null;
+          ends_on: string | null;
+          event_id: string | null;
+          generated_through: string | null;
+          id: string;
+          internal_notes: string | null;
+          lead_time_days: number;
+          missed_occurrences: string[];
+          no_gear_occurrences: string[];
+          owner_id: string | null;
+          paused_at: string | null;
+          post_format: string | null;
+          publish_time: string;
+          recent_exclusion_count: number;
+          reviewer_id: string | null;
+          tags: Json;
+          tenant_id: string;
+          time_zone: string;
+          title: string;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: {
+          anchor_date: string;
+          auto_approve?: boolean;
+          cadence: string;
+          calendar_item_id?: string | null;
+          collaborator_handles?: string[];
+          content?: string | null;
+          content_source?: string;
+          created_at?: string;
+          created_by?: string | null;
+          ended_at?: string | null;
+          ends_on?: string | null;
+          event_id?: string | null;
+          generated_through?: string | null;
+          id?: string;
+          internal_notes?: string | null;
+          lead_time_days: number;
+          missed_occurrences?: string[];
+          no_gear_occurrences?: string[];
+          owner_id?: string | null;
+          paused_at?: string | null;
+          post_format?: string | null;
+          publish_time: string;
+          recent_exclusion_count?: number;
+          reviewer_id?: string | null;
+          tags?: Json;
+          tenant_id?: string;
+          time_zone: string;
+          title: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          anchor_date?: string;
+          auto_approve?: boolean;
+          cadence?: string;
+          calendar_item_id?: string | null;
+          collaborator_handles?: string[];
+          content?: string | null;
+          content_source?: string;
+          created_at?: string;
+          created_by?: string | null;
+          ended_at?: string | null;
+          ends_on?: string | null;
+          event_id?: string | null;
+          generated_through?: string | null;
+          id?: string;
+          internal_notes?: string | null;
+          lead_time_days?: number;
+          missed_occurrences?: string[];
+          no_gear_occurrences?: string[];
+          owner_id?: string | null;
+          paused_at?: string | null;
+          post_format?: string | null;
+          publish_time?: string;
+          recent_exclusion_count?: number;
+          reviewer_id?: string | null;
+          tags?: Json;
+          tenant_id?: string;
+          time_zone?: string;
+          title?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "social_post_series_calendar_item_id_fkey";
+            columns: ["tenant_id", "calendar_item_id"];
+            isOneToOne: false;
+            referencedRelation: "calendar_items";
+            referencedColumns: ["tenant_id", "id"];
+          },
+          {
+            foreignKeyName: "social_post_series_event_id_fkey";
+            columns: ["tenant_id", "event_id"];
+            isOneToOne: false;
+            referencedRelation: "events";
+            referencedColumns: ["tenant_id", "id"];
+          },
+          {
+            foreignKeyName: "social_post_series_owner_id_fkey";
+            columns: ["tenant_id", "owner_id"];
+            isOneToOne: false;
+            referencedRelation: "people";
+            referencedColumns: ["tenant_id", "id"];
+          },
+          {
+            foreignKeyName: "social_post_series_owner_id_fkey";
+            columns: ["tenant_id", "owner_id"];
+            isOneToOne: false;
+            referencedRelation: "people_with_roles";
+            referencedColumns: ["tenant_id", "id"];
+          },
+          {
+            foreignKeyName: "social_post_series_reviewer_id_fkey";
+            columns: ["tenant_id", "reviewer_id"];
+            isOneToOne: false;
+            referencedRelation: "people";
+            referencedColumns: ["tenant_id", "id"];
+          },
+          {
+            foreignKeyName: "social_post_series_reviewer_id_fkey";
+            columns: ["tenant_id", "reviewer_id"];
+            isOneToOne: false;
+            referencedRelation: "people_with_roles";
+            referencedColumns: ["tenant_id", "id"];
+          },
+          {
+            foreignKeyName: "social_post_series_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "public_tenant";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "social_post_series_tenant_id_fkey";
             columns: ["tenant_id"];
             isOneToOne: false;
             referencedRelation: "tenants";
@@ -11316,7 +11532,6 @@ export type Database = {
       };
       public_events: {
         Row: {
-          adults_only: boolean | null;
           capacity: number | null;
           carpool_cost_notice: Json | null;
           carpools_enabled: boolean | null;
@@ -11333,7 +11548,6 @@ export type Database = {
           timezone: string | null;
         };
         Insert: {
-          adults_only?: boolean | null;
           capacity?: number | null;
           carpool_cost_notice?: Json | null;
           carpools_enabled?: boolean | null;
@@ -11350,7 +11564,6 @@ export type Database = {
           timezone?: string | null;
         };
         Update: {
-          adults_only?: boolean | null;
           capacity?: number | null;
           carpool_cost_notice?: Json | null;
           carpools_enabled?: boolean | null;
@@ -11804,6 +12017,10 @@ export type Database = {
         Args: { p_inventory_item_id: string; p_request_id: string };
         Returns: undefined;
       };
+      add_social_post_event_media: {
+        Args: { p_media_ids: string[]; p_post_id: string };
+        Returns: number;
+      };
       add_to_distribution_draft: {
         Args: { p_event_id?: string; p_item_id: string };
         Returns: string;
@@ -12156,6 +12373,15 @@ export type Database = {
         };
         Returns: string;
       };
+      create_social_post_series: {
+        Args: {
+          p_cadence: string;
+          p_ends_on?: string;
+          p_post_id: string;
+          p_time_zone: string;
+        };
+        Returns: string;
+      };
       current_membership_kind: { Args: never; Returns: string };
       current_tenant_id: { Args: never; Returns: string };
       current_tenant_is_demo: { Args: never; Returns: boolean };
@@ -12460,6 +12686,15 @@ export type Database = {
           value: string;
         }[];
       };
+      generate_social_post_series_posts: {
+        Args: {
+          p_missed: string[];
+          p_posts: Json;
+          p_series_id: string;
+          p_through: string;
+        };
+        Returns: Json;
+      };
       generate_volunteer_reference_code: {
         Args: { p_tenant_id?: string };
         Returns: string;
@@ -12642,6 +12877,12 @@ export type Database = {
           recorded_by: string;
           recorded_by_name: string;
         }[];
+      };
+      inventory_item_is_featurable: {
+        Args: {
+          p_item: Database["public"]["Tables"]["inventory_items"]["Row"];
+        };
+        Returns: boolean;
       };
       inventory_numbered_tag_number: {
         Args: { p_code: string };
@@ -13673,12 +13914,13 @@ export type Database = {
         Returns: {
           content_opportunity_id: string;
           content_type: string;
+          event_media_id: string | null;
           id: string;
           kind: string;
           original_filename: string;
           position: number;
           size_bytes: number;
-          storage_path: string;
+          storage_path: string | null;
           tenant_id: string;
           uploaded_at: string;
           uploaded_by: string | null;
@@ -13874,7 +14116,6 @@ export type Database = {
       reopen_event_report: {
         Args: { p_id: string; p_reason: string };
         Returns: {
-          adults_only: boolean;
           attendance_count: number | null;
           attendance_notes: string | null;
           auto_assign_discount_codes: boolean;
@@ -13892,6 +14133,7 @@ export type Database = {
           event_lead_id: string | null;
           feedback_notes: string | null;
           flier_url: string | null;
+          flyer_media_id: string | null;
           group_chat_enabled: boolean;
           group_chat_label: string | null;
           id: string;
@@ -14567,6 +14809,10 @@ export type Database = {
         Args: { p_mode: string; p_policy_key: string };
         Returns: undefined;
       };
+      set_social_post_featured_gear: {
+        Args: { p_item_id?: string; p_post_id: string };
+        Returns: string;
+      };
       set_social_post_tags: {
         Args: { p_post_id: string; p_tags: Json };
         Returns: undefined;
@@ -14582,6 +14828,28 @@ export type Database = {
       show_limit: { Args: never; Returns: number };
       show_trgm: { Args: { "": string }; Returns: string[] };
       site_content_approver_count: { Args: never; Returns: number };
+      social_post_gear_items: {
+        Args: { p_post_id: string };
+        Returns: {
+          category_label: string;
+          condition: string;
+          description: string;
+          featured: boolean;
+          id: string;
+          photo_url: string;
+          qualifies: boolean;
+          size: string;
+          status: string;
+        }[];
+      };
+      social_post_gear_pick: {
+        Args: {
+          p_exclude_item?: string;
+          p_post_id?: string;
+          p_series_id: string;
+        };
+        Returns: string;
+      };
       social_post_media_path_post_id: {
         Args: { p_name: string };
         Returns: string;
@@ -14596,6 +14864,7 @@ export type Database = {
           preferred_name: string;
         }[];
       };
+      social_post_tags_json: { Args: { p_post_id: string }; Returns: Json };
       stamp_event_reminder: {
         Args: { p_registration_id: string };
         Returns: boolean;
@@ -14649,7 +14918,6 @@ export type Database = {
       submit_event_report: {
         Args: { p_id: string };
         Returns: {
-          adults_only: boolean;
           attendance_count: number | null;
           attendance_notes: string | null;
           auto_assign_discount_codes: boolean;
@@ -14667,6 +14935,7 @@ export type Database = {
           event_lead_id: string | null;
           feedback_notes: string | null;
           flier_url: string | null;
+          flyer_media_id: string | null;
           group_chat_enabled: boolean;
           group_chat_label: string | null;
           id: string;
@@ -14833,6 +15102,10 @@ export type Database = {
           p_source_inventory_item_id?: string;
           p_source_monetary_donation_id?: string;
         };
+        Returns: undefined;
+      };
+      update_social_post_series_template: {
+        Args: { p_post_id: string };
         Returns: undefined;
       };
       uploader_name: {

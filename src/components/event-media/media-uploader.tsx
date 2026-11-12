@@ -8,6 +8,8 @@ import {
   type ChangeEvent,
 } from "react";
 import {
+  ChevronDown,
+  ChevronUp,
   Film,
   ImageIcon,
   Pause,
@@ -47,6 +49,16 @@ const ACCEPT =
  * shows within a second or so.
  */
 export const UPLOADED_REFRESH_DELAY_MS = 1000;
+
+/** More uploads than this start folded into their summary line. */
+export const COLLAPSE_ABOVE = 3;
+
+/**
+ * How long a cleanly finished batch stays on screen before it clears itself,
+ * where `clearWhenDone` is set: long enough to read, and the files are in the
+ * list below by then.
+ */
+export const CLEAR_DONE_DELAY_MS = 4000;
 
 /**
  * The largest file taken from Google Drive (#1634). A Drive file is held in
@@ -118,6 +130,7 @@ export function MediaUploader({
   hint,
   disabled = false,
   googleDrive = false,
+  clearWhenDone = false,
   onUploaded,
 }: {
   deps: EventMediaQueueDeps;
@@ -129,6 +142,12 @@ export function MediaUploader({
    * page is public and leaves it off (#1627 non-goals).
    */
   googleDrive?: boolean;
+  /**
+   * Clear a batch once every file is in and none failed. For a page that lists
+   * the uploaded files elsewhere; the upload-link page has no such list, and
+   * its rows carry Delete.
+   */
+  clearWhenDone?: boolean;
   onUploaded?: () => void;
 }) {
   const [queue] = useState<EventMediaQueue>(() => createEventMediaQueue(deps));
@@ -138,6 +157,8 @@ export function MediaUploader({
     queue.getSnapshot,
   );
   const inputRef = useRef<HTMLInputElement>(null);
+  // Null until the reader chooses: then the list's length decides.
+  const [expanded, setExpanded] = useState<boolean | null>(null);
 
   // The list below the uploader reloads once the files recorded in the last
   // UPLOADED_REFRESH_DELAY_MS are in, not once per file.
@@ -169,6 +190,16 @@ export function MediaUploader({
       item.status === "queued" ||
       item.status === "downloading",
   );
+  const cleanBatch =
+    items.length > 0 && items.every((item) => item.status === "done");
+  useEffect(() => {
+    if (!clearWhenDone || !cleanBatch) return;
+    const timer = setTimeout(() => {
+      for (const item of queue.getSnapshot()) queue.dismiss(item.id);
+    }, CLEAR_DONE_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [clearWhenDone, cleanBatch, queue]);
+
   useEffect(() => {
     if (!busy) return;
     function warn(event: BeforeUnloadEvent) {
@@ -222,13 +253,122 @@ export function MediaUploader({
       </div>
 
       {items.length > 0 && (
-        <ul className="flex flex-col gap-2" aria-label="Uploads">
-          {items.map((item) => (
+        <UploadsPanel
+          items={items}
+          queue={queue}
+          expanded={expanded ?? items.length <= COLLAPSE_ABOVE}
+          onExpandedChange={setExpanded}
+        />
+      )}
+    </div>
+  );
+}
+
+/** Rows that need the reader: a failure to retry, a video to pause or resume. */
+function needsAttention(item: EventMediaItem) {
+  return (
+    item.status === "failed" ||
+    item.status === "paused" ||
+    (item.kind === "video" && item.status === "uploading")
+  );
+}
+
+/**
+ * The upload list as one summary line with the batch's overall progress, the
+ * rows themselves behind **Show files** in a capped, scrolling panel. Rows
+ * that need the reader show either way.
+ */
+function UploadsPanel({
+  items,
+  queue,
+  expanded,
+  onExpandedChange,
+}: {
+  items: EventMediaItem[];
+  queue: EventMediaQueue;
+  expanded: boolean;
+  onExpandedChange: (expanded: boolean) => void;
+}) {
+  const done = items.filter((item) => item.status === "done").length;
+  const failed = items.filter((item) => item.status === "failed").length;
+  const active = items.length - done - failed;
+  // Each file counts once; one in flight counts for what it has sent.
+  const settled = items.reduce(
+    (sum, item) =>
+      sum +
+      (item.status === "done" || item.status === "failed"
+        ? 1
+        : item.status === "uploading" || item.status === "paused"
+          ? (item.progress ?? 0)
+          : 0),
+    0,
+  );
+  const percent = Math.round((settled / items.length) * 100);
+  const files = (n: number) => (n === 1 ? "1 file" : `${n} files`);
+  const summary =
+    active > 0
+      ? `Uploading ${files(items.length)}: ${done} done${failed ? `, ${failed} failed` : ""}`
+      : `${done} uploaded${failed ? `, ${failed} failed` : ""}`;
+  const shown = expanded ? items : items.filter(needsAttention);
+
+  return (
+    <section
+      aria-label="Uploads"
+      className="flex flex-col gap-2 rounded-lg border border-[var(--line)] p-3"
+    >
+      <div className="flex flex-wrap items-center gap-2 text-sm">
+        <span className="min-w-0 flex-1" aria-live="polite">
+          {summary}
+        </span>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          aria-expanded={expanded}
+          onClick={() => onExpandedChange(!expanded)}
+        >
+          {expanded ? <ChevronUp /> : <ChevronDown />}
+          {expanded ? "Hide files" : `Show files (${items.length})`}
+        </Button>
+        {done + failed > 0 && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              for (const item of items) queue.dismiss(item.id);
+            }}
+          >
+            Clear finished
+          </Button>
+        )}
+      </div>
+      {active > 0 && (
+        <div
+          role="progressbar"
+          aria-label="Upload progress"
+          aria-valuenow={percent}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          className="h-1.5 overflow-hidden rounded-full bg-muted"
+        >
+          <div
+            className="h-full rounded-full bg-primary transition-[width] duration-200"
+            style={{ width: `${percent}%` }}
+          />
+        </div>
+      )}
+      {shown.length > 0 && (
+        <ul
+          className="flex max-h-80 flex-col gap-1.5 overflow-y-auto"
+          aria-label="Upload files"
+        >
+          {shown.map((item) => (
             <UploadRow key={item.id} item={item} queue={queue} />
           ))}
         </ul>
       )}
-    </div>
+    </section>
   );
 }
 
@@ -249,7 +389,7 @@ function UploadRow({
 
   return (
     <li
-      className="flex flex-col gap-1.5 rounded-lg border border-[var(--line)] p-3"
+      className="flex flex-col gap-1 rounded-md border border-[var(--line)] px-3 py-1.5"
       data-status={item.status}
     >
       <div className="flex items-center gap-2 text-sm">

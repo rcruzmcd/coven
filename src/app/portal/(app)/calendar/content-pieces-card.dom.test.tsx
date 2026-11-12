@@ -11,6 +11,7 @@ function piece(overrides: Partial<ContentPieceRow> = {}): ContentPieceRow {
     id: "piece-1",
     calendar_item_id: "item-1",
     event_id: null,
+    program_id: null,
     title: "Instagram carousel",
     content: null,
     post_format: null,
@@ -26,6 +27,8 @@ function piece(overrides: Partial<ContentPieceRow> = {}): ContentPieceRow {
     draft_due_at: null,
     status_changed_by: null,
     status_changed_at: null,
+    series_id: null,
+    occurrence_date: null,
     ...overrides,
   };
 }

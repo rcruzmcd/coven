@@ -27,9 +27,10 @@ export type ContentPieceFormData = {
   publishDueAt: string | null;
   reviewDueAt: string | null;
   draftDueAt: string | null;
-  /** What the piece is related to (#1793): either, both or neither. */
+  /** What the piece is related to (#1793, #1838): any combination, or none. */
   calendarItemId: string | null;
   eventId: string | null;
+  programId: string | null;
 };
 
 export type SocialPostTagInput = { personId: string } | { handle: string };
@@ -84,6 +85,7 @@ export function parseContentPieceForm(
   const draftDueAt = String(formData.get("draftDueAt") ?? "");
   const calendarItemId = String(formData.get("calendarItemId") ?? "").trim();
   const eventId = String(formData.get("eventId") ?? "").trim();
+  const programId = String(formData.get("programId") ?? "").trim();
 
   if (!title) {
     return { error: "Give this post a title." };
@@ -161,13 +163,17 @@ export function parseContentPieceForm(
     return { error: `Tag up to ${MAX_TAGS} people.`, field: "tags" };
   }
 
-  // The composite foreign keys refuse another tenant's item or event; this
-  // only keeps a malformed id from reaching Postgres as a cast error.
+  // The composite foreign keys refuse another tenant's item, event or
+  // program; this only keeps a malformed id from reaching Postgres as a cast
+  // error.
   if (calendarItemId && !UUID_PATTERN.test(calendarItemId)) {
     return { error: "Select a valid community date.", field: "calendarItemId" };
   }
   if (eventId && !UUID_PATTERN.test(eventId)) {
     return { error: "Select a valid event.", field: "eventId" };
+  }
+  if (programId && !UUID_PATTERN.test(programId)) {
+    return { error: "Select a valid program.", field: "programId" };
   }
 
   const leadTimeDays = Number(leadTimeDaysRaw);
@@ -214,6 +220,7 @@ export function parseContentPieceForm(
       draftDueAt: draftDueAtIso,
       calendarItemId: calendarItemId || null,
       eventId: eventId || null,
+      programId: programId || null,
     },
   };
 }

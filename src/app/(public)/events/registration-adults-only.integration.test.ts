@@ -2,8 +2,7 @@
 // against the real RPC on a local Supabase stack: an 18+ or 21+ event refuses
 // a registration without the confirmation, records it and the age with one,
 // and never stores an under-18 answer; any other event ignores the
-// confirmation. The age reaches the public site through public_events, and
-// `adults_only` -- what main still writes -- stays in step with it.
+// confirmation. The age reaches the public site through public_events.
 // Requires `bun run db:start && bun run db:reset`; run via
 // `bun run test:integration`.
 import { afterAll, afterEach, describe, expect, mock, test } from "bun:test";
@@ -214,47 +213,16 @@ describe("the setting", () => {
 
     const { data: portal } = await admin
       .from("events")
-      .select("minimum_age, adults_only")
+      .select("minimum_age")
       .eq("id", fixture.id)
       .single();
-    expect(portal).toEqual({ minimum_age: 21, adults_only: true });
+    expect(portal).toEqual({ minimum_age: 21 });
 
     const { data: publicRow } = await anonClient()
       .from("public_events")
-      .select("minimum_age, adults_only")
+      .select("minimum_age")
       .eq("id", fixture.id)
       .single();
-    expect(publicRow).toEqual({ minimum_age: 21, adults_only: true });
-  });
-
-  // Main still reads and writes `adults_only` until it ships #1782.
-  test("main writing adults_only alone sets 18 or clears the age", async () => {
-    const read = async () =>
-      (
-        await service
-          .from("events")
-          .select("minimum_age, adults_only")
-          .eq("id", fixture.id)
-          .single()
-      ).data;
-
-    await service
-      .from("events")
-      .update({ adults_only: true })
-      .eq("id", fixture.id);
-    expect(await read()).toEqual({ minimum_age: 18, adults_only: true });
-
-    await setMinimumAge(21);
-    await service
-      .from("events")
-      .update({ adults_only: true, name: fixture.name })
-      .eq("id", fixture.id);
-    expect(await read()).toEqual({ minimum_age: 21, adults_only: true });
-
-    await service
-      .from("events")
-      .update({ adults_only: false })
-      .eq("id", fixture.id);
-    expect(await read()).toEqual({ minimum_age: null, adults_only: false });
+    expect(publicRow).toEqual({ minimum_age: 21 });
   });
 });

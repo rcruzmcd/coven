@@ -274,6 +274,7 @@ describe("OverviewTab social post shift", () => {
       id: "piece-1",
       calendar_item_id: null,
       event_id: "event-1",
+      program_id: null,
       title: "Reminder",
       content: null,
       post_format: null,
@@ -289,6 +290,8 @@ describe("OverviewTab social post shift", () => {
       draft_due_at: null,
       status_changed_by: null,
       status_changed_at: null,
+      series_id: null,
+      occurrence_date: null,
       ...overrides,
     };
   }

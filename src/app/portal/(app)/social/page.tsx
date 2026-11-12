@@ -92,6 +92,8 @@ export default async function SocialContentPage({
             overlay={overlay}
             owners={owners}
             events={linkOptions.events}
+            programs={linkOptions.programs}
+            openNewPost={first(params.new) === "1"}
             canManage={canManage}
             canViewEvents={canViewEvents}
             defaultLeadTimeDays={defaultLeadTimeDays}
@@ -100,6 +102,10 @@ export default async function SocialContentPage({
       )}
     </>
   );
+}
+
+function first(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
 }
 
 /**

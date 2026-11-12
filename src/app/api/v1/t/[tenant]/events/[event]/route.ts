@@ -9,7 +9,7 @@ const route = publicRead<{ tenant: string; event: string }>(
       await supabase
         .from("public_events")
         .select(
-          "id, name, location, starts_at, ends_at, timezone, description, capacity, registration_enabled, registration_deadline, flier_url, adults_only, minimum_age",
+          "id, name, location, starts_at, ends_at, timezone, description, capacity, registration_enabled, registration_deadline, flier_url, minimum_age",
         )
         .eq("id", params.event)
         .maybeSingle(),
@@ -47,6 +47,8 @@ const route = publicRead<{ tenant: string; event: string }>(
     return {
       event: {
         ...event,
+        // Deprecated in favour of minimum_age; kept as public API contract (#1784).
+        adults_only: event.minimum_age !== null,
         sponsors: unwrap(sponsors) ?? [],
         programs: unwrap(programs) ?? [],
         registration_options:

@@ -41,9 +41,11 @@ export function SocialWorkspace({
   overlay,
   owners,
   events,
+  programs,
   canManage,
   canViewEvents,
   defaultLeadTimeDays,
+  openNewPost: openNewPostOnLoad = false,
 }: {
   filters: SocialFilters;
   /** The URL named the month; otherwise it is the server's, not the viewer's. */
@@ -52,13 +54,31 @@ export function SocialWorkspace({
   overlay: CalendarEntry<CalendarItemEntryRow>[];
   owners: CalendarOwner[];
   events: SocialContentLinkOption[];
+  programs: SocialContentLinkOption[];
   canManage: boolean;
   canViewEvents: boolean;
   defaultLeadTimeDays: number;
+  /**
+   * The URL asked for the new-post form (`?new=1`), as a program's details
+   * "New post" does (#1838): it opens on arrival, related to the program the
+   * page is filtered to.
+   */
+  openNewPost?: boolean;
 }) {
   const router = useRouter();
-  const [sheetOpen, setSheetOpen] = useState(false);
-  const [session, setSession] = useState<SocialPostSheetSession | null>(null);
+  const startNew = openNewPostOnLoad && canManage;
+  const [sheetOpen, setSheetOpen] = useState(startNew);
+  const [session, setSession] = useState<SocialPostSheetSession | null>(() =>
+    startNew ? { key: 1, piece: null, mode: "edit" } : null,
+  );
+
+  // `new=1` has done its job once the form is open; drop it (`socialHref`
+  // never writes it) so a reload or the back button does not open it again.
+  useEffect(() => {
+    if (openNewPostOnLoad) {
+      router.replace(socialHref(filters), { scroll: false });
+    }
+  }, [openNewPostOnLoad, filters, router]);
 
   // UTC until the browser reports its zone, so the server render and the
   // first client render place every post in the same cell.
@@ -129,6 +149,7 @@ export function SocialWorkspace({
             filters={filters}
             owners={owners}
             events={events}
+            programs={programs}
           />
           {canManage && (
             <Button type="button" onClick={openNewPost}>
@@ -163,7 +184,11 @@ export function SocialWorkspace({
           owners={owners}
           defaultLeadTimeDays={defaultLeadTimeDays}
           canManage={canManage}
-          newPostDescription="One social post or story. Relate it to an event or community date, or leave it standalone."
+          // Filtered to one program, a new post starts related to it (#1838).
+          defaults={
+            filters.program !== "all" ? { programId: filters.program } : {}
+          }
+          newPostDescription="One social post or story. Relate it to an event, community date or program, or leave it standalone."
         />
       )}
     </div>

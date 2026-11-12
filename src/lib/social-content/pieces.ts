@@ -54,6 +54,26 @@ export function formatTakesCollaborators(format: PostFormat | null) {
 }
 
 /**
+ * How many more files a post can take, and of what kind, given its format
+ * and what it already holds: a reel is one video, a story one file, anything
+ * else up to the carousel limit. What the event media picker (#1827) lets
+ * someone tick; `mediaFormatIssue` is the warning for what is already there.
+ */
+export function mediaRoom(
+  format: PostFormat | null,
+  held: number,
+): { count: number; videoOnly: boolean } {
+  const max =
+    format === "instagram_reel" || format === "instagram_story"
+      ? 1
+      : MAX_POST_MEDIA;
+  return {
+    count: Math.max(0, max - held),
+    videoOnly: format === "instagram_reel",
+  };
+}
+
+/**
  * Why a post's media does not fit its format, or null when it does (or when
  * there is nothing yet to judge). A warning, not a refusal: media is added
  * one file at a time and the format can change after it.
@@ -86,8 +106,9 @@ export function mediaFormatIssue(
 
 /**
  * One social post or story (#1231). Since #1792 a piece stands on its own and
- * may be related to a calendar item (a community date), an event, both or
- * neither -- deleting either clears the link and keeps the piece.
+ * may be related to a calendar item (a community date), an event and, since
+ * #1838, a program, in any combination or none -- deleting any of them clears
+ * the link and keeps the piece.
  *
  * Stored in `content_opportunities`, which kept its name through the reshape
  * so its audit history and RLS policies carried over; everything a person
@@ -97,6 +118,8 @@ export type ContentPieceRow = {
   id: string;
   calendar_item_id: string | null;
   event_id: string | null;
+  /** The program the post is for, if any (#1838). */
+  program_id: string | null;
   title: string;
   /** The caption since #1826 ("Story text" on a story); the column kept its name. */
   content: string | null;
@@ -113,6 +136,11 @@ export type ContentPieceRow = {
   draft_due_at: string | null;
   status_changed_by: string | null;
   status_changed_at: string | null;
+  /** The recurring series that made it (#1839), and which of its dates it fills. */
+  series_id: string | null;
+  occurrence_date: string | null;
+  /** The Gear Library item it features (#1841), picked by its series. */
+  featured_inventory_item_id?: string | null;
 };
 
 /** Statuses a piece needs no more work in. */

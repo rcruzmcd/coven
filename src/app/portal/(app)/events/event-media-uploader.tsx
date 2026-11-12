@@ -32,6 +32,7 @@ export function EventMediaUploader({
       deps={deps}
       onUploaded={onUploaded}
       googleDrive
+      clearWhenDone
       hint="Photos are resized before upload. Videos up to 10 GB; keep this page open until they finish."
     />
   );

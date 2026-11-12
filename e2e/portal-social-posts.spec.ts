@@ -34,7 +34,8 @@ test.describe("portal social posts", () => {
     await page.getByRole("button", { name: "New social post" }).click();
     const sheet = modal(page);
     await sheet.getByLabel("Title").fill(title);
-    await sheet.getByRole("button", { name: /^(Add|Save)/ }).click();
+    // The footer's submit, not the content fields' own "Add" buttons.
+    await sheet.getByRole("button", { name: "Add social post" }).click();
     await expect(sheet).toHaveCount(0);
 
     // Unscheduled, so it lands in the tray rather than the dated list.
