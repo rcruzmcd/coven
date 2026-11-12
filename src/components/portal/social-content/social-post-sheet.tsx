@@ -38,6 +38,7 @@ import { EventMediaPicker } from "./event-media-picker";
 import { createVideoUpload, uploadEventPhoto } from "@/lib/storage/event-media";
 import type { EventMediaQueueDeps } from "@/lib/storage/event-media-queue";
 import { ContentStatusBadge } from "./content-status-badge";
+import { ShareToInstagram } from "./share-to-instagram";
 import {
   HandleListInput,
   PostContentSummary,
@@ -639,6 +640,7 @@ function SocialPostSheetBody({
               extras={extras}
               idPrefix="piece-view"
             />
+            <ShareToInstagram piece={piece} extras={extras} />
             {piece.status_changed_at && (
               <p className="app-muted text-xs">
                 Status last changed {formatDateTime(piece.status_changed_at)} by{" "}
