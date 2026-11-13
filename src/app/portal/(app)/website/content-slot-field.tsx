@@ -1,7 +1,7 @@
 "use client";
 
 import type { Json } from "@/lib/supabase/types";
-import Link from "next/link";
+import { PublicSiteLink } from "@/components/portal/public-site-link";
 import { ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -218,15 +218,16 @@ export function ContentSlotField({
           </span>
         )}
         {route && (
-          <Link
-            href={route}
+          <PublicSiteLink
+            path={route}
+            fallback={null}
             target="_blank"
             rel="noopener noreferrer"
             className="app-muted inline-flex items-center gap-1.5 text-sm font-normal underline-offset-4 hover:underline"
           >
             View on the site
             <ExternalLink className="size-3.5" aria-hidden />
-          </Link>
+          </PublicSiteLink>
         )}
       </div>
 

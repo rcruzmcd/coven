@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PublicSiteLink } from "@/components/portal/public-site-link";
 import { HowToSection } from "@/components/how-to-section";
 import type { HelpEntry } from "./help-context";
 
@@ -2028,9 +2029,9 @@ export const helpContent: Record<string, HelpEntry> = {
             <li>
               The periods themselves aren&apos;t editable here — they&apos;re
               the ones published in the{" "}
-              <Link href="/privacy" className="underline">
+              <PublicSiteLink path="/privacy" className="underline">
                 privacy policy
-              </Link>
+              </PublicSiteLink>
               , and changing one is a code change so the two can&apos;t drift.
               This page controls only whether each rule is off, previewing, or
               enforcing.
