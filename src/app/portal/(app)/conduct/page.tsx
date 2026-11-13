@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { PublicSiteLink } from "@/components/portal/public-site-link";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   getCurrentUserPermissions,
@@ -274,15 +275,15 @@ function ProcessSummary({
         <>
           Measured against what your{" "}
           {codeOfConductHref ? (
-            <Link
-              href={codeOfConductHref}
+            <PublicSiteLink
+              path={codeOfConductHref}
               target="_blank"
               rel="noopener noreferrer"
               aria-label="code of conduct (opens in new tab)"
               className="underline underline-offset-2"
             >
               code of conduct
-            </Link>
+            </PublicSiteLink>
           ) : (
             "code of conduct"
           )}{" "}

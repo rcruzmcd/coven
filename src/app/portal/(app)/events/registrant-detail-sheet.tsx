@@ -1,5 +1,6 @@
 "use client";
 
+import { PublicSiteLink } from "@/components/portal/public-site-link";
 import { minimumAgeLabel, parseMinimumAge } from "@/lib/adults-only";
 import { useRef } from "react";
 import { ArrowLeft, Ban, Check, Undo2 } from "lucide-react";
@@ -406,14 +407,16 @@ export function RegistrantDetailSheet({
                         version rather than a copy of the text: somebody
                         reading this during a dispute reaches the exact words
                         without asking anybody. */}
-                    <a
-                      href={`/waiver?version=${registrant.waiver_version}`}
+                    <PublicSiteLink
+                      path={`/waiver?version=${registrant.waiver_version}`}
+                      fallback={null}
+                      prefetch={false}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="underline underline-offset-4"
                     >
                       Read that version
-                    </a>
+                    </PublicSiteLink>
                   </>
                 ) : (
                   // Not an em dash. "We had no agreement in force when they

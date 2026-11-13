@@ -6,6 +6,7 @@ import {
   portalRedirectTarget,
   publicSiteHref,
   publicSiteLink,
+  publicSiteOrigin,
   stripPortalPrefix,
   toPortalPathname,
 } from "./paths";
@@ -250,5 +251,24 @@ describe("a path on the tenant's public site (#1654)", () => {
       publicSiteHref("portal.example.test", "portal.example.test", "/x"),
     ).toBeNull();
     expect(publicSiteHref("portal.example.test", null, "/x")).toBeNull();
+  });
+});
+
+describe("the public site's origin, for links built on the client", () => {
+  test("is empty off a portal host, so a path stays relative", () => {
+    expect(publicSiteOrigin("localhost:3000", "chattersnow.org")).toBe("");
+  });
+
+  test("is the tenant's domain from a portal host", () => {
+    expect(publicSiteOrigin("portal.chattersnow.org", "chattersnow.org")).toBe(
+      "https://chattersnow.org",
+    );
+  });
+
+  test("is null from a portal host when there is no public site", () => {
+    expect(
+      publicSiteOrigin("portal.example.test", "portal.example.test"),
+    ).toBeNull();
+    expect(publicSiteOrigin("portal.example.test", null)).toBeNull();
   });
 });

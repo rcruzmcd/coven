@@ -31,6 +31,9 @@ import {
 } from "@/lib/portal/tenants";
 import { deviceClass } from "@/lib/portal/device";
 import { PortalDeviceProvider } from "@/lib/portal/device-context";
+import { publicSiteOrigin } from "@/lib/portal/paths";
+import { PublicSiteOriginProvider } from "@/lib/portal/public-site-context";
+import { getRequestHost } from "@/lib/request-origin";
 import { getTenantBranding } from "@/lib/tenant-branding";
 import { surfaceAtRoot } from "@/lib/pwa/host";
 import { serviceWorkerScope } from "@/lib/pwa/service-worker";
@@ -344,6 +347,12 @@ export default async function PortalAppLayout({
   // so a phone never downloads the sidebar and a desktop never downloads the
   // tab bar (#1079).
   const device = await deviceClass();
+  // Where a public page lives as seen from here (a `portal.` host rewrites a
+  // bare `/privacy` to `/portal/privacy`, which 404s).
+  const siteOrigin = publicSiteOrigin(
+    await getRequestHost(),
+    currentTenant(tenantContext)?.custom_domain ?? null,
+  );
 
   return (
     <TooltipProvider>
@@ -360,13 +369,15 @@ export default async function PortalAppLayout({
           rendered on, and `deviceClass()` is a server function it cannot call
           -- see the note in `@/lib/portal/device-context`. */}
       <PortalDeviceProvider device={device}>
-        <PortalHelpProvider>
-          {device === "mobile" ? (
-            <PortalShellMobile {...shellProps} />
-          ) : (
-            <PortalShellDesktop {...shellProps} />
-          )}
-        </PortalHelpProvider>
+        <PublicSiteOriginProvider origin={siteOrigin}>
+          <PortalHelpProvider>
+            {device === "mobile" ? (
+              <PortalShellMobile {...shellProps} />
+            ) : (
+              <PortalShellDesktop {...shellProps} />
+            )}
+          </PortalHelpProvider>
+        </PublicSiteOriginProvider>
       </PortalDeviceProvider>
       {/* Corrects the shell on the next request when the user-agent got the
           viewport wrong -- a phone in desktop mode, or a narrow window. */}

@@ -2,7 +2,7 @@
 
 import { useOptimistic, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
+import { PublicSiteLink } from "@/components/portal/public-site-link";
 import { CircleAlert, ExternalLink } from "lucide-react";
 import {
   acknowledgeLegalDocumentAction,
@@ -244,15 +244,16 @@ function AcknowledgementLine({
       <>
         Your {label} is the platform&rsquo;s neutral default. Nobody here has
         confirmed they have read it.{" "}
-        <Link
-          href={document.route}
+        <PublicSiteLink
+          path={document.route}
+          fallback={null}
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center gap-1 underline underline-offset-4"
         >
           Read the current text
           <ExternalLink className="size-3.5" aria-hidden />
-        </Link>
+        </PublicSiteLink>
       </>
     );
   }
@@ -520,15 +521,16 @@ function ServingLine({
   return (
     <>
       Live at{" "}
-      <Link
-        href={document.route}
+      <PublicSiteLink
+        path={document.route}
+        fallback={document.route}
         target="_blank"
         rel="noopener noreferrer"
         className="inline-flex items-center gap-1 underline underline-offset-4"
       >
         {document.route}
         <ExternalLink className="size-3.5" aria-hidden />
-      </Link>
+      </PublicSiteLink>
       , serving{" "}
       {ownDocument
         ? "your own text."
