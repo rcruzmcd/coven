@@ -1,3 +1,4 @@
+import { MarkdownText } from "@/components/portal/markdown-text";
 import Link from "next/link";
 import { acknowledgementMethodPhrase } from "@/lib/distribution-acknowledgement";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -396,7 +397,7 @@ export function GearRequestDetailView({
                 {request.notes ? (
                   // The public form's Notes is a textarea, and the RPC only
                   // trims, so the text arrives with the line breaks typed.
-                  <span className="whitespace-pre-line">{request.notes}</span>
+                  <MarkdownText>{request.notes}</MarkdownText>
                 ) : (
                   "—"
                 )}

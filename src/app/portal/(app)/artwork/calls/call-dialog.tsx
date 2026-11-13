@@ -16,6 +16,7 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { MarkdownTextarea } from "@/components/portal/markdown-textarea";
 import { Textarea } from "@/components/ui/textarea";
 import { Spinner } from "@/components/ui/spinner";
 import {
@@ -51,6 +52,10 @@ export function ArtworkCallDialog({
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Controlled because `MarkdownTextarea` is; reset from the call on every
+  // open so a cancelled edit doesn't carry into the next one, as the
+  // uncontrolled fields beside it don't.
+  const [intro, setIntro] = useState(call?.intro ?? "");
   const [isPending, startTransition] = useTransition();
 
   const editing = !!call;
@@ -90,7 +95,10 @@ export function ArtworkCallDialog({
   return (
     <PortalFormSurface
       open={open}
-      onOpenChange={setOpen}
+      onOpenChange={(next) => {
+        if (next) setIntro(call?.intro ?? "");
+        setOpen(next);
+      }}
       trigger={
         trigger ?? (
           <Button
@@ -245,12 +253,13 @@ export function ArtworkCallDialog({
             <FieldLabel htmlFor="call-intro">
               What to tell the artist
             </FieldLabel>
-            <Textarea
+            <MarkdownTextarea
               id="call-intro"
               name="intro"
               rows={5}
               maxLength={4000}
-              defaultValue={call?.intro ?? ""}
+              value={intro}
+              onChange={(event) => setIntro(event.target.value)}
             />
             <FieldDescription>
               Shown above the form as prose: what you are looking for and the

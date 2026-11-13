@@ -1,5 +1,6 @@
 "use client";
 
+import { MarkdownText } from "@/components/portal/markdown-text";
 import {
   useCallback,
   useEffect,
@@ -98,7 +99,9 @@ export function IncidentsTab({
         label: "Description",
         sortValue: (incident) => incident.description,
         cellClassName: "whitespace-normal",
-        render: (incident) => incident.description,
+        render: (incident) => (
+          <MarkdownText>{incident.description}</MarkdownText>
+        ),
       },
       ...(mode === "edit"
         ? [

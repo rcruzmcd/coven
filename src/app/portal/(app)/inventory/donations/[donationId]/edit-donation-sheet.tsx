@@ -55,6 +55,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import { MarkdownTextarea } from "@/components/portal/markdown-textarea";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Tooltip,
@@ -357,7 +358,7 @@ export function EditDonationSheet({
                   <FieldLabel htmlFor="donation-notes-edit">
                     Donation notes
                   </FieldLabel>
-                  <Textarea
+                  <MarkdownTextarea
                     id="donation-notes-edit"
                     value={donationForm.notes}
                     onChange={(event) =>
@@ -565,7 +566,7 @@ export function EditDonationSheet({
                         <FieldLabel htmlFor={`edit-item-notes-${item.id}`}>
                           Item notes
                         </FieldLabel>
-                        <Textarea
+                        <MarkdownTextarea
                           id={`edit-item-notes-${item.id}`}
                           value={form.notes}
                           onChange={(event) =>

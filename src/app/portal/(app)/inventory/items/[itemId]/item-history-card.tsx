@@ -1,3 +1,4 @@
+import { MarkdownText } from "@/components/portal/markdown-text";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { formatCalendarDate } from "@/lib/format";
@@ -83,9 +84,7 @@ function DonatedItem({ entry }: { entry: DonatedEntry }) {
         <Detail label="Came in by">{entry.intakeRoute}</Detail>
         <Detail label="Recorded by">{entry.recordedBy}</Detail>
         <Detail label="Notes">
-          {entry.notes && (
-            <span className="whitespace-pre-line">{entry.notes}</span>
-          )}
+          {entry.notes && <MarkdownText>{entry.notes}</MarkdownText>}
         </Detail>
       </dl>
     </>
@@ -132,9 +131,7 @@ function MovementItem({ entry }: { entry: MovementEntry }) {
         </Detail>
         <Detail label="Reason">{entry.reason}</Detail>
         <Detail label="Notes">
-          {entry.notes && (
-            <span className="whitespace-pre-line">{entry.notes}</span>
-          )}
+          {entry.notes && <MarkdownText>{entry.notes}</MarkdownText>}
         </Detail>
         <Detail label="As-is">{entry.acknowledgement}</Detail>
         <Detail label="Recorded by">{entry.recordedBy}</Detail>

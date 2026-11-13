@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { MarkdownTextarea } from "@/components/portal/markdown-textarea";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "@/components/ui/toast";
 import type { ConductStatus } from "@/lib/conduct";
@@ -160,7 +160,7 @@ export function CaseProgressCard({
                   <FieldLabel htmlFor="conduct-outcome">
                     What was decided
                   </FieldLabel>
-                  <Textarea
+                  <MarkdownTextarea
                     id="conduct-outcome"
                     rows={3}
                     value={outcome}

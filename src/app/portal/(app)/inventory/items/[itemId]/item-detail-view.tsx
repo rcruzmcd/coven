@@ -1,3 +1,4 @@
+import { MarkdownText } from "@/components/portal/markdown-text";
 import Image from "next/image";
 import Link from "next/link";
 import { formatCurrency } from "@/lib/format";
@@ -122,7 +123,7 @@ export function ItemDetailView({
                 {formatFaceValue(item.face_value)}
               </ReadOnlyField>
               <ReadOnlyField label="Item notes" htmlFor="item-notes">
-                {item.notes || "—"}
+                <MarkdownText fallback="—">{item.notes}</MarkdownText>
               </ReadOnlyField>
             </FieldGroup>
           </CardContent>
@@ -253,9 +254,7 @@ export function ItemDetailView({
                     {/* The public form's Notes is a textarea, and the RPC
                         only trims, so the text arrives with the line breaks
                         the requester typed. */}
-                    <span className="whitespace-pre-line">
-                      {item.holdNotes}
-                    </span>
+                    <MarkdownText>{item.holdNotes}</MarkdownText>
                   </ReadOnlyField>
                 )}
               </FieldGroup>

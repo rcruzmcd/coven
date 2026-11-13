@@ -15,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { MarkdownTextarea } from "@/components/portal/markdown-textarea";
 import { Textarea } from "@/components/ui/textarea";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "@/components/ui/toast";
@@ -169,7 +170,7 @@ export function LogIncidentDialog({
           <FieldLabel htmlFor="incident-description" required>
             Description
           </FieldLabel>
-          <Textarea
+          <MarkdownTextarea
             id="incident-description"
             required
             value={description}
