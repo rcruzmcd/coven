@@ -40,8 +40,8 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Field, FieldLabel } from "@/components/ui/field";
-import { Textarea } from "@/components/ui/textarea";
 import { MarkdownText } from "@/components/portal/markdown-text";
+import { MarkdownTextarea } from "@/components/portal/markdown-textarea";
 import {
   RecordPreviewLink,
   RecordPreviewProvider,
@@ -60,8 +60,9 @@ import { formatCalendarDate, personDisplayName } from "@/lib/format";
  * something, so twelve sections and the closing notes coalesce into a single
  * request rather than twelve competing ones.
  *
- * Plain `<Textarea>`s. There is no rich-text editor in this repo and adding one
- * here is out of scope.
+ * `MarkdownTextarea`s (#1872): plain controlled textareas with list
+ * continuation, a small formatting toolbar and a Preview, so the autosave sees
+ * the same string changes it always did. No contenteditable rich-text editor.
  */
 
 /**
@@ -305,7 +306,7 @@ function MinutesItemCard({
                 <MarkdownText className="text-sm">{note}</MarkdownText>
               )
             ) : (
-              <Textarea
+              <MarkdownTextarea
                 aria-label={`Notes for ${item.label}`}
                 placeholder="What happened"
                 value={note}
@@ -621,7 +622,7 @@ export function MinutesEditor({
               <FieldLabel htmlFor="minutes-closing-notes">
                 Closing notes
               </FieldLabel>
-              <Textarea
+              <MarkdownTextarea
                 id="minutes-closing-notes"
                 placeholder="Anything that belongs to the meeting as a whole"
                 value={draft.bodyText}

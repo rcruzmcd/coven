@@ -1,6 +1,8 @@
 "use client";
 
+import type * as React from "react";
 import Markdown from "react-markdown";
+import remarkBreaks from "remark-breaks";
 import remarkGfm from "remark-gfm";
 import { cn } from "@/lib/utils";
 
@@ -23,6 +25,14 @@ import { cn } from "@/lib/utils";
  * sanitiser dependency is needed as long as raw HTML stays off, which is the
  * whole reason this library was chosen over `marked` + `dompurify`.
  *
+ * **A newline is a line break** (`remark-breaks`, #1871). CommonMark joins
+ * the lines of a paragraph with a space, but notetakers type one point per
+ * line without bullets, and before #1201 these surfaces were
+ * `whitespace-pre-wrap` -- so three lines typed one under another read as one
+ * run-on sentence until this plugin went in. A blank line still separates
+ * paragraphs. Markdown that leaves the app (the export's Copy button) carries
+ * the same breaks explicitly: `withHardLineBreaks` in `@/lib/markdown`.
+ *
  * Styling is a handful of rules on `.markdown-text` in `globals.css` rather
  * than `@tailwindcss/typography`: one more dependency for six selectors is not
  * worth it in a 17-package runtime.
@@ -33,9 +43,9 @@ import { cn } from "@/lib/utils";
  * (`unwrapDisallowed`), so a stray `# heading` in a note reads as words
  * instead of opening a heading level inside a card.
  *
- * `br` is on the list though the elements above it carry the meaning: a hard
- * line break is something the writer typed, and dropping it would silently
- * join two lines. It has no attributes and no children to carry anything else.
+ * `br` is on the list though the elements above it carry the meaning: every
+ * newline the writer typed becomes one, and dropping it would silently join
+ * two lines. It has no attributes and no children to carry anything else.
  */
 const NOTE_ELEMENTS = [
   "p",
@@ -77,19 +87,22 @@ export function MarkdownText({
   children,
   allow = "note",
   className,
+  fallback = null,
 }: {
-  /** The Markdown source. Empty or whitespace-only renders nothing. */
-  children: string;
+  /** The Markdown source. Missing, empty or whitespace-only renders `fallback`. */
+  children: string | null | undefined;
   /** `document` only for Markdown this app wrote. See `DOCUMENT_ELEMENTS`. */
   allow?: "note" | "document";
   className?: string;
+  /** What an empty source renders instead, e.g. a read-only field's "—". */
+  fallback?: React.ReactNode;
 }) {
-  if (children.trim() === "") return null;
+  if (!children?.trim()) return fallback;
 
   return (
     <div className={cn("markdown-text", className)}>
       <Markdown
-        remarkPlugins={[remarkGfm]}
+        remarkPlugins={[remarkGfm, remarkBreaks]}
         allowedElements={
           allow === "document" ? DOCUMENT_ELEMENTS : NOTE_ELEMENTS
         }

@@ -52,6 +52,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { MarkdownTextarea } from "@/components/portal/markdown-textarea";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Tooltip,
@@ -383,7 +384,7 @@ export function EditInventorySheet({
 
                 <Field>
                   <FieldLabel htmlFor="edit-notes">Item notes</FieldLabel>
-                  <Textarea
+                  <MarkdownTextarea
                     id="edit-notes"
                     value={form.notes}
                     onChange={(event) => update("notes", event.target.value)}

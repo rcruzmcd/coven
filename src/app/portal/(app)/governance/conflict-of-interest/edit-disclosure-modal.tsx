@@ -1,5 +1,6 @@
 "use client";
 
+import { MarkdownText } from "@/components/portal/markdown-text";
 import { FormEvent, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Eye, Pencil } from "lucide-react";
@@ -272,9 +273,7 @@ export function EditDisclosureModal({
                   {formatCalendarDate(disclosure.on_file_date)}
                 </ReadOnlyField>
                 <ReadOnlyField label="Notes" htmlFor="edit-disclosure-notes">
-                  <span className="whitespace-pre-wrap">
-                    {disclosure.notes || "—"}
-                  </span>
+                  <MarkdownText fallback="—">{disclosure.notes}</MarkdownText>
                 </ReadOnlyField>
                 <ReadOnlyField
                   label="Document"
@@ -290,9 +289,9 @@ export function EditDisclosureModal({
                   label="Disclosure details"
                   htmlFor="edit-disclosure-body-text"
                 >
-                  <span className="whitespace-pre-wrap">
-                    {disclosure.body_text || "—"}
-                  </span>
+                  <MarkdownText fallback="—">
+                    {disclosure.body_text}
+                  </MarkdownText>
                 </ReadOnlyField>
               </FieldGroup>
             </div>

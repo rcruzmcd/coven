@@ -1,3 +1,4 @@
+import { MarkdownText } from "@/components/portal/markdown-text";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
@@ -214,14 +215,16 @@ export default async function ConductCasePage({
             </Detail>
             <div>
               <p className="app-eyebrow">What was reported</p>
-              <p className="mt-1 whitespace-pre-wrap">{conductCase.summary}</p>
+              <MarkdownText className="mt-1">
+                {conductCase.summary}
+              </MarkdownText>
             </div>
             {conductCase.outcome && (
               <div>
                 <p className="app-eyebrow">Outcome, {conductCase.decided_on}</p>
-                <p className="mt-1 whitespace-pre-wrap">
+                <MarkdownText className="mt-1">
                   {conductCase.outcome}
-                </p>
+                </MarkdownText>
               </div>
             )}
           </CardContent>

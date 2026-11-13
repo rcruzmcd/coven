@@ -21,6 +21,8 @@
  * carrying that zone's whole DST history to mean anything.
  */
 
+import { markdownToPlainText } from "@/lib/markdown/plain-text";
+
 /** What the file describes. Every text field arrives unescaped. */
 export type CalendarEvent = {
   /**
@@ -37,6 +39,11 @@ export type CalendarEvent = {
   location: string | null;
   /** The public event page, as a URL property and in the description. */
   url: string;
+  /**
+   * May be Markdown: calendar clients show DESCRIPTION as plain text, so it
+   * goes out through `markdownToPlainText` (#1873) rather than with literal
+   * asterisks in it.
+   */
   description?: string;
 };
 
@@ -65,7 +72,7 @@ export function renderEventIcs(
     ...(event.location?.trim()
       ? [`LOCATION:${escapeText(event.location.trim())}`]
       : []),
-    `DESCRIPTION:${escapeText(event.description?.trim() || event.url)}`,
+    `DESCRIPTION:${escapeText(markdownToPlainText(event.description ?? "") || event.url)}`,
     `URL:${escapeText(event.url)}`,
     "SEQUENCE:0",
     "STATUS:CONFIRMED",

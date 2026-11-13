@@ -23,6 +23,29 @@ describe("MarkdownText", () => {
     expect(container.textContent).not.toContain("**");
   });
 
+  test("keeps lines typed one under another as separate lines (#1871)", () => {
+    const { container } = render(
+      <MarkdownText>
+        {"Motion passed 4-0\nTreasurer to send report\nNext meeting in March"}
+      </MarkdownText>,
+    );
+
+    expect(container.querySelectorAll("p")).toHaveLength(1);
+    expect(container.querySelectorAll("br")).toHaveLength(2);
+    expect(container.querySelector("p")?.innerHTML).toBe(
+      "Motion passed 4-0<br>\nTreasurer to send report<br>\nNext meeting in March",
+    );
+  });
+
+  test("still separates paragraphs on a blank line", () => {
+    const { container } = render(
+      <MarkdownText>{"One paragraph\n\nAnother"}</MarkdownText>,
+    );
+
+    expect(container.querySelectorAll("p")).toHaveLength(2);
+    expect(container.querySelector("br")).toBeNull();
+  });
+
   test("renders GFM tables and strikethrough", () => {
     const { container } = render(
       <MarkdownText>

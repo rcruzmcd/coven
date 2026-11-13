@@ -1,5 +1,6 @@
 "use client";
 
+import { MarkdownTextarea } from "@/components/portal/markdown-textarea";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { DocumentField } from "@/components/portal/document-field";
 import { Input } from "@/components/ui/input";
@@ -10,7 +11,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import type { VoteOutcome } from "./resolution-form";
 
 export type ResolutionFormState = {
@@ -54,7 +54,7 @@ export function ResolutionFormFields({
         <FieldLabel htmlFor={`${idPrefix}-motion-text`} required>
           Motion text
         </FieldLabel>
-        <Textarea
+        <MarkdownTextarea
           id={`${idPrefix}-motion-text`}
           required
           value={form.motionText}
@@ -112,7 +112,7 @@ export function ResolutionFormFields({
         <FieldLabel htmlFor={`${idPrefix}-body-text`}>
           Resolution text
         </FieldLabel>
-        <Textarea
+        <MarkdownTextarea
           id={`${idPrefix}-body-text`}
           value={form.bodyText}
           onChange={(event) => update("bodyText", event.target.value)}

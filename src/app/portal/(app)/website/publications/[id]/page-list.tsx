@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
-import { Textarea } from "@/components/ui/textarea";
+import { MarkdownTextarea } from "@/components/portal/markdown-textarea";
 import { moveItem, pageHasText } from "@/lib/publications";
 import { publicationFileUrl } from "@/lib/storage/publication-files";
 import { cn } from "@/lib/utils";
@@ -225,7 +225,7 @@ export function PageList({
                     <FieldLabel htmlFor={`page-${page.key}-transcript`}>
                       Transcript
                     </FieldLabel>
-                    <Textarea
+                    <MarkdownTextarea
                       id={`page-${page.key}-transcript`}
                       value={page.transcript}
                       rows={4}

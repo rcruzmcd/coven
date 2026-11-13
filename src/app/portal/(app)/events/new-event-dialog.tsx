@@ -1,5 +1,6 @@
 "use client";
 
+import { MarkdownTextarea } from "@/components/portal/markdown-textarea";
 import { FormEvent, useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createEventAction } from "./actions";
@@ -19,7 +20,6 @@ import {
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -199,7 +199,7 @@ export function NewEventDialog({
 
         <Field>
           <FieldLabel htmlFor="description">Description</FieldLabel>
-          <Textarea
+          <MarkdownTextarea
             id="description"
             value={form.description}
             onChange={(event) => update("description", event.target.value)}

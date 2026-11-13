@@ -35,7 +35,8 @@ import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { ReadOnlyField } from "@/components/ui/read-only-field";
 import { Spinner } from "@/components/ui/spinner";
-import { Textarea } from "@/components/ui/textarea";
+import { MarkdownText } from "@/components/portal/markdown-text";
+import { MarkdownTextarea } from "@/components/portal/markdown-textarea";
 import {
   Tooltip,
   TooltipContent,
@@ -175,10 +176,10 @@ export function SimpleAgenda({
                   <li key={item.id} className="text-sm">
                     <p className="font-medium break-words">{item.title}</p>
                     {item.source && <ItemSource source={item.source} />}
-                    {item.notes && (
-                      <p className="app-muted mt-1 break-words whitespace-pre-wrap">
+                    {item.notes?.trim() && (
+                      <MarkdownText className="app-muted mt-1 break-words">
                         {item.notes}
-                      </p>
+                      </MarkdownText>
                     )}
                   </li>
                 ))}
@@ -438,7 +439,7 @@ function SimpleAgendaForm({
                     <FieldLabel htmlFor={`agenda-item-notes-${item.id}`}>
                       Notes
                     </FieldLabel>
-                    <Textarea
+                    <MarkdownTextarea
                       id={`agenda-item-notes-${item.id}`}
                       rows={2}
                       value={item.notes ?? ""}

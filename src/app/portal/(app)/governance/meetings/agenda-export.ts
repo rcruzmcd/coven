@@ -22,6 +22,8 @@ import {
   formatInstantDate,
   personDisplayName,
 } from "@/lib/format";
+import { withHardLineBreaks } from "@/lib/markdown/hard-line-breaks";
+import { plainBlock, markdownToPlainText } from "@/lib/markdown/plain-text";
 import { documentNameFromPath } from "@/lib/storage/documents";
 
 export type AgendaExportInput = {
@@ -61,7 +63,12 @@ function actionItemLine(item: ActionItem): string {
 function decisionLine(decision: Decision): string {
   const topic = decision.topic ? `${decision.topic}: ` : "";
   const vote = decision.vote_result ? ` (${decision.vote_result})` : "";
-  return `${topic}${decision.description}${vote}`;
+  // One list item per decision: the discussion is Markdown (#1875), and its
+  // own line breaks or bullets would end the item or nest a list inside it.
+  const discussion = markdownToPlainText(decision.description)
+    .replace(/\s+/g, " ")
+    .trim();
+  return `${topic}${discussion}${vote}`;
 }
 
 /**
@@ -171,7 +178,7 @@ function formatSimpleAgendaMarkdown(input: AgendaExportInput): string {
     agenda.items.forEach((item, index) => {
       lines.push(`### ${index + 1}. ${item.title}`);
       if (item.source) lines.push(`_From ${itemSourceLine(item.source)}_`);
-      if (item.notes) lines.push(item.notes);
+      if (item.notes) lines.push(withHardLineBreaks(item.notes));
       lines.push("");
     });
   }
@@ -215,7 +222,7 @@ function formatSimpleAgendaPlainText(input: AgendaExportInput): string {
     agenda.items.forEach((item, index) => {
       lines.push(`  ${index + 1}. ${item.title}`);
       if (item.source) lines.push(`     From ${itemSourceLine(item.source)}`);
-      if (item.notes) lines.push(`     ${item.notes}`);
+      if (item.notes?.trim()) lines.push(plainBlock(item.notes, "     "));
     });
   }
   lines.push("");
@@ -349,7 +356,7 @@ export function formatAgendaMarkdown(input: AgendaExportInput): string {
   lines.push("");
 
   lines.push("## Agenda notes");
-  lines.push(agenda.body_text || "—");
+  lines.push(withHardLineBreaks(agenda.body_text || "—"));
 
   return lines.join("\n");
 }
@@ -463,7 +470,7 @@ export function formatAgendaPlainText(input: AgendaExportInput): string {
   lines.push("");
 
   lines.push("AGENDA NOTES");
-  lines.push(`  ${agenda.body_text || "—"}`);
+  lines.push(plainBlock(agenda.body_text ?? "", "  ") || "  —");
 
   return lines.join("\n");
 }

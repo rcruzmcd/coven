@@ -1,5 +1,6 @@
 "use client";
 
+import { MarkdownText } from "@/components/portal/markdown-text";
 import { FormEvent, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -7,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { MarkdownTextarea } from "@/components/portal/markdown-textarea";
 import { Spinner } from "@/components/ui/spinner";
 import { StatusBadge } from "@/components/portal/status-badge";
 import { toast } from "@/components/ui/toast";
@@ -122,7 +123,7 @@ export function CaseActionsCard({
                     </Button>
                   )}
                 </div>
-                <p className="whitespace-pre-wrap">{action.description}</p>
+                <MarkdownText>{action.description}</MarkdownText>
               </li>
             ))}
           </ul>
@@ -156,7 +157,7 @@ export function CaseActionsCard({
               <FieldLabel htmlFor="conduct-action-description" required>
                 What was done
               </FieldLabel>
-              <Textarea
+              <MarkdownTextarea
                 id="conduct-action-description"
                 required
                 rows={3}

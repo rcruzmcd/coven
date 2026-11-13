@@ -1,9 +1,9 @@
 "use client";
 
+import { MarkdownTextarea } from "@/components/portal/markdown-textarea";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { DocumentField } from "@/components/portal/document-field";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 
 export type PolicyFormState = {
   name: string;
@@ -107,7 +107,7 @@ export function PolicyFormFields({
 
       <Field>
         <FieldLabel htmlFor={`${idPrefix}-body-text`}>Policy text</FieldLabel>
-        <Textarea
+        <MarkdownTextarea
           id={`${idPrefix}-body-text`}
           value={form.bodyText}
           onChange={(event) => update("bodyText", event.target.value)}

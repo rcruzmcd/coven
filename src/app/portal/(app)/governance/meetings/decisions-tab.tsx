@@ -1,5 +1,7 @@
 "use client";
 
+import { MarkdownText } from "@/components/portal/markdown-text";
+import { MarkdownTextarea } from "@/components/portal/markdown-textarea";
 import { FormEvent, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -18,7 +20,6 @@ import {
   PortalDataTable,
   type PortalDataTableColumn,
 } from "@/components/portal/data-table";
-import { Textarea } from "@/components/ui/textarea";
 import { useResetOnModeChange, useTabData } from "@/hooks/use-tab-data";
 import { Spinner } from "@/components/ui/spinner";
 import { formatCalendarDate } from "@/lib/format";
@@ -89,7 +90,7 @@ function AddDecisionForm({
           <FieldLabel htmlFor="new-decision-description" required>
             Discussion
           </FieldLabel>
-          <Textarea
+          <MarkdownTextarea
             id="new-decision-description"
             required
             value={description}
@@ -201,7 +202,7 @@ export function DecisionsTab({
       // a reader would look for in its alphabetical order.
       label: "Discussion",
       cellClassName: "whitespace-normal font-medium",
-      render: (decision) => decision.description,
+      render: (decision) => <MarkdownText>{decision.description}</MarkdownText>,
     },
     {
       key: "vote_result",

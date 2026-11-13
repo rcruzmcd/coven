@@ -10,7 +10,7 @@ import {
   PortalFormSurfaceClose,
 } from "@/components/portal/portal-form-surface";
 import { Field, FieldLabel } from "@/components/ui/field";
-import { Textarea } from "@/components/ui/textarea";
+import { MarkdownTextarea } from "@/components/portal/markdown-textarea";
 import { Spinner } from "@/components/ui/spinner";
 import { runAction } from "@/components/portal/action-toast";
 
@@ -81,7 +81,7 @@ export function EditRequestNotesDialog({
     >
       <Field>
         <FieldLabel htmlFor="request-notes-edit">Notes</FieldLabel>
-        <Textarea
+        <MarkdownTextarea
           id="request-notes-edit"
           value={draft}
           onChange={(event) => setDraft(event.target.value)}

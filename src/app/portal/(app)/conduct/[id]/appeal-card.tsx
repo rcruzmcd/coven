@@ -1,5 +1,6 @@
 "use client";
 
+import { MarkdownText } from "@/components/portal/markdown-text";
 import { FormEvent, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -7,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { MarkdownTextarea } from "@/components/portal/markdown-textarea";
 import { Spinner } from "@/components/ui/spinner";
 import { StatusBadge } from "@/components/portal/status-badge";
 import { toast } from "@/components/ui/toast";
@@ -129,13 +130,13 @@ export function AppealCard({
             {appeal.grounds && (
               <div>
                 <p className="app-eyebrow">Grounds</p>
-                <p className="mt-0.5 whitespace-pre-wrap">{appeal.grounds}</p>
+                <MarkdownText className="mt-0.5">{appeal.grounds}</MarkdownText>
               </div>
             )}
             {appeal.outcome && (
               <div>
                 <p className="app-eyebrow">Outcome</p>
-                <p className="mt-0.5 whitespace-pre-wrap">{appeal.outcome}</p>
+                <MarkdownText className="mt-0.5">{appeal.outcome}</MarkdownText>
               </div>
             )}
           </div>
@@ -161,7 +162,7 @@ export function AppealCard({
             </Field>
             <Field>
               <FieldLabel htmlFor="conduct-appeal-grounds">Grounds</FieldLabel>
-              <Textarea
+              <MarkdownTextarea
                 id="conduct-appeal-grounds"
                 rows={3}
                 value={grounds}
@@ -204,7 +205,7 @@ export function AppealCard({
               <FieldLabel htmlFor="conduct-appeal-outcome" required>
                 What was decided
               </FieldLabel>
-              <Textarea
+              <MarkdownTextarea
                 id="conduct-appeal-outcome"
                 required
                 rows={3}

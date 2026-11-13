@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { MarkdownTextarea } from "@/components/portal/markdown-textarea";
 import {
   Select,
   SelectContent,
@@ -310,7 +310,7 @@ export function ConductReportFormFields({
         <FieldLabel htmlFor={`${idPrefix}-summary`} required>
           What was reported
         </FieldLabel>
-        <Textarea
+        <MarkdownTextarea
           id={`${idPrefix}-summary`}
           required
           rows={6}

@@ -1,5 +1,7 @@
 "use client";
 
+import { MarkdownText } from "@/components/portal/markdown-text";
+import { markdownToPlainText } from "@/lib/markdown/plain-text";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { PencilIcon } from "lucide-react";
@@ -63,18 +65,18 @@ export function RetroActionRow({
         className="mt-0.5"
         checked={done}
         disabled={!canToggle || pending}
-        aria-label={`Mark "${item.body}" ${done ? "open" : "done"}`}
+        aria-label={`Mark "${markdownToPlainText(item.body)}" ${done ? "open" : "done"}`}
         onCheckedChange={(checked) => onToggle(checked === true)}
       />
       <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <p
+        <MarkdownText
           className={cn(
-            "text-sm break-words whitespace-pre-wrap",
+            "text-sm break-words",
             done && "app-muted line-through",
           )}
         >
           {item.body}
-        </p>
+        </MarkdownText>
         <RetroItemMeta item={item} />
         {children}
       </div>
@@ -254,9 +256,9 @@ export function RetroSection({ eventId }: { eventId: string }) {
                             </RetroActionRow>
                           ) : (
                             <div className="flex flex-col gap-1">
-                              <p className="text-sm break-words whitespace-pre-wrap">
+                              <MarkdownText className="text-sm break-words">
                                 {item.body}
-                              </p>
+                              </MarkdownText>
                               <RetroItemMeta item={item} />
                               {controls}
                             </div>

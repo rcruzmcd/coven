@@ -1,5 +1,6 @@
 "use client";
 
+import { MarkdownText } from "@/components/portal/markdown-text";
 import {
   type CSSProperties,
   useCallback,
@@ -408,9 +409,9 @@ function IssuePage({
           <h2 className="text-sm font-medium">
             Transcript of page {page.position}
           </h2>
-          <p className="mt-2 text-sm leading-relaxed break-words whitespace-pre-line">
+          <MarkdownText className="mt-2 text-sm leading-relaxed break-words">
             {page.transcript}
-          </p>
+          </MarkdownText>
         </section>
       )}
     </li>

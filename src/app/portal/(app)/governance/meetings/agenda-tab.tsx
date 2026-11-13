@@ -104,6 +104,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
+import { MarkdownText } from "@/components/portal/markdown-text";
+import { MarkdownTextarea } from "@/components/portal/markdown-textarea";
 import { useTabData } from "@/hooks/use-tab-data";
 import { Spinner } from "@/components/ui/spinner";
 import type { AgendaSectionFeeds } from "./agenda-feed-text";
@@ -715,7 +717,7 @@ function AgendaForm({
 
         <Field>
           <FieldLabel htmlFor="agenda-body">Agenda notes</FieldLabel>
-          <Textarea
+          <MarkdownTextarea
             id="agenda-body"
             rows={6}
             value={bodyText}
@@ -1277,14 +1279,14 @@ function BoardAgenda({
           </div>
 
           <FieldGroup>
-            {/* Still `whitespace-pre-wrap`, not `MarkdownText`. The agenda is
-                a plan someone reads back while editing it, and #1201 scoped
-                rendering to the three surfaces that present a finished
-                document. Widening it here is a follow-up. */}
+            {/* Rendered (#1872): the field is written in a MarkdownTextarea
+                whose Preview shows this same rendering. */}
             <ReadOnlyField label="Agenda notes" htmlFor="agenda-body-view">
-              <span className="whitespace-pre-wrap">
-                {agenda.body_text || "—"}
-              </span>
+              {agenda.body_text?.trim() ? (
+                <MarkdownText>{agenda.body_text}</MarkdownText>
+              ) : (
+                "—"
+              )}
             </ReadOnlyField>
           </FieldGroup>
         </>

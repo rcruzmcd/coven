@@ -1,5 +1,6 @@
 "use client";
 
+import { MarkdownText } from "@/components/portal/markdown-text";
 import { FormEvent, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Eye, Pencil } from "lucide-react";
@@ -281,9 +282,7 @@ export function EditPartnershipModal({
                   {formatCalendarDate(opportunity.next_step_date)}
                 </ReadOnlyField>
                 <ReadOnlyField label="Notes" htmlFor="edit-partnership-notes">
-                  <span className="whitespace-pre-wrap">
-                    {opportunity.notes || "—"}
-                  </span>
+                  <MarkdownText fallback="—">{opportunity.notes}</MarkdownText>
                 </ReadOnlyField>
               </FieldGroup>
             </div>
