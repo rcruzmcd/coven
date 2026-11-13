@@ -1815,7 +1815,7 @@ begin
     end loop;
 
     insert into public.agendas (meeting_id, body_text, template_id, template_version_id, created_by)
-    values (v_meeting_id, '1. Updates\n2. Old business\n3. New business', v_agenda_template_id, v_agenda_template_version_id, v_admin_id);
+    values (v_meeting_id, E'1. Updates\n2. Old business\n3. New business', v_agenda_template_id, v_agenda_template_version_id, v_admin_id);
 
     for j in 1..(1 + floor(random()*3)::int) loop
       insert into public.governance_meeting_action_items (meeting_id, description, owner_person_id, due_date, status, created_by)

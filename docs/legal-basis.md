@@ -108,6 +108,16 @@ the prose bumps that constant in the same commit, which supersedes the approval
 below and calls for a new row. A change that only removes text a surface no
 longer applies to is still a change.
 
+**Every `PLATFORM_LEGAL_LAST_UPDATED` value has a changelog entry** (#1886).
+The same commit adds an entry to the top of `PLATFORM_LEGAL_CHANGELOG` in
+`src/lib/legal-changelog.ts`: one short, plain-language summary per document
+that changed, written for the organization serving the text. The Legal
+documents panel lists those summaries in a row whose confirmation is out of
+date, so an administrator can see what to re-read instead of re-reading the
+whole document. `legal-changelog.test.ts` fails if the constant has no entry.
+The approval log below keeps the full reasoning; the changelog is what a
+tenant reads.
+
 ## Approval log
 
 | Date       | Version approved   | Approver                            | Scope and notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |

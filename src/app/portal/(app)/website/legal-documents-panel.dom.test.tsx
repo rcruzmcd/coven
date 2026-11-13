@@ -238,6 +238,42 @@ describe("a document served from the platform's own text", () => {
     expect(acknowledgeMock).toHaveBeenCalledWith("privacy");
   });
 
+  // #1886: what moved, not only that something did.
+  test("lists what changed in this document since the confirmed version", () => {
+    renderPrivacy({
+      status: "stale",
+      confirmed: { ...CONFIRMED, platformLastUpdated: "October 23, 2026" },
+      updatedTo: "November 2, 2026",
+    });
+
+    expect(screen.getByText("What changed since then:")).toBeTruthy();
+    expect(screen.getByText("November 2, 2026:")).toBeTruthy();
+    expect(screen.getByText("October 31, 2026:")).toBeTruthy();
+    expect(screen.queryByText("October 23, 2026:")).toBeNull();
+    expect(screen.getByText(/profile questions/)).toBeTruthy();
+  });
+
+  test("says so where the log does not reach the confirmed version", () => {
+    renderPrivacy({
+      status: "stale",
+      confirmed: CONFIRMED,
+      updatedTo: "November 2, 2026",
+    });
+
+    expect(screen.getByText(/does not go back to the version/)).toBeTruthy();
+    expect(screen.getByText("September 21, 2026:")).toBeTruthy();
+  });
+
+  test("links to the current text where nobody has confirmed it", () => {
+    renderPrivacy({ status: "never" });
+
+    expect(
+      screen
+        .getByRole("link", { name: /Read the current text/ })
+        .getAttribute("href"),
+    ).toBe("/privacy");
+  });
+
   // Said out loud rather than left blank: the point of the row is that an
   // organization can answer "when did we last read our own privacy policy".
   test("a settled confirmation is stated, and asks for nothing", () => {
@@ -412,5 +448,67 @@ describe("a legal document with a draft waiting", () => {
     expect(screen.getByText("Ash Okonkwo")).toBeTruthy();
     expect(screen.getByText("Board meeting, 4 March")).toBeTruthy();
     expect(screen.getByText(/Counsel read it first./)).toBeTruthy();
+  });
+});
+
+// Arriving from the bell's "legal documents to review" item, the page has to
+// say which rows that count was about, and why, before anything else.
+describe("documents the bell counted", () => {
+  function renderStatuses(
+    privacy: LegalAcknowledgement | undefined,
+    termsDrift?: LegalDocumentDrift,
+  ) {
+    renderWithToaster(
+      <LegalDocumentsPanel
+        documents={LEGAL_DOCUMENTS}
+        statuses={LEGAL_DOCUMENTS.map((document) => ({
+          key: document.key,
+          inForce: document.alwaysInForce || document.key === "terms",
+          ownDocument: document.key === "terms",
+          acknowledgement: document.key === "privacy" ? privacy : undefined,
+          drift: document.key === "terms" ? termsDrift : undefined,
+        }))}
+        gate={NO_GATE}
+      />,
+    );
+  }
+
+  test("are summarized at the top, with why, and badged in their rows", () => {
+    renderStatuses(
+      { status: "never" },
+      {
+        status: "checked",
+        publishedAt: "2026-03-04T12:00:00Z",
+        added: ["artworkSubmissions"],
+        removed: [],
+      },
+    );
+
+    expect(screen.getByText("2 legal documents to review")).toBeTruthy();
+    expect(
+      screen.getByText(/nobody here has confirmed they have read it/),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(/your site has changed since you published it/),
+    ).toBeTruthy();
+    expect(screen.getAllByText("Needs review")).toHaveLength(2);
+    expect(
+      screen.getByRole("link", { name: TERMS.label }).getAttribute("href"),
+    ).toBe("#legal-document-terms");
+  });
+
+  test("a settled page shows no summary and no badge", () => {
+    renderStatuses({
+      status: "confirmed",
+      confirmed: {
+        personId: null,
+        personName: null,
+        acknowledgedAt: "2026-03-04T12:00:00Z",
+        platformLastUpdated: "March 1, 2026",
+      },
+    });
+
+    expect(screen.queryByText(/to review/)).toBeNull();
+    expect(screen.queryByText("Needs review")).toBeNull();
   });
 });

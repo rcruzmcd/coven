@@ -3,18 +3,19 @@
 import { useOptimistic, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ExternalLink } from "lucide-react";
+import { CircleAlert, ExternalLink } from "lucide-react";
 import {
   acknowledgeLegalDocumentAction,
   updateLegalApprovalAction,
   updateLegalPublicationAction,
 } from "./settings-actions";
 import type { SettingActionResult } from "@/lib/settings/write-app-setting";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Spinner } from "@/components/ui/spinner";
+import { StatusBadge } from "@/components/portal/status-badge";
 // Type-only where the module has server helpers: @/lib/legal-documents is the
 // registry and is free of them, but the read lives in @/lib/legal-publication,
 // which must not reach the client bundle. State arrives as props from the
@@ -40,6 +41,8 @@ import {
   MINIMUM_APPROVERS,
   type LegalPublishState,
 } from "@/lib/legal-approval";
+// Plain data, so the panel reads it directly (#1886).
+import { platformLegalChangesSince } from "@/lib/legal-changelog";
 import { formatInstantDate } from "@/lib/format";
 import { runAction } from "@/components/portal/action-toast";
 
@@ -89,6 +92,74 @@ export type LegalApprovalGate = {
   /** How many people here hold `site_content:manage`. */
   approvers: number;
 };
+
+/**
+ * Why a document is in the bell's "legal documents to review" count, or
+ * `null` when it is not.
+ *
+ * The same two tests `getLegalDriftSummary` adds up, so the rows this page
+ * marks are exactly the ones the bell counted. Before this the page said the
+ * same things only as muted sentences among half a dozen others, and someone
+ * arriving from the bell had nothing to tell them which row to read.
+ */
+export function reviewReason(status: LegalDocumentStatus): string | null {
+  if (hasDrifted(status.drift)) {
+    return "your site has changed since you published it";
+  }
+  if (status.acknowledgement?.status === "stale") {
+    return "the platform has updated the text since it was last read";
+  }
+  if (needsAcknowledgement(status.acknowledgement)) {
+    return "nobody here has confirmed they have read it";
+  }
+  return null;
+}
+
+const rowAnchor = (key: string) => `legal-document-${key}`;
+
+/**
+ * The answer to "what does the bell want from me?", above everything else on
+ * the page: which documents, why each one, and a link to its row.
+ */
+function ReviewSummary({
+  documents,
+  byKey,
+}: {
+  documents: readonly LegalDocument[];
+  byKey: Map<string, LegalDocumentStatus>;
+}) {
+  const flagged = documents.flatMap((document) => {
+    const status = byKey.get(document.key);
+    const reason = status ? reviewReason(status) : null;
+    return reason ? [{ document, reason }] : [];
+  });
+  if (flagged.length === 0) return null;
+
+  return (
+    <Alert>
+      <CircleAlert className="text-warning" aria-hidden />
+      <AlertTitle>
+        {flagged.length} legal document{flagged.length === 1 ? "" : "s"} to
+        review
+      </AlertTitle>
+      <AlertDescription>
+        <ul className="mt-1 space-y-1">
+          {flagged.map(({ document, reason }) => (
+            <li key={document.key}>
+              <a
+                href={`#${rowAnchor(document.key)}`}
+                className="font-medium underline underline-offset-4"
+              >
+                {document.label}
+              </a>{" "}
+              &mdash; {reason}.
+            </li>
+          ))}
+        </ul>
+      </AlertDescription>
+    </Alert>
+  );
+}
 
 /**
  * The drift line, when there is one (#1292).
@@ -172,7 +243,16 @@ function AcknowledgementLine({
     return (
       <>
         Your {label} is the platform&rsquo;s neutral default. Nobody here has
-        confirmed they have read it.
+        confirmed they have read it.{" "}
+        <Link
+          href={document.route}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 underline underline-offset-4"
+        >
+          Read the current text
+          <ExternalLink className="size-3.5" aria-hidden />
+        </Link>
       </>
     );
   }
@@ -202,6 +282,54 @@ function AcknowledgementLine({
       {when}, against the text the platform published on{" "}
       {confirmed.platformLastUpdated}.
     </>
+  );
+}
+
+/**
+ * What the platform changed in this document since it was last confirmed
+ * (#1886), so a stale row says what to re-read rather than only that something
+ * moved. A list cannot sit inside the confirmation line's `<p>`, so it is a
+ * sibling of it.
+ */
+function AcknowledgementChanges({
+  document,
+  confirmedVersion,
+}: {
+  document: LegalDocument;
+  confirmedVersion: string;
+}) {
+  const label = legalDocumentNoun(document);
+  const { changes, complete } = platformLegalChangesSince(
+    document.key,
+    confirmedVersion,
+  );
+
+  if (changes.length === 0) {
+    return (
+      <p className="app-muted mt-1 text-sm leading-relaxed">
+        {complete
+          ? `Nothing in this ${label} changed: the date moved because another of the platform's documents did.`
+          : `The platform's change log does not go back to the version confirmed here, and records no change to this ${label}.`}
+      </p>
+    );
+  }
+
+  return (
+    <div className="app-muted mt-1 text-sm leading-relaxed">
+      <p>
+        {complete
+          ? "What changed since then:"
+          : "The platform's change log does not go back to the version confirmed here. Every change it records:"}
+      </p>
+      <ul className="mt-1 list-disc space-y-1 pl-5">
+        {changes.map((change) => (
+          <li key={change.version}>
+            <span className="font-medium">{`${change.version}:`}</span>{" "}
+            {change.summary}
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
@@ -479,12 +607,21 @@ function LegalDocumentRow({
   }
 
   const labelId = `legal-publication-${document.key}-label`;
+  const flagged = reviewReason(status) !== null;
 
   return (
-    <div className="flex items-start justify-between gap-4 py-4">
+    <div
+      id={rowAnchor(document.key)}
+      className="flex scroll-mt-24 items-start justify-between gap-4 py-4"
+    >
       <div className="min-w-0">
-        <p id={labelId} className="text-sm font-medium">
-          {document.label}
+        <p className="flex flex-wrap items-center gap-2">
+          <span id={labelId} className="text-sm font-medium">
+            {document.label}
+          </span>
+          {flagged ? (
+            <StatusBadge tone="warning">Needs review</StatusBadge>
+          ) : null}
         </p>
         <p className="app-muted mt-1 text-sm leading-relaxed">
           {document.description}
@@ -511,6 +648,14 @@ function LegalDocumentRow({
               acknowledgement={status.acknowledgement}
             />
           </p>
+        ) : null}
+        {status.acknowledgement?.status === "stale" ? (
+          <AcknowledgementChanges
+            document={document}
+            confirmedVersion={
+              status.acknowledgement.confirmed.platformLastUpdated ?? ""
+            }
+          />
         ) : null}
         {status.publishState ? (
           <PublishStateLines
@@ -584,6 +729,8 @@ export function LegalDocumentsPanel({
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       ) : null}
+
+      <ReviewSummary documents={documents} byKey={byKey} />
 
       <ApprovalGateCard gate={gate} onError={setError} />
 
