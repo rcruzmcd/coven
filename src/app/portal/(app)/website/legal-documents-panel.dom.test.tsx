@@ -238,6 +238,42 @@ describe("a document served from the platform's own text", () => {
     expect(acknowledgeMock).toHaveBeenCalledWith("privacy");
   });
 
+  // #1886: what moved, not only that something did.
+  test("lists what changed in this document since the confirmed version", () => {
+    renderPrivacy({
+      status: "stale",
+      confirmed: { ...CONFIRMED, platformLastUpdated: "October 23, 2026" },
+      updatedTo: "November 2, 2026",
+    });
+
+    expect(screen.getByText("What changed since then:")).toBeTruthy();
+    expect(screen.getByText("November 2, 2026:")).toBeTruthy();
+    expect(screen.getByText("October 31, 2026:")).toBeTruthy();
+    expect(screen.queryByText("October 23, 2026:")).toBeNull();
+    expect(screen.getByText(/profile questions/)).toBeTruthy();
+  });
+
+  test("says so where the log does not reach the confirmed version", () => {
+    renderPrivacy({
+      status: "stale",
+      confirmed: CONFIRMED,
+      updatedTo: "November 2, 2026",
+    });
+
+    expect(screen.getByText(/does not go back to the version/)).toBeTruthy();
+    expect(screen.getByText("September 21, 2026:")).toBeTruthy();
+  });
+
+  test("links to the current text where nobody has confirmed it", () => {
+    renderPrivacy({ status: "never" });
+
+    expect(
+      screen
+        .getByRole("link", { name: /Read the current text/ })
+        .getAttribute("href"),
+    ).toBe("/privacy");
+  });
+
   // Said out loud rather than left blank: the point of the row is that an
   // organization can answer "when did we last read our own privacy policy".
   test("a settled confirmation is stated, and asks for nothing", () => {

@@ -41,6 +41,8 @@ import {
   MINIMUM_APPROVERS,
   type LegalPublishState,
 } from "@/lib/legal-approval";
+// Plain data, so the panel reads it directly (#1886).
+import { platformLegalChangesSince } from "@/lib/legal-changelog";
 import { formatInstantDate } from "@/lib/format";
 import { runAction } from "@/components/portal/action-toast";
 
@@ -241,7 +243,16 @@ function AcknowledgementLine({
     return (
       <>
         Your {label} is the platform&rsquo;s neutral default. Nobody here has
-        confirmed they have read it.
+        confirmed they have read it.{" "}
+        <Link
+          href={document.route}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 underline underline-offset-4"
+        >
+          Read the current text
+          <ExternalLink className="size-3.5" aria-hidden />
+        </Link>
       </>
     );
   }
@@ -271,6 +282,54 @@ function AcknowledgementLine({
       {when}, against the text the platform published on{" "}
       {confirmed.platformLastUpdated}.
     </>
+  );
+}
+
+/**
+ * What the platform changed in this document since it was last confirmed
+ * (#1886), so a stale row says what to re-read rather than only that something
+ * moved. A list cannot sit inside the confirmation line's `<p>`, so it is a
+ * sibling of it.
+ */
+function AcknowledgementChanges({
+  document,
+  confirmedVersion,
+}: {
+  document: LegalDocument;
+  confirmedVersion: string;
+}) {
+  const label = legalDocumentNoun(document);
+  const { changes, complete } = platformLegalChangesSince(
+    document.key,
+    confirmedVersion,
+  );
+
+  if (changes.length === 0) {
+    return (
+      <p className="app-muted mt-1 text-sm leading-relaxed">
+        {complete
+          ? `Nothing in this ${label} changed: the date moved because another of the platform's documents did.`
+          : `The platform's change log does not go back to the version confirmed here, and records no change to this ${label}.`}
+      </p>
+    );
+  }
+
+  return (
+    <div className="app-muted mt-1 text-sm leading-relaxed">
+      <p>
+        {complete
+          ? "What changed since then:"
+          : "The platform's change log does not go back to the version confirmed here. Every change it records:"}
+      </p>
+      <ul className="mt-1 list-disc space-y-1 pl-5">
+        {changes.map((change) => (
+          <li key={change.version}>
+            <span className="font-medium">{`${change.version}:`}</span>{" "}
+            {change.summary}
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
@@ -589,6 +648,14 @@ function LegalDocumentRow({
               acknowledgement={status.acknowledgement}
             />
           </p>
+        ) : null}
+        {status.acknowledgement?.status === "stale" ? (
+          <AcknowledgementChanges
+            document={document}
+            confirmedVersion={
+              status.acknowledgement.confirmed.platformLastUpdated ?? ""
+            }
+          />
         ) : null}
         {status.publishState ? (
           <PublishStateLines
