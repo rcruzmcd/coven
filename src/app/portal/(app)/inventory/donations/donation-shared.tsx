@@ -1,5 +1,5 @@
 import { donorDisplayName } from "@/lib/donor-label";
-import { flattenCategory } from "@/lib/inventory";
+import { categoryLabelFor, flattenCategory } from "@/lib/inventory";
 import {
   CONDITIONS,
   GENDERS,
@@ -77,4 +77,101 @@ export function withFlatItemCategories(donation: DonationRow): DonationRow {
       flattenCategory(item),
     ) as DonationItemRow[],
   };
+}
+
+/** How many items share one value -- a category -- and what they are worth. */
+export type ItemGroupSummary = {
+  label: string;
+  count: number;
+  /** The valued items' face value; the unvalued ones add nothing. */
+  value: number;
+  /** Items in this group with no face value, which are not counted as $0. */
+  unvaluedCount: number;
+};
+
+export type ItemsSummary = {
+  count: number;
+  /** Largest first, by item count then by value. */
+  byCategory: ItemGroupSummary[];
+  totalValue: number;
+  /** Items with no face value, flagged rather than counted as $0. */
+  unvaluedCount: number;
+};
+
+type SummarizableItem = Pick<
+  DonationItemRow,
+  "face_value" | "type" | "category_key" | "category_label"
+>;
+
+/** A face value as a number, or null for one that was never set. */
+export function faceValueOf(item: Pick<DonationItemRow, "face_value">) {
+  const value = item.face_value;
+  if (value === null || value === "") return null;
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
+}
+
+/**
+ * Items grouped by `labelOf`, largest group first. Sums in cents so twelve
+ * items at $12.99 total $155.88 rather than $155.87999.
+ */
+export function groupItems<I extends Pick<DonationItemRow, "face_value">>(
+  items: readonly I[],
+  labelOf: (item: I) => string,
+): ItemGroupSummary[] {
+  const groups = new Map<
+    string,
+    { count: number; cents: number; unvaluedCount: number }
+  >();
+  for (const item of items) {
+    const label = labelOf(item);
+    const group = groups.get(label) ?? { count: 0, cents: 0, unvaluedCount: 0 };
+    const value = faceValueOf(item);
+    group.count += 1;
+    if (value === null) group.unvaluedCount += 1;
+    else group.cents += Math.round(value * 100);
+    groups.set(label, group);
+  }
+  return [...groups.entries()]
+    .map(([label, group]) => ({
+      label,
+      count: group.count,
+      value: group.cents / 100,
+      unvaluedCount: group.unvaluedCount,
+    }))
+    .sort(
+      (a, b) =>
+        b.count - a.count ||
+        b.value - a.value ||
+        a.label.localeCompare(b.label),
+    );
+}
+
+/**
+ * A donation's items at a glance: how many, what kinds, and what they are
+ * worth. Shared by the donations list's Items and Face value cells and the
+ * donation detail's summary, so the two can never disagree.
+ */
+export function summarizeItems(
+  items: readonly SummarizableItem[],
+): ItemsSummary {
+  const byCategory = groupItems(items, categoryLabelFor);
+  return {
+    count: items.length,
+    byCategory,
+    totalValue:
+      byCategory.reduce(
+        (cents, group) => cents + Math.round(group.value * 100),
+        0,
+      ) / 100,
+    unvaluedCount: byCategory.reduce(
+      (sum, group) => sum + group.unvaluedCount,
+      0,
+    ),
+  };
+}
+
+/** "2 items not valued", for the marker beside a face-value total. */
+export function unvaluedLabel(count: number) {
+  return `${count} item${count === 1 ? "" : "s"} not valued`;
 }

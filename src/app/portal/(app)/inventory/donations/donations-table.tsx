@@ -11,7 +11,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { donorLabel, type DonationRow } from "./donation-shared";
+import { categoryLabelFor } from "@/lib/inventory";
+import {
+  donorLabel,
+  summarizeItems,
+  type DonationRow,
+} from "./donation-shared";
+import { FaceValueTotal } from "./face-value-total";
 import { formatCalendarDate } from "@/lib/format";
 import { EmptyState } from "@/components/portal/empty-state";
 import { SortHeaderLink } from "@/components/portal/sort-header-link";
@@ -67,6 +73,9 @@ export function DonationsTable({
             <TableRow>
               <TableHead>Donor</TableHead>
               <TableHead>Items</TableHead>
+              {/* Below `sm` the phone keeps Donor, Items and Date; the
+                  detail page has the value broken down anyway. */}
+              <TableHead hideBelow="sm">Face value</TableHead>
               <TableHead hideBelow="md">Source event</TableHead>
               <TableHead sortDirection={dir}>
                 <SortHeaderLink
@@ -82,19 +91,24 @@ export function DonationsTable({
           </TableHeader>
           <TableBody>
             {donations.map((donation) => {
-              const itemSummary = donation.inventory_items
-                .map((item) => item.description)
-                .join(", ");
+              const items = donation.inventory_items;
+              const summary = summarizeItems(items);
               return (
                 <TableRow key={donation.id}>
                   <TableCell>{donorLabel(donation)}</TableCell>
                   <TableCell
-                    className="max-w-xs whitespace-normal"
-                    title={itemSummary}
+                    // Narrower on a phone so Date and the view link stay
+                    // on screen; the lines truncate and `title` has it all.
+                    className="max-w-28 sm:max-w-xs"
+                    title={items.map((item) => item.description).join(", ")}
                   >
-                    {donation.inventory_items.length === 0
-                      ? "—"
-                      : `${donation.inventory_items.length} item${donation.inventory_items.length === 1 ? "" : "s"} · ${itemSummary}`}
+                    <ItemsSummaryCell
+                      items={items}
+                      categories={summary.byCategory}
+                    />
+                  </TableCell>
+                  <TableCell hideBelow="sm">
+                    <FaceValueTotal {...summary} />
                   </TableCell>
                   <TableCell hideBelow="md">
                     {donation.event?.name ?? "—"}
@@ -117,5 +131,55 @@ export function DonationsTable({
         </Table>
       </CardContent>
     </Card>
+  );
+}
+
+/** Categories named in a multi-category donation's second line. */
+const CATEGORIES_SHOWN = 3;
+
+/**
+ * Two lines at most, however many items a donation holds (#1897): a twelve-
+ * item donation used to list every description and take over the grid. The
+ * cell's `title` still carries the full list.
+ */
+function ItemsSummaryCell({
+  items,
+  categories,
+}: {
+  items: DonationRow["inventory_items"];
+  categories: ReturnType<typeof summarizeItems>["byCategory"];
+}) {
+  if (items.length === 0) return <>—</>;
+  const [first] = items;
+  const extra = items.length - 1;
+
+  if (categories.length === 1) {
+    return (
+      <>
+        <span className="block truncate font-medium">
+          {first.description}
+          {extra > 0 && (
+            <span className="app-muted font-normal"> +{extra} more</span>
+          )}
+        </span>
+        <span className="app-muted block truncate text-xs">
+          {categoryLabelFor(first)}
+        </span>
+      </>
+    );
+  }
+
+  const shown = categories
+    .slice(0, CATEGORIES_SHOWN)
+    .map((category) => `${category.count} ${category.label}`);
+  const hidden = categories.length - CATEGORIES_SHOWN;
+  return (
+    <>
+      <span className="block truncate font-medium">{items.length} items</span>
+      <span className="app-muted block truncate text-xs">
+        {shown.join(" · ")}
+        {hidden > 0 && ` · +${hidden} more`}
+      </span>
+    </>
   );
 }
