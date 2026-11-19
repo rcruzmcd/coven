@@ -203,6 +203,11 @@ To put a tenant on its domain:
    too, so a value it cannot read is a value the two sides can disagree
    about.
 
+5. **Add an uptime monitor for the host** (Sentry → Uptime Monitors), pointed
+   at `https://www.example.org/api/health`, failing on 2 consecutive misses.
+   See "Health endpoint and uptime monitors" below for why every live host
+   needs its own monitor.
+
 `portal.<anything>` is a portal host: `src/proxy.ts` rewrites bare paths on
 it into the `/portal` route group, for every tenant alike.
 
@@ -218,6 +223,44 @@ This used to be two literals in `src/lib/portal/paths.ts`, `PORTAL_HOST =
 "portal.chattersnow.org"` and `PUBLIC_HOSTS = {chattersnow.org,
 www.chattersnow.org}`, which made one tenant's DNS the platform's routing
 table and sent _every_ public host to that tenant's subdomain (#795 Phase 2).
+
+### Health endpoint and uptime monitors (#1894)
+
+`GET /api/health` answers for the host it is requested on. It reads the
+host's tenant through the same server client and the same `getPublicTenant`
+the public layout uses, so it exercises the request host,
+`TENANT_HOST_OVERRIDE`, the publishable key, PostgREST and tenant resolution
+together (`src/lib/health.ts`):
+
+| Response                                 | Means                                                    |
+| ---------------------------------------- | -------------------------------------------------------- |
+| 200 `{ ok: true, tenant: "<slug>" }`     | the host resolves and the database answered              |
+| 503 `{ ok: false, code: "PGRST…" }`      | PostgREST answered with an error (e.g. `PGRST002`)       |
+| 503 `{ ok: false, code: "unreachable" }` | the request got no answer -- a connection error          |
+| 503 `{ ok: false, code: "timeout" }`     | no answer within 5s                                      |
+| 503 `{ ok: false, code: "no_tenant" }`   | the host resolves to no tenant (more than one is active) |
+
+It exists because a failed read is invisible everywhere else. Every public
+loader falls back to defaults rather than failing the page, so during the
+2026-11-16 to 11-18 PostgREST `PGRST002` loop every host served the
+placeholder home page **with a 200**, and nothing alerted for two days.
+
+It is unauthenticated (the monitors are a third party), `Cache-Control:
+no-store`, and names nothing but the slug. It works on a `portal.` host as
+well as the apex: the proxy passes `/api/` through on both rather than
+rewriting it under `/portal`.
+
+**One Sentry uptime monitor per live host**, every 1 minute, alerting on 2
+consecutive failures, into the same alert channel as the rest of Sentry:
+
+- `https://www.chattersnow.org/api/health`
+- `https://coven.rcmlabs.dev/api/health`
+- `https://demo.rcmlabs.dev/api/health`
+
+Per host rather than one for the platform, because resolution is per host: a
+custom domain whose `custom_domain` row is wrong, or whose tenant was
+deactivated, fails its own check while the others stay green. Adding a tenant
+on a custom domain therefore includes adding its monitor (step 5 above).
 
 ### Google sign-in names the platform (#1249)
 

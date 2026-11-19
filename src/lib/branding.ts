@@ -767,17 +767,32 @@ export type PublicTenantResult =
    *  than one tenant is active. This is where a domain pointed at the
    *  deployment before its tenant row exists lands. */
   | { status: "unresolved" }
-  /** The read itself failed. Says nothing about whether a tenant exists. */
-  | { status: "unavailable" };
+  /** The read itself failed. Says nothing about whether a tenant exists.
+   *  `code` is PostgREST's error code (`PGRST002` and friends), or empty when
+   *  the request never got an answer -- a connection error carries none. It
+   *  is optional because no caller but `/api/health` (#1894) needs to say
+   *  *why*; everything else only branches on the status. */
+  | { status: "unavailable"; code?: string };
 
-/** The tenant the public site is being served for, resolved from the host. */
+/**
+ * The tenant the public site is being served for, resolved from the host.
+ *
+ * `retry: false` turns off postgrest-js's own retries (3, backing off 1s, 2s,
+ * 4s, on a network error or a 503 -- which is what `PGRST002` returns). Only
+ * `/api/health` (#1894) asks for that: an uptime monitor already retries on
+ * its own schedule, and needs the first failure's code within its timeout
+ * rather than a fourth attempt's seven seconds later.
+ */
 export async function getPublicTenant(
   supabase: SupabaseClient,
+  { retry = true }: { retry?: boolean } = {},
 ): Promise<PublicTenantResult> {
-  const { data, error } = await supabase
+  const query = supabase
     .from("public_tenant")
-    .select("id, name, slug, custom_domain, plan")
-    .maybeSingle();
+    .select("id, name, slug, custom_domain, plan");
+  const { data, error } = await (
+    retry ? query : query.retry(false)
+  ).maybeSingle();
   if (error) {
     // Loudly: this is the branch that keeps a blip from 404ing the site, so a
     // silent one would look exactly like a correctly-refused unknown host.
@@ -785,7 +800,7 @@ export async function getPublicTenant(
       "[branding] could not read public_tenant; serving the request rather than 404ing it",
       error,
     );
-    return { status: "unavailable" };
+    return { status: "unavailable", code: error.code ?? "" };
   }
   if (!data) return { status: "unresolved" };
   return { status: "resolved", tenant: data as PublicTenant };
