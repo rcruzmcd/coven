@@ -1,4 +1,5 @@
 import { cache } from "react";
+import { reportQueryError } from "@/lib/observability/query-error";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   brandingFromRows,
@@ -18,7 +19,13 @@ export const getTenantBranding = cache(
     const { data, error } = await supabase
       .from("tenant_branding")
       .select("token, value");
-    if (error) return EMPTY_BRANDING;
+    if (error) {
+      reportQueryError(error, {
+        source: "branding.tenant_branding",
+        message: "could not read tenant_branding; rendering the platform's own",
+      });
+      return EMPTY_BRANDING;
+    }
     return brandingFromRows((data ?? []) as BrandingRow[]);
   },
 );

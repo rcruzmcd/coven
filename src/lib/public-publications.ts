@@ -8,6 +8,7 @@ import {
   type PublicationIssue,
   type PublicationSummary,
 } from "@/lib/publications";
+import { reportQueryError } from "@/lib/observability/query-error";
 
 /**
  * The public site's read of the tenant's publication (#1471), through the two
@@ -99,10 +100,10 @@ async function withPages(
     .order("position");
 
   if (pages.error) {
-    console.error(
-      `[public-publications] could not read ${source}`,
-      pages.error,
-    );
+    reportQueryError(pages.error, {
+      source: `public-publications.${source}`,
+      message: `could not read ${source}`,
+    });
   }
 
   const toUrl = fileUrl(supabase);
@@ -136,10 +137,10 @@ export const getPublicPublications = cache(
 
     if (error) {
       // Same stance as `getPublicArticleCategories`: render none and say so.
-      console.error(
-        "[public-publications] could not read public_publications; rendering none",
-        error,
-      );
+      reportQueryError(error, {
+        source: "public-publications.public_publications",
+        message: "could not read public_publications; rendering none",
+      });
       return [];
     }
 
@@ -161,10 +162,10 @@ export const getPublicPublication = cache(
       .maybeSingle<IssueRow>();
 
     if (error) {
-      console.error(
-        "[public-publications] could not read public_publications",
-        error,
-      );
+      reportQueryError(error, {
+        source: "public-publications.public_publications",
+        message: "could not read public_publications",
+      });
       return null;
     }
     if (!row) return null;
@@ -225,7 +226,10 @@ export const getPublicationPreview = cache(
       .eq("slug", slug)
       .maybeSingle<IssueRow>();
     if (error) {
-      console.error("[public-publications] could not read a draft", error);
+      reportQueryError(error, {
+        source: "public-publications.publications",
+        message: "could not read a draft",
+      });
       return null;
     }
     return row ? withPages(supabase, row, "publication_pages") : null;

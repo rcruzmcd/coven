@@ -1,5 +1,6 @@
 import { cache } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { reportQueryError } from "@/lib/observability/query-error";
 
 /**
  * How the public site is arranged, for the parts that are neither copy nor
@@ -302,10 +303,11 @@ const getPublicLayoutRows = cache(
       .select("slot, value");
 
     if (error) {
-      console.error(
-        "[site-layout] could not read public_site_layout; every setting is falling back to its registry default",
-        error,
-      );
+      reportQueryError(error, {
+        source: "site-layout.public_site_layout",
+        message:
+          "could not read public_site_layout; every setting is falling back to its registry default",
+      });
     }
 
     return data ?? [];
@@ -350,10 +352,11 @@ export const getTenantLayoutValues = cache(
       .like("key", "layout.%");
 
     if (error) {
-      console.error(
-        "[site-layout] could not read layout.* from app_settings; the panel is showing registry defaults",
-        error,
-      );
+      reportQueryError(error, {
+        source: "site-layout.app_settings.layout",
+        message:
+          "could not read layout.* from app_settings; the panel is showing registry defaults",
+      });
     }
 
     return resolveLayoutValues(
@@ -380,10 +383,10 @@ export async function getTenantLayoutSetting(
     .maybeSingle();
 
   if (error) {
-    console.error(
-      `[site-layout] could not read ${layoutSettingKey(slot)} from app_settings; the panel is showing the default`,
-      error,
-    );
+    reportQueryError(error, {
+      source: "site-layout.app_settings.layout",
+      message: `could not read ${layoutSettingKey(slot)} from app_settings; the panel is showing the default`,
+    });
   }
   return data?.value;
 }

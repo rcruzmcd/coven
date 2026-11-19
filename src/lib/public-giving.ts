@@ -5,6 +5,7 @@ import {
   resolvePublicGivingSettings,
   type GivingSettings,
 } from "@/lib/giving";
+import { reportQueryError } from "@/lib/observability/query-error";
 
 /**
  * The resolved tenant's giving path as the public site sees it (#1389): where
@@ -29,10 +30,11 @@ export const getPublicGivingSettings = cache(
     // reason site-layout.ts gives: a swallowed PGRST205 looks like the settings
     // panel refusing to save.
     if (error) {
-      console.error(
-        "[giving] could not read public_giving_settings; the Give card stays hidden",
-        error,
-      );
+      reportQueryError(error, {
+        source: "giving.public_giving_settings",
+        message:
+          "could not read public_giving_settings; the Give card stays hidden",
+      });
       return DEFAULT_GIVING_SETTINGS;
     }
 

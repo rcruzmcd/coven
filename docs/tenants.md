@@ -262,6 +262,43 @@ custom domain whose `custom_domain` row is wrong, or whose tenant was
 deactivated, fails its own check while the others stay green. Adding a tenant
 on a custom domain therefore includes adding its monitor (step 5 above).
 
+### Swallowed query errors are reported (#1895)
+
+The uptime monitor answers "is the host up"; this answers "which reads are
+failing". A loader that falls back to defaults on a Supabase error still falls
+back, but first calls `reportQueryError` (`src/lib/observability/query-error.ts`),
+which logs the server line the loaders always wrote and sends a Sentry event:
+
+| Tag            | Value                                                                                           |
+| -------------- | ----------------------------------------------------------------------------------------------- |
+| `query_source` | the read, `module.view`, e.g. `branding.public_branding`                                        |
+| `query_code`   | PostgREST/SQLSTATE code, or the kind when there is none (`connection`)                          |
+| `query_kind`   | `postgrest` (`PGRST*`), `connection` (no code), `timeout` (`57014`), `database` (anything else) |
+
+Events are fingerprinted on `source + code`, so an outage is one issue per
+failing read with a high event count, not thousands of issues. The event
+also carries the error's `details` and `hint` as extra data, and the request's
+`tenant` tag (#1210).
+
+Covered: every public-site and shared loader (tenant resolution, branding,
+site content, lexicon, page visibility, site layout, site images, legal
+documents and versions, publications, articles, giving, giveaway rules, the
+events listing and the home page). Portal-only loaders still only log; they
+move over in a follow-up. New code that swallows a Supabase error should call
+`reportQueryError` (or `reportIfQueryFailed` for a `data ?? []` read) rather
+than `console.error`.
+
+**Sentry alert rules** (Alerts → Issue alerts, same channel as the uptime
+monitors):
+
+1. **Infrastructure query error** — when a new issue is created or an
+   issue's state changes, filter: tag `query_kind` is one of `postgrest`,
+   `connection`, `timeout`. Act: notify immediately. Frequency: 5 minutes.
+2. **Query error burst** — when an issue is seen more than 20 times in
+   5 minutes, filter: tag `query_source` is set. Act: notify. Frequency:
+   30 minutes. Catches a `database`-kind failure (an RLS or schema bug)
+   that rule 1 deliberately ignores.
+
 ### Google sign-in names the platform (#1249)
 
 `signInWithOAuth({ provider: "google" })` redirects through

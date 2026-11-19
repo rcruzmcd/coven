@@ -34,6 +34,7 @@ import {
 } from "@/lib/page-visibility";
 import { siteContentActorNames } from "@/lib/site-content-actors";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { reportQueryError } from "@/lib/observability/query-error";
 
 /**
  * Which legal documents this tenant serves (#859).
@@ -60,10 +61,11 @@ export const getLegalPublication = cache(
     // missing from a database looked exactly like a toggle refusing to save
     // when page visibility hit it.
     if (error) {
-      console.error(
-        "[legal-publication] could not read public_legal_publication; only the privacy policy is being served",
-        error,
-      );
+      reportQueryError(error, {
+        source: "legal-publication.public_legal_publication",
+        message:
+          "could not read public_legal_publication; only the privacy policy is being served",
+      });
     }
 
     const inForce: LegalPublication = {};
@@ -101,10 +103,11 @@ export const getTenantLegalPublication = cache(
     // it: "not in force" is where an unreadable flag has to land, but a silent
     // fallback is indistinguishable from a toggle that will not save.
     if (error) {
-      console.error(
-        "[legal-publication] could not read legal_publication.* from app_settings; the panel is showing every document as not in force",
-        error,
-      );
+      reportQueryError(error, {
+        source: "legal-publication.app_settings.legal_publication",
+        message:
+          "could not read legal_publication.* from app_settings; the panel is showing every document as not in force",
+      });
     }
 
     const stored = new Map(
@@ -176,10 +179,11 @@ export const getTenantLegalSurfaces = cache(
     // alarming -- but it is indistinguishable from a document published before
     // this existed, so nothing else would ever mention it.
     if (error) {
-      console.error(
-        "[legal-publication] could not read legal_surface.* from app_settings; every document is showing as never fingerprinted",
-        error,
-      );
+      reportQueryError(error, {
+        source: "legal-publication.app_settings.legal_surface",
+        message:
+          "could not read legal_surface.* from app_settings; every document is showing as never fingerprinted",
+      });
     }
 
     const fingerprints: Record<string, LegalSurfaceFingerprint | null> = {};
@@ -277,10 +281,11 @@ export const getTenantLegalAcknowledgements = cache(
     // so an organization being asked to re-read a document it read last week
     // would have nothing to go on.
     if (error) {
-      console.error(
-        "[legal-publication] could not read legal_acknowledged.* from app_settings; every document is showing as never confirmed",
-        error,
-      );
+      reportQueryError(error, {
+        source: "legal-publication.app_settings.legal_acknowledged",
+        message:
+          "could not read legal_acknowledged.* from app_settings; every document is showing as never confirmed",
+      });
     }
 
     const acknowledgements: Record<string, LegalAcknowledgementRecord | null> =
@@ -364,10 +369,11 @@ export const getTenantLegalApproval = cache(
       .maybeSingle();
 
     if (error) {
-      console.error(
-        "[legal-publication] could not read legal_approval.required from app_settings; the second-approver gate is showing as off",
-        error,
-      );
+      reportQueryError(error, {
+        source: "legal-publication.app_settings.legal_approval",
+        message:
+          "could not read legal_approval.required from app_settings; the second-approver gate is showing as off",
+      });
     }
 
     return resolveApprovalRequired(data?.value);
@@ -389,10 +395,11 @@ export const getSiteContentApproverCount = cache(
   async (supabase: SupabaseClient): Promise<number> => {
     const { data, error } = await supabase.rpc("site_content_approver_count");
     if (error) {
-      console.error(
-        "[legal-publication] could not count the people who can publish website content; the second-approver gate cannot be switched on",
-        error,
-      );
+      reportQueryError(error, {
+        source: "legal-publication.site_content_approver_count",
+        message:
+          "could not count the people who can publish website content; the second-approver gate cannot be switched on",
+      });
       return 0;
     }
     return typeof data === "number" ? data : 0;

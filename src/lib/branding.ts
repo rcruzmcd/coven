@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { resolveImageUrl } from "@/lib/inventory";
+import { reportQueryError } from "@/lib/observability/query-error";
 
 /**
  * Per-tenant branding (#707 Phase 4), served from the design tokens.
@@ -725,7 +726,13 @@ export async function getPublicBranding(
   const { data, error } = await supabase
     .from("public_branding")
     .select("token, value");
-  if (error) return EMPTY_BRANDING;
+  if (error) {
+    reportQueryError(error, {
+      source: "branding.public_branding",
+      message: "could not read public_branding; rendering the platform's own",
+    });
+    return EMPTY_BRANDING;
+  }
   return brandingFromRows((data ?? []) as BrandingRow[]);
 }
 
@@ -796,10 +803,11 @@ export async function getPublicTenant(
   if (error) {
     // Loudly: this is the branch that keeps a blip from 404ing the site, so a
     // silent one would look exactly like a correctly-refused unknown host.
-    console.error(
-      "[branding] could not read public_tenant; serving the request rather than 404ing it",
-      error,
-    );
+    reportQueryError(error, {
+      source: "branding.public_tenant",
+      message:
+        "could not read public_tenant; serving the request rather than 404ing it",
+    });
     return { status: "unavailable", code: error.code ?? "" };
   }
   if (!data) return { status: "unresolved" };
