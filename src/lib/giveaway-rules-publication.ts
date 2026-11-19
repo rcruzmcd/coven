@@ -2,6 +2,7 @@ import { cache } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { DEFAULT_ORG_TIME_ZONE } from "@/lib/org-timezone";
 import type { GiveawayRulesDocument } from "@/lib/giveaway-rules-template";
+import { reportQueryError } from "@/lib/observability/query-error";
 
 /**
  * What the public site serves for a promotion's official rules (#1322).
@@ -64,10 +65,11 @@ export const getPublishedGiveawayRules = cache(
     // rather than stale or partial ones, and an unreadable view looks exactly
     // like a promotion nobody has published.
     if (error) {
-      console.error(
-        "[giveaway-rules] could not read public_giveaway_rules; serving no rules for this promotion",
-        error,
-      );
+      reportQueryError(error, {
+        source: "giveaway-rules.public_giveaway_rules",
+        message:
+          "could not read public_giveaway_rules; serving no rules for this promotion",
+      });
       return [];
     }
 

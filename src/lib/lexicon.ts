@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { reportQueryError } from "@/lib/observability/query-error";
 
 /**
  * The words an organization uses for the things the platform lends (#896).
@@ -189,10 +190,11 @@ export async function getPublicLexicon(
     .from("public_lexicon")
     .select("term, value");
   if (error) {
-    console.error(
-      "[lexicon] could not read public_lexicon; the site is using the platform's own words",
-      error,
-    );
+    reportQueryError(error, {
+      source: "lexicon.public_lexicon",
+      message:
+        "could not read public_lexicon; the site is using the platform's own words",
+    });
     return DEFAULT_LEXICON;
   }
   return lexiconFromRows((data ?? []) as LexiconRow[]);

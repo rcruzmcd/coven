@@ -21,6 +21,7 @@ import {
 } from "@/lib/site-content";
 import { getPublicLexicon, type Lexicon } from "@/lib/lexicon";
 import { tagTenant } from "@/lib/observability/tenant-tag";
+import { reportQueryError } from "@/lib/observability/query-error";
 
 /**
  * Everything the public site needs to know about the organization it is
@@ -91,10 +92,11 @@ export const getPublicSite = cache(
     if (contentResult.error) {
       // Same stance as page-visibility: fall back to the defaults, but say so,
       // because a silent fallback looks like the editor refusing to save.
-      console.error(
-        "[public-site] could not read public_site_content; rendering the default copy",
-        contentResult.error,
-      );
+      reportQueryError(contentResult.error, {
+        source: "public-site.public_site_content",
+        message:
+          "could not read public_site_content; rendering the default copy",
+      });
     }
 
     const tenant =

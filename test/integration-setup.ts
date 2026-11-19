@@ -1010,6 +1010,15 @@ const RIDER_KEYS = [
   "snowboard_level",
   "preferred_mountain",
 ] as const;
+type RiderKey = (typeof RIDER_KEYS)[number];
+
+/** Each rider question's option keys, sorted, as `ensureRiderQuestions` saves them. */
+const RIDER_OPTION_KEYS: Record<RiderKey, string> = {
+  riding_discipline: "both,ski,snowboard",
+  ski_level: "advanced,beginner,first_time,intermediate",
+  snowboard_level: "advanced,beginner,first_time,intermediate",
+  preferred_mountain: "hunter,windham",
+};
 
 /**
  * Makes sure the seeded tenant has the four rider questions and two metric
@@ -1020,14 +1029,31 @@ const RIDER_KEYS = [
 export async function ensureRiderQuestions() {
   const { data: present } = await adminClient
     .from("person_questions")
-    .select("key")
+    .select("key, kind, options")
     .in("key", [...RIDER_KEYS])
     .is("archived_at", null);
   const { data: metrics } = await adminClient
     .from("person_answer_metrics")
     .select("key")
     .in("key", ["beginner_participants", "first_time_on_snow"]);
-  if ((present?.length ?? 0) === 4 && (metrics?.length ?? 0) === 2) return;
+  // Same keys is not enough. supabase/seed.sql's `preferred_mountain` options
+  // carry labels but no keys, so on a freshly seeded stack the early return
+  // left setProfileAnswers unable to find `hunter`/`windham` -- green only when
+  // an earlier suite had already rebuilt the set. Other suites may also save
+  // their own questions under these keys.
+  const matches = (present ?? []).every((question) => {
+    const keys = ((question.options ?? []) as { key?: string }[])
+      .map((option) => option.key)
+      .sort()
+      .join(",");
+    return (
+      question.kind === "single_choice" &&
+      keys === RIDER_OPTION_KEYS[question.key as RiderKey]
+    );
+  });
+  if ((present?.length ?? 0) === 4 && matches && (metrics?.length ?? 0) === 2) {
+    return;
+  }
 
   const tenantId = await seededTenantId();
   const service = serviceRoleClient();

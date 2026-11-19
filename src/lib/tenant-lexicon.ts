@@ -6,6 +6,7 @@ import {
   lexiconFromRows,
   type Lexicon,
 } from "@/lib/lexicon";
+import { reportQueryError } from "@/lib/observability/query-error";
 
 /**
  * The lexicon of the tenant the signed-in user has *selected*, for the portal
@@ -23,10 +24,11 @@ export const getTenantLexicon = cache(
       .from("tenant_lexicon")
       .select("term, value");
     if (error) {
-      console.error(
-        "[lexicon] could not read tenant_lexicon; the portal is using the platform's own words",
-        error,
-      );
+      reportQueryError(error, {
+        source: "lexicon.tenant_lexicon",
+        message:
+          "could not read tenant_lexicon; the portal is using the platform's own words",
+      });
       return DEFAULT_LEXICON;
     }
     return lexiconFromRows(data ?? []);
@@ -50,10 +52,11 @@ export async function lexiconForTenant(
     .eq("tenant_id", tenantId)
     .like("key", `${LEXICON_PREFIX}%`);
   if (error) {
-    console.error(
-      "[lexicon] could not read lexicon.* for the tenant; using the platform's own words",
-      error,
-    );
+    reportQueryError(error, {
+      source: "lexicon.app_settings.lexicon_for_tenant",
+      message:
+        "could not read lexicon.* for the tenant; using the platform's own words",
+    });
     return DEFAULT_LEXICON;
   }
   return lexiconFromRows(
@@ -89,10 +92,11 @@ export async function getStoredLexicon(
     .like("key", `${LEXICON_PREFIX}%`);
 
   if (error) {
-    console.error(
-      "[lexicon] could not read lexicon.* from app_settings; the panel is showing empty fields",
-      error,
-    );
+    reportQueryError(error, {
+      source: "lexicon.app_settings.lexicon",
+      message:
+        "could not read lexicon.* from app_settings; the panel is showing empty fields",
+    });
     return {};
   }
 

@@ -1,4 +1,5 @@
 import { CtaButton } from "@/components/cta-button";
+import { reportIfQueryFailed } from "@/lib/observability/query-error";
 import { PageShell } from "@/components/page-shell";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getSiteImageUrls } from "@/lib/site-images";
@@ -47,9 +48,9 @@ export default async function Home() {
   // is the shape that let PostgREST's `max_rows` silently truncate a calendar
   // read before (#755).
   const [
-    { data: events },
-    { data: calendarRows },
-    { data: categories },
+    eventsResult,
+    calendarResult,
+    categoriesResult,
     siteImages,
     site,
     layout,
@@ -84,6 +85,12 @@ export default async function Home() {
     getPublicSite(supabase),
     getSiteLayout(supabase),
   ]);
+  reportIfQueryFailed(eventsResult, "home.public_events");
+  reportIfQueryFailed(calendarResult, "home.public_calendar_items");
+  reportIfQueryFailed(categoriesResult, "home.public_calendar_categories");
+  const events = eventsResult.data;
+  const calendarRows = calendarResult.data;
+  const categories = categoriesResult.data;
   const { content } = site;
 
   // One read rather than a question per section (#1327). The hero's buttons
@@ -128,14 +135,16 @@ export default async function Home() {
   // query above returned -- the events listing reads every program row because
   // it renders every event.
   const eventIds = ownEvents.map((event) => event.id);
-  const { data: programRows } =
+  const programsResult =
     eventIds.length > 0
       ? await supabase
           .from("public_event_programs")
           .select("event_id, program_id, name")
           .in("event_id", eventIds)
           .returns<(PublicEventProgram & { event_id: string })[]>()
-      : { data: [] };
+      : { data: [], error: null };
+  reportIfQueryFailed(programsResult, "home.public_event_programs");
+  const programRows = programsResult.data;
 
   const programsByEvent = new Map<string, PublicEventProgram[]>();
   for (const { event_id, ...program } of programRows ?? []) {
