@@ -3,6 +3,7 @@ import type { Mock } from "bun:test";
 import * as Sentry from "@sentry/nextjs";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getPublicSite } from "@/lib/public-site";
+import { DataUnavailableError } from "@/lib/outage/data-unavailable";
 import { queryErrorKind, reportQueryError } from "./query-error";
 
 let capture: Mock<typeof Sentry.captureException>;
@@ -84,8 +85,11 @@ function failingClient(): SupabaseClient {
 
 describe("the public site's shared loaders", () => {
   test("report every read they swallow", async () => {
-    const site = await getPublicSite(failingClient());
-    expect(site.status).toBe("unavailable");
+    // An outage, so the site throws rather than rendering (#1896) -- but only
+    // after every read has run and been reported.
+    await expect(getPublicSite(failingClient())).rejects.toBeInstanceOf(
+      DataUnavailableError,
+    );
 
     const sources = capture.mock.calls
       .map(

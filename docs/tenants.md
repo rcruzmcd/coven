@@ -299,6 +299,49 @@ monitors):
    30 minutes. Catches a `database`-kind failure (an RLS or schema bug)
    that rule 1 deliberately ignores.
 
+### The outage page (#1896)
+
+While the database is unreachable, every page on every host -- public and
+portal -- answers **503** with `Retry-After: 120` and `no-store`, showing the
+tenant's own name, logo, colours, typeface and contact address. Before this,
+the same outage served the platform's placeholder copy under a 200.
+
+**How it is decided.** `src/proxy.ts` asks `databaseHealth()`
+(`src/lib/outage/probe.ts`): one no-retry `public_tenant` read with a 3s
+timeout, remembered per server instance for 10s. Only an infrastructure
+failure counts -- no answer, `PGRST*`, or `57014`; an RLS or schema error is a
+bug in one read and keeps rendering. Route handlers (`/api/*`, so
+`/api/health`'s own 503 body is untouched), `/auth/*` and static files are not
+gated. A request that started rendering before the probe noticed hits the
+backstop instead: `getPublicSite` throws `DataUnavailableError`, which is an
+uncached 500 with neutral copy from `global-error.tsx`.
+
+**Where the branding comes from.** Not the database that is down: a snapshot
+per tenant in **Vercel Global Config** (formerly Edge Config), keyed
+`outage_<custom_domain with dots as underscores>` and looked up the way
+`resolve_tenant_id_from_host()` matches -- the host, then each parent domain.
+It holds the tenant's name, its `brand.*` colour, accent, logo and typography
+rows, and `org.email_general` only when the tenant set it. It is written:
+
+- after branding is saved, and after `org.email_general` is published (that
+  tenant only);
+- after a tenant is provisioned or its domain or status changes (every tenant,
+  so a moved domain's old key is deleted);
+- daily by `/api/cron/outage-snapshots`, which also deletes keys no active
+  tenant claims.
+
+A host with no snapshot -- an unknown host, a tenant with no `custom_domain`,
+any environment without Global Config -- gets the **neutral** page, which
+names no organization.
+
+**Setup (production only).** Create a Global Config store, connect it to the
+project (this sets `EDGE_CONFIG`, the read connection string), and add
+`VERCEL_API_TOKEN` (a token that may write the store) and, for a team-owned
+store, `VERCEL_TEAM_ID`. Then run the cron once by hand to fill it:
+`curl -H "Authorization: Bearer $CRON_SECRET" https://coven.rcmlabs.dev/api/cron/outage-snapshots`.
+With any of these unset every write is a no-op and the outage page is the
+neutral one.
+
 ### Google sign-in names the platform (#1249)
 
 `signInWithOAuth({ provider: "google" })` redirects through

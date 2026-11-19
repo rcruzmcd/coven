@@ -63,6 +63,7 @@
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.119.0",
     "@vercel/analytics": "^2.0.1",
+    "@vercel/global-config": "^1.5.1",
     "@zxing/browser": "^0.2.1",
     "@zxing/library": "^0.23.0",
     "bwip-js": "^4.11.4",
