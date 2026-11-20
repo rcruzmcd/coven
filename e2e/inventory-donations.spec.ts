@@ -99,8 +99,12 @@ test.describe("portal inventory donations", () => {
     await expect(
       page.getByRole("heading", { level: 1, name: donorName }),
     ).toBeVisible();
-    await expect(page.getByText("Donation details")).toBeVisible();
-    await expect(page.getByText(itemDescription)).toBeVisible();
+    // Since #1898 the details are a compact header and each item is a table
+    // row linking to its own page.
+    await expect(page.getByLabel("Donation details")).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: itemDescription }),
+    ).toHaveAttribute("href", /\/portal\/inventory\/items\/[0-9a-f-]{36}$/);
 
     await page.getByRole("button", { name: "Edit", exact: true }).click();
     const editSheet = modal(page);

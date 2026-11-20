@@ -346,4 +346,73 @@ describe("PortalDataTable", () => {
       ).toBeNull();
     });
   });
+
+  describe("footer (#1898)", () => {
+    test("renders a totals row under the body, one cell per column", () => {
+      renderTable(gear(3), {
+        footer: { name: "Total", qty: "3" },
+      });
+
+      const footer = screen.getByText("Total").closest("tfoot") as HTMLElement;
+      const cells = within(footer).getAllByRole("cell");
+      expect(cells).toHaveLength(COLUMNS.length);
+      expect(cells[1]).toHaveTextContent("3");
+    });
+
+    test("has no footer when no row survived the filters", () => {
+      renderTable([], { footer: { name: "Total" } });
+
+      expect(screen.queryByText("Total")).toBeNull();
+    });
+  });
+
+  describe("groupBy (#1899)", () => {
+    const rows = [
+      { id: "a", name: "Boots", qty: 2, owner: "Lodge" },
+      { id: "b", name: "Axe", qty: 1, owner: "Shed" },
+      { id: "c", name: "Gloves", qty: 5, owner: "Lodge" },
+      { id: "d", name: "Rope", qty: 3, owner: "Shed" },
+    ];
+    const groupBy = {
+      groupOf: (row: Gear) => row.owner ?? "",
+      order: ["Shed", "Lodge"],
+      heading: (group: string) => `${group} heading`,
+      subtotal: (group: string) => ({ name: `${group} subtotal` }),
+    };
+
+    test("groups keep their order, with a heading and subtotal each, in one table", () => {
+      renderTable(rows, { groupBy, defaultSort: { key: "name", dir: "asc" } });
+
+      expect(screen.getAllByRole("table")).toHaveLength(1);
+      expect(
+        screen
+          .getAllByRole("row")
+          .slice(1)
+          .map((row) => row.textContent),
+      ).toEqual([
+        "Shed heading",
+        expect.stringContaining("Axe"),
+        expect.stringContaining("Rope"),
+        "Shed subtotal",
+        "Lodge heading",
+        expect.stringContaining("Boots"),
+        expect.stringContaining("Gloves"),
+        "Lodge subtotal",
+      ]);
+    });
+
+    test("the sort applies within each group", async () => {
+      renderTable(rows, { groupBy, defaultSort: { key: "name", dir: "asc" } });
+      await clickHeader("Name");
+
+      const itemNames = screen
+        .getAllByRole("row")
+        .slice(1)
+        .filter(
+          (row) => !row.matches("[data-group-heading], [data-group-subtotal]"),
+        )
+        .map((row) => within(row).getAllByRole("cell")[0].textContent);
+      expect(itemNames).toEqual(["Rope", "Axe", "Gloves", "Boots"]);
+    });
+  });
 });
