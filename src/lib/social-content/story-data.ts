@@ -1,5 +1,6 @@
 import "server-only";
 
+import { createHash } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { loadRemoteIcon } from "@/app/api/app-icon/[size]/icon-source";
 import { resolvedTypography } from "@/lib/branding";
@@ -33,13 +34,31 @@ type Client = SupabaseClient<Database>;
  * filtered by the post's own tenant.
  */
 
+type StoryTypography = ReturnType<typeof resolvedTypography>;
+
+/**
+ * What a post's story is drawn from, before any image is fetched: the logo is
+ * still its URL and the photo its storage source. Hashed for the post page's
+ * "out of date" check (#1909), so it changes exactly when a frame would.
+ */
+export type StorySource = {
+  input: Omit<StoryInput, "frame" | "headingTracking" | "photo">;
+  photoSource: string | null;
+  typography: StoryTypography;
+};
+
+export type StorySourceLoad =
+  | { status: "unauthenticated" }
+  | { status: "not_found" }
+  | { status: "ok"; source: StorySource };
+
 export type StoryLoad =
   | { status: "unauthenticated" }
   | { status: "not_found" }
   | {
       status: "ok";
       input: Omit<StoryInput, "frame" | "headingTracking">;
-      typography: ReturnType<typeof resolvedTypography>;
+      typography: StoryTypography;
     };
 
 /** Gear photos are stored up to this size (series-gear-fill.ts). */
@@ -51,13 +70,11 @@ const COPY_KEYS = [
   "gears.spotlight_steps",
 ];
 
-export async function loadStoryFrame(
+export async function loadStorySource(
   supabase: Client,
   admin: Client,
   postId: string,
-  frame: StoryFrameNumber,
-  requestUrl: string,
-): Promise<StoryLoad> {
+): Promise<StorySourceLoad> {
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -118,12 +135,6 @@ export async function loadStoryFrame(
     ]);
 
   const content = resolveSiteContent(copyRows, lexicon);
-  const photoSource =
-    frame === 1 && item.photo_url ? gearPhotoSource(item.photo_url) : null;
-  const [photo, logo] = await Promise.all([
-    loadRemoteIcon(photoSource, requestUrl, { maxBytes: MAX_PHOTO_BYTES }),
-    loadRemoteIcon(branding.logoUrl, requestUrl),
-  ]);
 
   const series = Array.isArray(post.series) ? post.series[0] : post.series;
   const number =
@@ -136,41 +147,95 @@ export async function loadStoryFrame(
 
   return {
     status: "ok",
-    typography: resolvedTypography(branding),
-    input: {
-      item: {
-        description: item.description,
-        size: item.size,
-        condition: item.condition,
-        category_label: category?.label ?? null,
-        // public_gear_catalog's criteria.
-        in_catalog:
-          item.status === "available" && item.intended_use === "gear_library",
-      },
-      details: gearPostDetails(post),
-      categoryStop: category ? categoryStop(category, groups) : null,
-      photo,
-      series:
-        series && number !== null && isSeriesCadence(series.cadence)
-          ? { cadence: series.cadence, number }
-          : null,
-      // Inlined, so a dead logo link drops the logo rather than the image.
-      branding: { ...branding, logoUrl: logo },
-      orgName: tenant?.name ?? "",
-      host: displayHost(
-        resolveTenantOrigin(
-          tenant?.custom_domain ?? null,
-          process.env.NEXT_PUBLIC_SITE_URL ?? "",
+    source: {
+      typography: resolvedTypography(branding),
+      photoSource: item.photo_url ? gearPhotoSource(item.photo_url) : null,
+      input: {
+        item: {
+          description: item.description,
+          size: item.size,
+          condition: item.condition,
+          category_label: category?.label ?? null,
+          // public_gear_catalog's criteria.
+          in_catalog:
+            item.status === "available" && item.intended_use === "gear_library",
+        },
+        details: gearPostDetails(post),
+        categoryStop: category ? categoryStop(category, groups) : null,
+        series:
+          series && number !== null && isSeriesCadence(series.cadence)
+            ? { cadence: series.cadence, number }
+            : null,
+        branding,
+        orgName: tenant?.name ?? "",
+        host: displayHost(
+          resolveTenantOrigin(
+            tenant?.custom_domain ?? null,
+            process.env.NEXT_PUBLIC_SITE_URL ?? "",
+          ),
         ),
-      ),
-      copy: {
-        headline: content.text("gears.spotlight_headline"),
-        itemLine: content.text("gears.spotlight_item_line"),
-        steps: content
-          .list<{ text: string }>("gears.spotlight_steps")
-          .map((step) => step.text),
-        collection: lexicon.collection ?? "",
+        copy: {
+          headline: content.text("gears.spotlight_headline"),
+          itemLine: content.text("gears.spotlight_item_line"),
+          steps: content
+            .list<{ text: string }>("gears.spotlight_steps")
+            .map((step) => step.text),
+          collection: lexicon.collection ?? "",
+        },
       },
     },
+  };
+}
+
+/** A stable hash of everything a frame is drawn from (#1909). */
+export function storyFingerprint(source: StorySource): string {
+  return createHash("sha256")
+    .update(
+      JSON.stringify({
+        input: source.input,
+        photo: source.photoSource,
+        typography: source.typography,
+      }),
+    )
+    .digest("hex")
+    .slice(0, 32);
+}
+
+/**
+ * One frame's input with its images fetched and inlined: the photo on frame 1
+ * only, the logo on every frame.
+ */
+export async function inlineStoryImages(
+  source: StorySource,
+  frame: StoryFrameNumber,
+  requestUrl: string,
+): Promise<Omit<StoryInput, "frame" | "headingTracking">> {
+  const [photo, logo] = await Promise.all([
+    loadRemoteIcon(frame === 1 ? source.photoSource : null, requestUrl, {
+      maxBytes: MAX_PHOTO_BYTES,
+    }),
+    loadRemoteIcon(source.input.branding.logoUrl, requestUrl),
+  ]);
+  return {
+    ...source.input,
+    photo,
+    // Inlined, so a dead logo link drops the logo rather than the image.
+    branding: { ...source.input.branding, logoUrl: logo },
+  };
+}
+
+export async function loadStoryFrame(
+  supabase: Client,
+  admin: Client,
+  postId: string,
+  frame: StoryFrameNumber,
+  requestUrl: string,
+): Promise<StoryLoad> {
+  const load = await loadStorySource(supabase, admin, postId);
+  if (load.status !== "ok") return load;
+  return {
+    status: "ok",
+    typography: load.source.typography,
+    input: await inlineStoryImages(load.source, frame, requestUrl),
   };
 }

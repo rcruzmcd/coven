@@ -55,14 +55,19 @@ export function formatTakesCollaborators(format: PostFormat | null) {
 
 /**
  * How many more files a post can take, and of what kind, given its format
- * and what it already holds: a reel is one video, a story one file, anything
+ * and what it already holds: a reel is one video, a story one file -- or the
+ * generated sequence of three (#1909), which takes nothing more -- anything
  * else up to the carousel limit. What the event media picker (#1827) lets
  * someone tick; `mediaFormatIssue` is the warning for what is already there.
  */
 export function mediaRoom(
   format: PostFormat | null,
   held: number,
+  heldGenerated = 0,
 ): { count: number; videoOnly: boolean } {
+  if (format === "instagram_story" && heldGenerated > 0) {
+    return { count: 0, videoOnly: false };
+  }
   const max =
     format === "instagram_reel" || format === "instagram_story"
       ? 1
@@ -76,11 +81,12 @@ export function mediaRoom(
 /**
  * Why a post's media does not fit its format, or null when it does (or when
  * there is nothing yet to judge). A warning, not a refusal: media is added
- * one file at a time and the format can change after it.
+ * one file at a time and the format can change after it. A story holds one
+ * file, or only generated story images, which share as a sequence (#1909).
  */
 export function mediaFormatIssue(
   format: PostFormat | null,
-  media: { kind: string }[],
+  media: { kind: string; generated?: boolean }[],
 ): string | null {
   if (!format || media.length === 0) return null;
   if (format === "instagram_reel") {
@@ -89,6 +95,12 @@ export function mediaFormatIssue(
     return null;
   }
   if (format === "instagram_story") {
+    const generated = media.filter((item) => item.generated).length;
+    if (generated > 0) {
+      return generated < media.length
+        ? "A story is one file or the generated story images. Remove the files added by hand, or the generated images."
+        : null;
+    }
     return media.length > 1
       ? "A story is one photo or video. Add each file as its own story."
       : null;

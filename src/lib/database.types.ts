@@ -10221,6 +10221,8 @@ export type Database = {
           content_opportunity_id: string;
           content_type: string;
           event_media_id: string | null;
+          generated_fingerprint: string | null;
+          generated_frame: number | null;
           id: string;
           kind: string;
           original_filename: string;
@@ -10235,6 +10237,8 @@ export type Database = {
           content_opportunity_id: string;
           content_type: string;
           event_media_id?: string | null;
+          generated_fingerprint?: string | null;
+          generated_frame?: number | null;
           id?: string;
           kind?: string;
           original_filename: string;
@@ -10249,6 +10253,8 @@ export type Database = {
           content_opportunity_id?: string;
           content_type?: string;
           event_media_id?: string | null;
+          generated_fingerprint?: string | null;
+          generated_frame?: number | null;
           id?: string;
           kind?: string;
           original_filename?: string;
@@ -14155,6 +14161,10 @@ export type Database = {
       reorder_social_post_media: {
         Args: { p_media_ids: string[]; p_post_id: string };
         Returns: undefined;
+      };
+      replace_social_post_story_images: {
+        Args: { p_fingerprint: string; p_paths: string[]; p_post_id: string };
+        Returns: string[];
       };
       request_gear_item: {
         Args: {

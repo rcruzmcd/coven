@@ -24,6 +24,7 @@ function media(
     url: `https://storage.test/${name}`,
     event_media_id: null,
     missing: false,
+    generated: false,
     ...overrides,
   };
 }

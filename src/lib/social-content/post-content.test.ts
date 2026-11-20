@@ -136,6 +136,29 @@ describe("mediaFormatIssue", () => {
     );
   });
 
+  test("a story may hold the generated sequence of three (#1909)", () => {
+    const frame = { kind: "photo", generated: true };
+    expect(
+      mediaFormatIssue("instagram_story", [frame, frame, frame]),
+    ).toBeNull();
+    // A frame removed by hand still shares as a shorter sequence.
+    expect(mediaFormatIssue("instagram_story", [frame, frame])).toBeNull();
+  });
+
+  test("a story mixing generated images with added files is warned", () => {
+    const frame = { kind: "photo", generated: true };
+    expect(
+      mediaFormatIssue("instagram_story", [frame, frame, frame, photo]),
+    ).toMatch(/one file or the generated story images/);
+    // Only generated media earns the sequence; added files are still one.
+    expect(
+      mediaFormatIssue("instagram_story", [
+        { kind: "photo", generated: false },
+        { kind: "photo", generated: false },
+      ]),
+    ).toMatch(/one photo or video/);
+  });
+
   test("a post takes up to ten", () => {
     expect(
       mediaFormatIssue("instagram_post", Array(10).fill(photo)),
@@ -170,6 +193,18 @@ describe("mediaRoom (#1827)", () => {
     });
     expect(mediaRoom("instagram_story", 0)).toEqual({
       count: 1,
+      videoOnly: false,
+    });
+  });
+
+  test("a story holding generated images takes nothing more (#1909)", () => {
+    expect(mediaRoom("instagram_story", 3, 3)).toEqual({
+      count: 0,
+      videoOnly: false,
+    });
+    // Generated media elsewhere changes nothing: the rule is the story's.
+    expect(mediaRoom("instagram_post", 3, 3)).toEqual({
+      count: 7,
       videoOnly: false,
     });
   });
