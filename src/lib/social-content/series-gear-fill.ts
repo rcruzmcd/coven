@@ -3,6 +3,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 import { resolveTenantOrigin } from "@/lib/email/identity";
+import { resolveImageUrl } from "@/lib/inventory";
 import { eventMediaPath } from "@/lib/storage/event-media-files";
 import {
   GEAR_PHOTOS_BUCKET,
@@ -62,9 +63,13 @@ export async function tenantSiteOrigin(
 /**
  * Where to read an item photo from. A gear-photos object is read from this
  * project's own storage, whatever origin the stored URL names; anything else
- * (an older external link) only over https.
+ * (an older external link) only over https. A Google Drive share link names
+ * Drive's HTML viewer, so it is read from the thumbnail endpoint the catalog
+ * shows (`resolveImageUrl`), and a `#crop=` fragment is dropped: it is a CSS
+ * crop for the site, not part of the address.
  */
-export function gearPhotoSource(photoUrl: string): string | null {
+export function gearPhotoSource(storedUrl: string): string | null {
+  const photoUrl = resolveImageUrl(storedUrl.split("#")[0]) ?? "";
   const objectPath = gearPhotoPathFromUrl(photoUrl);
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   if (objectPath && supabaseUrl) {

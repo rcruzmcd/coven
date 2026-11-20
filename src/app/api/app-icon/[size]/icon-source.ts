@@ -31,7 +31,10 @@ const FETCH_TIMEOUT_MS = 3000;
 export async function loadRemoteIcon(
   url: string | null,
   base: string,
-  { maxBytes = MAX_ICON_BYTES }: { maxBytes?: number } = {},
+  {
+    maxBytes = MAX_ICON_BYTES,
+    timeoutMs = FETCH_TIMEOUT_MS,
+  }: { maxBytes?: number; timeoutMs?: number } = {},
 ): Promise<string | null> {
   if (!url) return null;
   let parsed: URL;
@@ -44,7 +47,7 @@ export async function loadRemoteIcon(
 
   try {
     const response = await fetch(parsed, {
-      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      signal: AbortSignal.timeout(timeoutMs),
     });
     if (!response.ok) return null;
     const type = response.headers.get("content-type")?.split(";")[0]?.trim();

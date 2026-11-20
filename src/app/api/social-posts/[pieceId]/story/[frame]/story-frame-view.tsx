@@ -274,6 +274,52 @@ function Column({
   );
 }
 
+/** The rounded panel a photo fills, taking whatever height the frame leaves. */
+function PhotoPanel({
+  theme,
+  children,
+}: {
+  theme: StoryTheme;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexGrow: 1,
+        minHeight: 0,
+        borderRadius: 50,
+        overflow: "hidden",
+        backgroundColor: theme.panel,
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+/** The details frame's photo: square, about as tall as eyebrow and heading. */
+const DETAILS_PHOTO = 210;
+
+function Photo({
+  src,
+  width = STORY_CONTENT_WIDTH,
+}: {
+  src: string;
+  width?: number;
+}) {
+  return (
+    <img
+      src={src}
+      alt=""
+      width={width}
+      style={{ width: "100%", height: "100%", objectFit: "cover" }}
+    />
+  );
+}
+
 function Spotlight({
   frame,
   header,
@@ -289,25 +335,9 @@ function Spotlight({
         <Header header={header} theme={theme} />
         <Eyebrow header={header} theme={theme} />
         <Script text={frame.script} size={50} theme={theme} />
-        <div
-          style={{
-            display: "flex",
-            flexGrow: 1,
-            minHeight: 0,
-            borderRadius: 50,
-            overflow: "hidden",
-            backgroundColor: theme.panel,
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
+        <PhotoPanel theme={theme}>
           {frame.photo ? (
-            <img
-              src={frame.photo}
-              alt=""
-              width={STORY_CONTENT_WIDTH}
-              style={{ width: "100%", height: "100%", objectFit: "cover" }}
-            />
+            <Photo src={frame.photo} />
           ) : (
             // No photo: the panel names the category instead.
             <div
@@ -323,7 +353,7 @@ function Spotlight({
               {frame.categoryLabel ?? header.eyebrow}
             </div>
           )}
-        </div>
+        </PhotoPanel>
       </Column>
       <div
         style={{
@@ -359,8 +389,39 @@ function Details({
     <div style={FRAME_BODY}>
       <Column gap={36}>
         <Header header={header} theme={theme} />
-        <Eyebrow header={header} theme={theme} />
-        <Title value={{ text: frame.heading, fontSize: 88 }} theme={theme} />
+        {/* The photo sits beside the eyebrow and heading, in height they
+            already take: the tiles and the copy below fill the rest. */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-end",
+            gap,
+          }}
+        >
+          <Column gap={36}>
+            <Eyebrow header={header} theme={theme} />
+            <Title
+              value={{ text: frame.heading, fontSize: 88 }}
+              theme={theme}
+            />
+          </Column>
+          {frame.photo && (
+            <div
+              style={{
+                display: "flex",
+                width: DETAILS_PHOTO,
+                height: DETAILS_PHOTO,
+                flexShrink: 0,
+                borderRadius: 40,
+                overflow: "hidden",
+                backgroundColor: theme.panel,
+              }}
+            >
+              <Photo src={frame.photo} width={DETAILS_PHOTO} />
+            </div>
+          )}
+        </div>
         <div style={{ display: "flex", flexWrap: "wrap", gap }}>
           {frame.tiles.map((tile) => (
             <div
