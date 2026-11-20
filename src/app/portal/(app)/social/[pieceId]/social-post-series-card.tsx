@@ -615,7 +615,10 @@ function ContentSourceFields({ series }: { series: SocialPostSeriesRow }) {
             added to the post, and the caption names the item with{" "}
             {GEAR_PLACEHOLDERS.item}, {GEAR_PLACEHOLDERS.size},{" "}
             {GEAR_PLACEHOLDERS.details} and {GEAR_PLACEHOLDERS.link}, or below
-            the caption when it uses none.
+            the caption when it uses none. {GEAR_PLACEHOLDERS.brand},{" "}
+            {GEAR_PLACEHOLDERS.best_for} and {GEAR_PLACEHOLDERS.why} show what
+            each post says about its item; a line naming a blank one is left
+            out.
           </FieldDescription>
         )}
       </Field>

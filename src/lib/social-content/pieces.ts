@@ -141,6 +141,10 @@ export type ContentPieceRow = {
   occurrence_date: string | null;
   /** The Gear Library item it features (#1841), picked by its series. */
   featured_inventory_item_id?: string | null;
+  /** What the post says about that item (#1906); blank on other posts. */
+  gear_brand?: string | null;
+  gear_best_for?: string | null;
+  gear_why?: string | null;
 };
 
 /** Statuses a piece needs no more work in. */

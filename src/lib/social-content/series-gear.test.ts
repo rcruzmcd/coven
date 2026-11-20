@@ -4,6 +4,7 @@ import {
   gearCaptionToTemplate,
   gearItemDetails,
   gearItemLink,
+  hasGearDetails,
   renderGearCaption,
   type FeaturedGear,
 } from "./series-gear";
@@ -117,5 +118,63 @@ describe("gearCaptionEdited", () => {
 
   test("an empty caption is never edited", () => {
     expect(gearCaptionEdited("  ", template, jacket, link)).toBe(false);
+  });
+});
+
+describe("post detail placeholders (#1906)", () => {
+  const template =
+    "This week: {item}\nBrand: {brand}\nBest for: {best_for}\n{why}\n{link}";
+  const filled = {
+    brand: "Burton",
+    best_for: "First season",
+    why: "Warm without the bulk.",
+  };
+
+  test("fills each one", () => {
+    expect(renderGearCaption(template, jacket, link, filled)).toBe(
+      `This week: Burton jacket\nBrand: Burton\nBest for: First season\nWarm without the bulk.\n${link}`,
+    );
+  });
+
+  test("drops the line of a blank one", () => {
+    expect(
+      renderGearCaption(template, jacket, link, {
+        brand: " ",
+        best_for: null,
+        why: "Warm without the bulk.",
+      }),
+    ).toBe(`This week: Burton jacket\nWarm without the bulk.\n${link}`);
+  });
+
+  test("drops every detail line when none is given", () => {
+    expect(renderGearCaption(template, jacket, link)).toBe(
+      `This week: Burton jacket\n${link}`,
+    );
+  });
+
+  test("a caption with no placeholders is unchanged by them", () => {
+    expect(renderGearCaption("Gear of the week!", jacket, link, filled)).toBe(
+      renderGearCaption("Gear of the week!", jacket, link),
+    );
+  });
+
+  test("turn back into placeholders, a brand inside the item name included", () => {
+    const caption = renderGearCaption(template, jacket, link, filled);
+    expect(gearCaptionToTemplate(caption, jacket, link, filled)).toBe(template);
+  });
+
+  test("count toward an unedited caption", () => {
+    const caption = renderGearCaption(template, jacket, link, filled);
+    expect(gearCaptionEdited(caption, template, jacket, link, filled)).toBe(
+      false,
+    );
+    expect(gearCaptionEdited(caption, template, jacket, link)).toBe(true);
+  });
+
+  test("hasGearDetails ignores whitespace", () => {
+    expect(hasGearDetails({ brand: " ", best_for: null, why: "" })).toBe(false);
+    expect(hasGearDetails({ brand: null, best_for: "Park", why: null })).toBe(
+      true,
+    );
   });
 });
