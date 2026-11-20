@@ -3,6 +3,7 @@ import {
   anchorFromPublishAt,
   cadenceLabel,
   occurrenceDate,
+  occurrenceNumber,
   occurrencePublishAt,
   occurrencesFrom,
   seriesState,
@@ -124,5 +125,32 @@ describe("seriesState", () => {
     expect(seriesState({ paused_at: null, ended_at: null })).toBe("active");
     expect(seriesState({ paused_at: "x", ended_at: null })).toBe("paused");
     expect(seriesState({ paused_at: "x", ended_at: "y" })).toBe("ended");
+  });
+});
+
+describe("occurrenceNumber", () => {
+  test("counts the anchor as 1", () => {
+    const weekly = { cadence: "weekly", anchor_date: "2026-01-06" } as const;
+    expect(occurrenceNumber(weekly, "2026-01-06")).toBe(1);
+    expect(occurrenceNumber(weekly, "2026-03-24")).toBe(12);
+    const biweekly = {
+      cadence: "biweekly",
+      anchor_date: "2026-01-06",
+    } as const;
+    expect(occurrenceNumber(biweekly, "2026-02-03")).toBe(3);
+  });
+
+  test("a monthly series anchored on the 31st counts short months", () => {
+    const monthly = { cadence: "monthly", anchor_date: "2026-01-31" } as const;
+    expect(occurrenceNumber(monthly, "2026-02-28")).toBe(2);
+    expect(occurrenceNumber(monthly, "2026-03-31")).toBe(3);
+  });
+
+  test("null for a day that is not one of its dates", () => {
+    const weekly = { cadence: "weekly", anchor_date: "2026-01-06" } as const;
+    expect(occurrenceNumber(weekly, "2026-01-07")).toBeNull();
+    expect(occurrenceNumber(weekly, "2025-12-30")).toBeNull();
+    const monthly = { cadence: "monthly", anchor_date: "2026-01-31" } as const;
+    expect(occurrenceNumber(monthly, "2026-02-27")).toBeNull();
   });
 });

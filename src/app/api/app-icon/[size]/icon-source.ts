@@ -31,6 +31,7 @@ const FETCH_TIMEOUT_MS = 3000;
 export async function loadRemoteIcon(
   url: string | null,
   base: string,
+  { maxBytes = MAX_ICON_BYTES }: { maxBytes?: number } = {},
 ): Promise<string | null> {
   if (!url) return null;
   let parsed: URL;
@@ -52,8 +53,7 @@ export async function loadRemoteIcon(
     // database row.
     if (!type || !/^image\/(png|jpeg|webp|gif)$/.test(type)) return null;
     const bytes = await response.arrayBuffer();
-    if (bytes.byteLength === 0 || bytes.byteLength > MAX_ICON_BYTES)
-      return null;
+    if (bytes.byteLength === 0 || bytes.byteLength > maxBytes) return null;
     return `data:${type};base64,${Buffer.from(bytes).toString("base64")}`;
   } catch {
     return null;
