@@ -24,6 +24,7 @@ const extras: SocialPostExtras = {
       url: "https://storage.test/first.jpg",
       event_media_id: null,
       missing: false,
+      generated: false,
     },
     {
       id: "m2",
@@ -32,6 +33,7 @@ const extras: SocialPostExtras = {
       url: "https://storage.test/second.mp4",
       event_media_id: null,
       missing: false,
+      generated: false,
     },
   ],
 };
@@ -148,5 +150,46 @@ describe("ShareToInstagram", () => {
       await screen.findByRole("button", { name: /Share to Instagram/ }),
     );
     expect(screen.queryByText(/Couldn't open the share sheet/)).toBeNull();
+  });
+
+  test("a story's generated sequence shares one story at a time, in order (#1909)", async () => {
+    installShare();
+    const frames = ["one.jpg", "two.jpg", "three.jpg"].map((name) => ({
+      id: name,
+      kind: "photo" as const,
+      original_filename: name,
+      url: `https://storage.test/${name}`,
+      event_media_id: null,
+      missing: false,
+      generated: true,
+    }));
+    render(
+      <ShareToInstagram
+        piece={{
+          post_format: "instagram_story",
+          content: "Story text",
+          collaborator_handles: [],
+        }}
+        extras={{ tags: [], people: [], media: frames }}
+      />,
+    );
+    for (const [index, name] of frames
+      .map((f) => f.original_filename)
+      .entries()) {
+      await userEvent.click(
+        await screen.findByRole("button", {
+          name: `Share story ${index + 1} of 3`,
+        }),
+      );
+      const [data] = share.mock.calls[index];
+      expect(data.files?.map((file) => file.name)).toEqual([name]);
+    }
+    expect(share).toHaveBeenCalledTimes(3);
+    // The story text goes to the clipboard once, with the first.
+    expect(writeText).toHaveBeenCalledTimes(1);
+    expect(await screen.findByText(/All 3 stories shared/)).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Share story 1 of 3" }),
+    ).toBeInTheDocument();
   });
 });

@@ -1,15 +1,8 @@
-import { ImageResponse } from "next/og";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { loadStoryFrame } from "@/lib/social-content/story-data";
-import { loadStoryFonts } from "@/lib/social-content/story-fonts";
-import {
-  buildStoryFrame,
-  parseStoryFrame,
-  STORY_HEIGHT,
-  STORY_WIDTH,
-} from "@/lib/social-content/story-frames";
-import { StoryFrameView } from "./story-frame-view";
+import { loadStorySource } from "@/lib/social-content/story-data";
+import { renderStoryFrame } from "@/lib/social-content/story-render";
+import { parseStoryFrame } from "@/lib/social-content/story-frames";
 
 /**
  * One frame of a featured-gear post's Gear Spotlight story, as a 1080x1920
@@ -29,12 +22,10 @@ export async function GET(
   if (!frame) return new Response("Not found", { status: 404 });
 
   const supabase = await createSupabaseServerClient();
-  const load = await loadStoryFrame(
+  const load = await loadStorySource(
     supabase,
     createSupabaseAdminClient(),
     pieceId,
-    frame,
-    request.url,
   );
   if (load.status === "unauthenticated") {
     return new Response("Sign in to view this image", { status: 401 });
@@ -43,20 +34,8 @@ export async function GET(
     return new Response("Not found", { status: 404 });
   }
 
-  const model = buildStoryFrame({
-    ...load.input,
-    frame,
-    headingTracking: load.typography.headingTracking,
-  });
-  const fonts = await loadStoryFonts(load.typography);
-
-  return new ImageResponse(<StoryFrameView model={model} />, {
-    width: STORY_WIDTH,
-    height: STORY_HEIGHT,
-    fonts,
-    headers: {
-      // The post's own data, behind a session: never a shared cache.
-      "Cache-Control": "private, no-store",
-    },
+  return renderStoryFrame(load.source, frame, request.url, {
+    // The post's own data, behind a session: never a shared cache.
+    "Cache-Control": "private, no-store",
   });
 }

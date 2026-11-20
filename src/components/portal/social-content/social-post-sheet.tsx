@@ -249,6 +249,7 @@ function PostMediaEditor({
           eventId={eventId}
           format={format}
           held={media.length}
+          heldGenerated={media.filter((item) => item.generated).length}
           referencedIds={
             new Set(media.flatMap((item) => item.event_media_id ?? []))
           }
