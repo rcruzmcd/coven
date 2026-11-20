@@ -12,7 +12,12 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { localDayKey, monthGridDays, utcIsoToDateInZone } from "@/lib/time";
+import {
+  localDayKey,
+  monthGridDays,
+  todayInZone,
+  utcIsoToDateInZone,
+} from "@/lib/time";
 import { CONTENT_STATUSES } from "@/lib/social-content/pieces";
 import { socialPieceHref } from "@/lib/social-content/social-filters";
 import type { SocialPieceRow } from "@/lib/social-content/queries";
@@ -68,6 +73,8 @@ export function SocialMonthView({
   const year = monthStart.getFullYear();
   const monthIndex = monthStart.getMonth();
   const days = monthGridDays(year, monthIndex);
+  // Today in the same zone the posts are keyed in, not the grid's local days.
+  const todayKey = todayInZone(timeZone);
 
   const overlayByDay = new Map<string, typeof overlay>();
   for (const entry of overlay) {
@@ -124,14 +131,26 @@ export function SocialMonthView({
               day: "numeric",
             });
             const inMonth = day.getMonth() === monthIndex;
+            const isToday = key === todayKey;
             return (
               <div
                 key={key}
                 data-day={key}
                 className={cn("min-h-24 bg-card p-1", !inMonth && "opacity-40")}
               >
-                <div className="app-muted px-1 text-[0.7rem]">
-                  {day.getDate()}
+                <div className="px-1 text-[0.7rem]">
+                  <time
+                    dateTime={key}
+                    aria-current={isToday ? "date" : undefined}
+                    className={cn(
+                      isToday
+                        ? "-ml-1 inline-flex size-5 items-center justify-center rounded-full bg-primary font-semibold text-primary-foreground"
+                        : "app-muted",
+                    )}
+                  >
+                    {day.getDate()}
+                  </time>
+                  {isToday && <span className="sr-only"> (today)</span>}
                 </div>
                 <div className="flex flex-col gap-0.5">
                   {shownPieces.map((piece) => (
