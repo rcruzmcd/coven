@@ -92,6 +92,7 @@ export default async function SocialPostPage({
             featured={featuredGear.featured}
             options={featuredGear.options}
             captionEdited={featuredGear.captionEdited}
+            details={featuredGear.details}
           />
         </div>
       )}

@@ -9,16 +9,20 @@ import type { Database } from "@/lib/database.types";
 import { SOCIAL_POST_MEDIA_BUCKET } from "./pieces";
 import {
   copyGearPhotoToPost,
+  gearPostDetails,
   loadGearItems,
   tenantSiteOrigin,
   type GearItemOption,
 } from "./series-gear-fill";
 import {
+  GEAR_DETAIL_LIMITS,
   MAX_RECENT_EXCLUSION,
   gearCaptionEdited,
   gearItemLink,
+  hasGearDetails,
   isSeriesContentSource,
   renderGearCaption,
+  type GearPostDetails,
 } from "./series-gear";
 
 export type { GearItemOption } from "./series-gear-fill";
@@ -129,7 +133,7 @@ export async function swapFeaturedGearAction(
   const { data: post, error: postError } = await supabase
     .from("content_opportunities")
     .select(
-      "id, tenant_id, content, content_status, featured_inventory_item_id, featured_media_id, series:social_post_series!content_opportunities_series_id_fkey(content)",
+      "id, tenant_id, content, content_status, featured_inventory_item_id, featured_media_id, gear_brand, gear_best_for, gear_why, series:social_post_series!content_opportunities_series_id_fkey(content)",
     )
     .eq("id", postId)
     .maybeSingle();
@@ -137,10 +141,19 @@ export async function swapFeaturedGearAction(
   if (post.content_status === "published") {
     return { error: SWAP_ERRORS.POST_PUBLISHED };
   }
+  const details = gearPostDetails(post);
 
   const template = post.series?.content ?? null;
   const origin = await tenantSiteOrigin(supabase, post.tenant_id);
 
+  // A swap clears the post's gear details (#1906), so typed ones are asked
+  // about like an edited caption.
+  if (!replaceEditedCaption && hasGearDetails(details)) {
+    return {
+      error:
+        "This post's brand, best for or why-we-love-it was filled in since the page loaded. Reload to replace it.",
+    };
+  }
   if (!replaceEditedCaption) {
     const items = await loadGearItems(supabase, post.id);
     const current = items?.find((item) => item.featured) ?? null;
@@ -150,6 +163,7 @@ export async function swapFeaturedGearAction(
         template,
         current,
         current ? gearItemLink(origin, current.id) : null,
+        details,
       )
     ) {
       return {
@@ -203,6 +217,109 @@ export async function swapFeaturedGearAction(
 
   revalidateSocial();
   return { success: true, photoCopied };
+}
+
+export type GearDetailsInput = {
+  brand: string;
+  best_for: string;
+  why: string;
+};
+
+const DETAIL_LABELS: Record<keyof GearPostDetails, string> = {
+  brand: "Brand",
+  best_for: "Best for",
+  why: "Why we love it",
+};
+
+/**
+ * Saves a gear post's brand, best for and why-we-love-it (#1906). A caption
+ * nobody edited is filled in again, so its {brand}, {best_for} and {why}
+ * placeholders show the new values; an edited one is left alone.
+ */
+export async function updateGearDetailsAction(
+  postId: string,
+  input: GearDetailsInput,
+): Promise<{ error: string } | { success: true; captionUpdated: boolean }> {
+  const auth = await authorize("You must be signed in to change a post.");
+  if ("error" in auth) return auth;
+  const { supabase } = auth;
+
+  const next: GearPostDetails = { brand: null, best_for: null, why: null };
+  for (const key of Object.keys(DETAIL_LABELS) as (keyof GearPostDetails)[]) {
+    const value = String(input?.[key] ?? "")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (value.length > GEAR_DETAIL_LIMITS[key]) {
+      return {
+        error: `${DETAIL_LABELS[key]} can be at most ${GEAR_DETAIL_LIMITS[key]} characters.`,
+      };
+    }
+    next[key] = value || null;
+  }
+
+  const { data: post, error: postError } = await supabase
+    .from("content_opportunities")
+    .select(
+      "id, tenant_id, content, content_status, featured_inventory_item_id, gear_brand, gear_best_for, gear_why, series:social_post_series!content_opportunities_series_id_fkey(content, content_source)",
+    )
+    .eq("id", postId)
+    .maybeSingle();
+  if (postError || !post) return { error: SWAP_ERRORS.POST_NOT_FOUND };
+  if (post.series?.content_source !== "random_gear_item") {
+    return { error: SWAP_ERRORS.NOT_GEAR_POST };
+  }
+  if (post.content_status === "published") {
+    return { error: "This post is published, so it can't be changed." };
+  }
+
+  const update: {
+    gear_brand: string | null;
+    gear_best_for: string | null;
+    gear_why: string | null;
+    content?: string;
+  } = {
+    gear_brand: next.brand,
+    gear_best_for: next.best_for,
+    gear_why: next.why,
+  };
+
+  const template = post.series.content ?? null;
+  const items = post.featured_inventory_item_id
+    ? await loadGearItems(supabase, post.id)
+    : null;
+  const item = items?.find((option) => option.featured) ?? null;
+  if (item) {
+    const link = gearItemLink(
+      await tenantSiteOrigin(supabase, post.tenant_id),
+      item.id,
+    );
+    if (
+      !gearCaptionEdited(
+        post.content,
+        template,
+        item,
+        link,
+        gearPostDetails(post),
+      )
+    ) {
+      update.content = renderGearCaption(template, item, link, next);
+    }
+  }
+
+  const { error } = await supabase
+    .from("content_opportunities")
+    .update(update)
+    .eq("id", post.id)
+    .neq("content_status", "published");
+  if (error) return { error: "Could not save the details. Please try again." };
+
+  revalidateSocial();
+  return {
+    success: true,
+    captionUpdated:
+      update.content !== undefined &&
+      update.content !== (post.content ?? "").trim(),
+  };
 }
 
 /** Removes the previous item's photo and adds the new one's. */

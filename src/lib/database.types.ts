@@ -1990,6 +1990,9 @@ export type Database = {
           event_id: string | null;
           featured_inventory_item_id: string | null;
           featured_media_id: string | null;
+          gear_best_for: string | null;
+          gear_brand: string | null;
+          gear_why: string | null;
           id: string;
           internal_notes: string | null;
           lead_time_days: number;
@@ -2020,6 +2023,9 @@ export type Database = {
           event_id?: string | null;
           featured_inventory_item_id?: string | null;
           featured_media_id?: string | null;
+          gear_best_for?: string | null;
+          gear_brand?: string | null;
+          gear_why?: string | null;
           id?: string;
           internal_notes?: string | null;
           lead_time_days?: number;
@@ -2050,6 +2056,9 @@ export type Database = {
           event_id?: string | null;
           featured_inventory_item_id?: string | null;
           featured_media_id?: string | null;
+          gear_best_for?: string | null;
+          gear_brand?: string | null;
+          gear_why?: string | null;
           id?: string;
           internal_notes?: string | null;
           lead_time_days?: number;
