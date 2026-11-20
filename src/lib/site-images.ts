@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { reportIfQueryFailed } from "@/lib/observability/query-error";
 import { resolveImageUrl } from "@/lib/inventory";
 
 /**
@@ -19,9 +20,11 @@ import { resolveImageUrl } from "@/lib/inventory";
 export async function getSiteImageUrls(
   supabase: SupabaseClient,
 ): Promise<Record<string, string | null>> {
-  const { data } = await supabase
+  const result = await supabase
     .from("public_site_images")
     .select("slot, value");
+  reportIfQueryFailed(result, "site-images.public_site_images");
+  const { data } = result;
 
   const urls: Record<string, string | null> = {};
   for (const row of data ?? []) {

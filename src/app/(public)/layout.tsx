@@ -163,9 +163,10 @@ export default async function PublicLayout({
   // window publicly serving another organization's name and copy, with the
   // page_visibility-gated routes 404ing underneath it.
   //
-  // Only `unresolved`. A failed read is `unavailable` and keeps rendering:
-  // 404ing a database blip would take every tenant's site down at once, which
-  // is far worse than the thing this guard prevents.
+  // Only `unresolved`. A failed read is `unavailable` and never 404s: that
+  // would take every tenant's site down at once over a database blip. An
+  // outage-shaped failure has already thrown inside `getPublicSite` and lands
+  // on the outage copy (#1896); any other failed read keeps rendering.
   //
   // The portal does not 404 with the site. An unresolved host is exactly the
   // state a tenant is in before its domain is configured, and #956 leaves the

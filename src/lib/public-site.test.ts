@@ -1,5 +1,9 @@
 import { describe, expect, spyOn, test } from "bun:test";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  DATA_UNAVAILABLE_DIGEST,
+  DataUnavailableError,
+} from "@/lib/outage/data-unavailable";
 import { NOT_FOUND_TITLE, getPublicSite, publicTitle } from "./public-site";
 
 type Result = { data: unknown; error: unknown };
@@ -24,6 +28,8 @@ function fakeClient(responses: Record<string, Result>): SupabaseClient {
 }
 
 const NO_ROWS = { data: null, error: null };
+/** A failed read that is a bug, not an outage: an RLS denial. */
+const DENIED = { code: "42501", message: "permission denied" };
 const TENANT = {
   data: { id: "t1", name: "Example Nonprofit", slug: "example" },
   error: null,
@@ -56,7 +62,7 @@ describe("getPublicSite host resolution", () => {
     try {
       const site = await getPublicSite(
         fakeClient({
-          public_tenant: { data: null, error: { message: "boom" } },
+          public_tenant: { data: null, error: DENIED },
           public_site_content: NO_ROWS,
         }),
       );
@@ -68,6 +74,42 @@ describe("getPublicSite host resolution", () => {
     } finally {
       error.mockRestore();
     }
+  });
+
+  // #1896: an outage is not a blip to render through. The placeholder copy
+  // under a 200 is what every host served for two days.
+  for (const [label, error] of [
+    ["PostgREST down", { code: "PGRST002", message: "schema cache" }],
+    ["no answer at all", { message: "fetch failed" }],
+    ["statement timeout", { code: "57014", message: "canceling statement" }],
+  ] as const) {
+    test(`an outage (${label}) throws DataUnavailableError`, async () => {
+      const log = spyOn(console, "error").mockImplementation(() => {});
+      try {
+        const read = getPublicSite(
+          fakeClient({
+            public_tenant: { data: null, error },
+            public_site_content: NO_ROWS,
+          }),
+        );
+        await expect(read).rejects.toBeInstanceOf(DataUnavailableError);
+        await expect(read).rejects.toMatchObject({
+          digest: DATA_UNAVAILABLE_DIGEST,
+        });
+      } finally {
+        log.mockRestore();
+      }
+    });
+  }
+
+  // The acceptance criterion's other half: a new tenant with no Site Content
+  // and no branding is healthy, and renders the defaults as before.
+  test("an empty but healthy tenant renders the defaults", async () => {
+    const site = await getPublicSite(
+      fakeClient({ public_tenant: TENANT, public_site_content: NO_ROWS }),
+    );
+    expect(site.status).toBe("resolved");
+    expect(site.content.text("org.email_general")).toBeTruthy();
   });
 
   test("an unresolved host names no organization", async () => {
@@ -110,7 +152,7 @@ describe("publicTitle", () => {
     try {
       const site = await getPublicSite(
         fakeClient({
-          public_tenant: { data: null, error: { message: "boom" } },
+          public_tenant: { data: null, error: DENIED },
           public_site_content: NO_ROWS,
         }),
       );

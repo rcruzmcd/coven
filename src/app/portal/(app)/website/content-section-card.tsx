@@ -2,7 +2,7 @@
 
 import type { Json } from "@/lib/supabase/types";
 import type { ReactNode } from "react";
-import Link from "next/link";
+import { PublicSiteLink } from "@/components/portal/public-site-link";
 import { ExternalLink } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FieldGroup } from "@/components/ui/field";
@@ -79,8 +79,9 @@ export function ContentSectionCard({
         <CardTitle className="flex flex-wrap items-center justify-between gap-3">
           {section.label}
           {route && (
-            <Link
-              href={route}
+            <PublicSiteLink
+              path={route}
+              fallback={null}
               target="_blank"
               rel="noopener noreferrer"
               className="app-muted inline-flex items-center gap-1.5 text-sm font-normal underline-offset-4 hover:underline"
@@ -88,7 +89,7 @@ export function ContentSectionCard({
               View on the site
               <span className="sr-only">({section.label})</span>
               <ExternalLink className="size-3.5" aria-hidden />
-            </Link>
+            </PublicSiteLink>
           )}
         </CardTitle>
         {section.description && (

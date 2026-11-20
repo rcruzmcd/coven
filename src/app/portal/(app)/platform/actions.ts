@@ -7,6 +7,7 @@ import { mintInviteLink } from "@/lib/auth/invite-link";
 import { getRequestOrigin } from "@/lib/request-origin";
 import { friendlyError } from "@/lib/db-errors";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { scheduleOutageSnapshotSync } from "@/lib/outage/sync";
 import {
   LEGAL_PUBLICATION_PREFIX,
   moduleGate,
@@ -80,6 +81,8 @@ export async function provisionTenantAction(input: {
   }
 
   revalidatePath("/portal/platform");
+  // The new tenant's outage page (#1896); full sync, as for a domain change.
+  scheduleOutageSnapshotSync("all");
 
   // The tenant exists either way. A failure past this point is worth reporting
   // as "provisioned, link failed" rather than as a failure -- re-running
@@ -130,6 +133,8 @@ export async function setTenantDomainAction(
     };
   }
   revalidatePath("/portal/platform");
+  // The full sync, not this tenant's: only it deletes the old domain's key.
+  scheduleOutageSnapshotSync("all");
   return { success: true };
 }
 
@@ -262,5 +267,7 @@ export async function setTenantStatusAction(
     return { error: error.message ?? "Could not change the status." };
   }
   revalidatePath("/portal/platform");
+  // An inactive tenant's domain resolves to nobody, so its snapshot goes too.
+  scheduleOutageSnapshotSync("all");
   return { success: true };
 }

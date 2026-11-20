@@ -4,6 +4,7 @@ import { describe, expect, test } from "bun:test";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { SocialPieceRow } from "@/lib/social-content/queries";
+import { todayInZone } from "@/lib/time";
 import { SocialMonthView } from "./social-month-view";
 
 function piece(id: string): SocialPieceRow {
@@ -70,5 +71,22 @@ describe("SocialMonthView", () => {
     expect(fewer).toHaveAttribute("aria-expanded", "true");
     await user.click(fewer);
     expect(screen.queryByRole("link", { name: "Post 5" })).toBeNull();
+  });
+
+  test("marks today's date, in the zone the posts are placed in", () => {
+    const today = todayInZone("UTC");
+    const { container } = render(
+      <SocialMonthView
+        month={today.slice(0, 7)}
+        piecesByDay={new Map()}
+        overlay={[]}
+        timeZone="UTC"
+        monthHref={(month) => `/portal/social?month=${month}`}
+      />,
+    );
+
+    const current = container.querySelectorAll('[aria-current="date"]');
+    expect(current).toHaveLength(1);
+    expect(current[0]).toHaveAttribute("dateTime", today);
   });
 });

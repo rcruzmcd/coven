@@ -203,6 +203,11 @@ To put a tenant on its domain:
    too, so a value it cannot read is a value the two sides can disagree
    about.
 
+5. **Add an uptime monitor for the host** (Sentry → Uptime Monitors), pointed
+   at `https://www.example.org/api/health`, failing on 2 consecutive misses.
+   See "Health endpoint and uptime monitors" below for why every live host
+   needs its own monitor.
+
 `portal.<anything>` is a portal host: `src/proxy.ts` rewrites bare paths on
 it into the `/portal` route group, for every tenant alike.
 
@@ -218,6 +223,124 @@ This used to be two literals in `src/lib/portal/paths.ts`, `PORTAL_HOST =
 "portal.chattersnow.org"` and `PUBLIC_HOSTS = {chattersnow.org,
 www.chattersnow.org}`, which made one tenant's DNS the platform's routing
 table and sent _every_ public host to that tenant's subdomain (#795 Phase 2).
+
+### Health endpoint and uptime monitors (#1894)
+
+`GET /api/health` answers for the host it is requested on. It reads the
+host's tenant through the same server client and the same `getPublicTenant`
+the public layout uses, so it exercises the request host,
+`TENANT_HOST_OVERRIDE`, the publishable key, PostgREST and tenant resolution
+together (`src/lib/health.ts`):
+
+| Response                                 | Means                                                    |
+| ---------------------------------------- | -------------------------------------------------------- |
+| 200 `{ ok: true, tenant: "<slug>" }`     | the host resolves and the database answered              |
+| 503 `{ ok: false, code: "PGRST…" }`      | PostgREST answered with an error (e.g. `PGRST002`)       |
+| 503 `{ ok: false, code: "unreachable" }` | the request got no answer -- a connection error          |
+| 503 `{ ok: false, code: "timeout" }`     | no answer within 5s                                      |
+| 503 `{ ok: false, code: "no_tenant" }`   | the host resolves to no tenant (more than one is active) |
+
+It exists because a failed read is invisible everywhere else. Every public
+loader falls back to defaults rather than failing the page, so during the
+2026-11-16 to 11-18 PostgREST `PGRST002` loop every host served the
+placeholder home page **with a 200**, and nothing alerted for two days.
+
+It is unauthenticated (the monitors are a third party), `Cache-Control:
+no-store`, and names nothing but the slug. It works on a `portal.` host as
+well as the apex: the proxy passes `/api/` through on both rather than
+rewriting it under `/portal`.
+
+**One Sentry uptime monitor per live host**, every 1 minute, alerting on 2
+consecutive failures, into the same alert channel as the rest of Sentry:
+
+- `https://www.chattersnow.org/api/health`
+- `https://coven.rcmlabs.dev/api/health`
+- `https://demo.rcmlabs.dev/api/health`
+
+Per host rather than one for the platform, because resolution is per host: a
+custom domain whose `custom_domain` row is wrong, or whose tenant was
+deactivated, fails its own check while the others stay green. Adding a tenant
+on a custom domain therefore includes adding its monitor (step 5 above).
+
+### Swallowed query errors are reported (#1895)
+
+The uptime monitor answers "is the host up"; this answers "which reads are
+failing". A loader that falls back to defaults on a Supabase error still falls
+back, but first calls `reportQueryError` (`src/lib/observability/query-error.ts`),
+which logs the server line the loaders always wrote and sends a Sentry event:
+
+| Tag            | Value                                                                                           |
+| -------------- | ----------------------------------------------------------------------------------------------- |
+| `query_source` | the read, `module.view`, e.g. `branding.public_branding`                                        |
+| `query_code`   | PostgREST/SQLSTATE code, or the kind when there is none (`connection`)                          |
+| `query_kind`   | `postgrest` (`PGRST*`), `connection` (no code), `timeout` (`57014`), `database` (anything else) |
+
+Events are fingerprinted on `source + code`, so an outage is one issue per
+failing read with a high event count, not thousands of issues. The event
+also carries the error's `details` and `hint` as extra data, and the request's
+`tenant` tag (#1210).
+
+Covered: every public-site and shared loader (tenant resolution, branding,
+site content, lexicon, page visibility, site layout, site images, legal
+documents and versions, publications, articles, giving, giveaway rules, the
+events listing and the home page). Portal-only loaders still only log; they
+move over in a follow-up. New code that swallows a Supabase error should call
+`reportQueryError` (or `reportIfQueryFailed` for a `data ?? []` read) rather
+than `console.error`.
+
+**Sentry alert rules** (Alerts → Issue alerts, same channel as the uptime
+monitors):
+
+1. **Infrastructure query error** — when a new issue is created or an
+   issue's state changes, filter: tag `query_kind` is one of `postgrest`,
+   `connection`, `timeout`. Act: notify immediately. Frequency: 5 minutes.
+2. **Query error burst** — when an issue is seen more than 20 times in
+   5 minutes, filter: tag `query_source` is set. Act: notify. Frequency:
+   30 minutes. Catches a `database`-kind failure (an RLS or schema bug)
+   that rule 1 deliberately ignores.
+
+### The outage page (#1896)
+
+While the database is unreachable, every page on every host -- public and
+portal -- answers **503** with `Retry-After: 120` and `no-store`, showing the
+tenant's own name, logo, colours, typeface and contact address. Before this,
+the same outage served the platform's placeholder copy under a 200.
+
+**How it is decided.** `src/proxy.ts` asks `databaseHealth()`
+(`src/lib/outage/probe.ts`): one no-retry `public_tenant` read with a 3s
+timeout, remembered per server instance for 10s. Only an infrastructure
+failure counts -- no answer, `PGRST*`, or `57014`; an RLS or schema error is a
+bug in one read and keeps rendering. Route handlers (`/api/*`, so
+`/api/health`'s own 503 body is untouched), `/auth/*` and static files are not
+gated. A request that started rendering before the probe noticed hits the
+backstop instead: `getPublicSite` throws `DataUnavailableError`, which is an
+uncached 500 with neutral copy from `global-error.tsx`.
+
+**Where the branding comes from.** Not the database that is down: a snapshot
+per tenant in **Vercel Global Config** (formerly Edge Config), keyed
+`outage_<custom_domain with dots as underscores>` and looked up the way
+`resolve_tenant_id_from_host()` matches -- the host, then each parent domain.
+It holds the tenant's name, its `brand.*` colour, accent, logo and typography
+rows, and `org.email_general` only when the tenant set it. It is written:
+
+- after branding is saved, and after `org.email_general` is published (that
+  tenant only);
+- after a tenant is provisioned or its domain or status changes (every tenant,
+  so a moved domain's old key is deleted);
+- daily by `/api/cron/outage-snapshots`, which also deletes keys no active
+  tenant claims.
+
+A host with no snapshot -- an unknown host, a tenant with no `custom_domain`,
+any environment without Global Config -- gets the **neutral** page, which
+names no organization.
+
+**Setup (production only).** Create a Global Config store, connect it to the
+project (this sets `EDGE_CONFIG`, the read connection string), and add
+`VERCEL_API_TOKEN` (a token that may write the store) and, for a team-owned
+store, `VERCEL_TEAM_ID`. Then run the cron once by hand to fill it:
+`curl -H "Authorization: Bearer $CRON_SECRET" https://coven.rcmlabs.dev/api/cron/outage-snapshots`.
+With any of these unset every write is a no-op and the outage page is the
+neutral one.
 
 ### Google sign-in names the platform (#1249)
 

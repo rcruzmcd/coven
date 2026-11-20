@@ -17,6 +17,7 @@ import {
   Table,
   TableBody,
   TableCell,
+  TableFooter,
   TableHead,
   TableHeader,
   TableRow,
@@ -98,6 +99,8 @@ export function PortalDataTable<T, K extends string = string>({
   pageSize: controlledPageSize,
   onPageSizeChange,
   onRowClick,
+  footer,
+  groupBy,
 }: {
   columns: readonly PortalDataTableColumn<T, K>[];
   /** Already filtered. */
@@ -143,6 +146,26 @@ export function PortalDataTable<T, K extends string = string>({
    * the row is left to that element.
    */
   onRowClick?: (row: T) => void;
+  /**
+   * A totals row under the body, keyed by column (#1898). Each cell follows
+   * its column's `hideBelow`, so a total never sits under the wrong header
+   * at a width that dropped a column. The caller computes it over every row,
+   * not the page on screen.
+   */
+  footer?: Partial<Record<K, ReactNode>>;
+  /**
+   * Rows under group headings, in one table (#1899) -- so the columns line
+   * up across groups, which separate tables per group never quite do. The
+   * groups keep `order`; the sort applies within each. A group's heading
+   * repeats at the top of a page it continues onto, and its subtotal row
+   * follows its last row.
+   */
+  groupBy?: {
+    groupOf: (row: T) => string;
+    order: readonly string[];
+    heading: (group: string) => ReactNode;
+    subtotal?: (group: string) => Partial<Record<K, ReactNode>>;
+  };
 }) {
   const [internalSort, setInternalSort] = useState<{
     key: K;
@@ -203,7 +226,18 @@ export function PortalDataTable<T, K extends string = string>({
         : 1,
     totalPages,
   );
-  const visible = sorted.slice((page - 1) * pageSize, page * pageSize);
+  // Grouping is applied after sorting and is stable, so within a group the
+  // rows keep the reader's sort. A group missing from `order` goes last.
+  const ordered = useMemo(() => {
+    if (!groupBy) return sorted;
+    const rank = (row: T) => {
+      const index = groupBy.order.indexOf(groupBy.groupOf(row));
+      return index === -1 ? groupBy.order.length : index;
+    };
+    return [...sorted].sort((a, b) => rank(a) - rank(b));
+  }, [sorted, groupBy]);
+  const firstIndex = (page - 1) * pageSize;
+  const visible = ordered.slice(firstIndex, page * pageSize);
 
   // Against the smallest option, not the current one: twenty rows fit a
   // twenty-five-row page, and hiding the footer for them would take away the
@@ -266,6 +300,24 @@ export function PortalDataTable<T, K extends string = string>({
     onRowClick(row);
   }
 
+  /** A totals row's cells, each under its column and hidden with it. */
+  function totalsCells(cells: Partial<Record<K, ReactNode>>) {
+    return (
+      <>
+        {columns.map((column) => (
+          <TableCell
+            key={column.key}
+            hideBelow={column.hideBelow}
+            className={column.cellClassName}
+          >
+            {cells[column.key]}
+          </TableCell>
+        ))}
+        {showsDetail && <TableCell className={showBelow(detailBreakpoint)} />}
+      </>
+    );
+  }
+
   const body = (
     <>
       <Table
@@ -324,11 +376,29 @@ export function PortalDataTable<T, K extends string = string>({
               </TableCell>
             </TableRow>
           ) : (
-            visible.map((row) => {
+            visible.map((row, index) => {
               const key = getRowKey(row);
               const open = expandedRows.has(key);
+              const group = groupBy?.groupOf(row);
+              const startsGroup =
+                groupBy !== undefined &&
+                (index === 0 || groupBy.groupOf(visible[index - 1]) !== group);
+              const next = ordered[firstIndex + index + 1];
+              const endsGroup =
+                groupBy?.subtotal !== undefined &&
+                (next === undefined || groupBy.groupOf(next) !== group);
               return (
                 <Fragment key={key}>
+                  {startsGroup && (
+                    <TableRow data-group-heading="" className="bg-muted/40">
+                      <TableCell
+                        colSpan={detailColumnCount}
+                        className="font-semibold whitespace-normal"
+                      >
+                        {groupBy.heading(group!)}
+                      </TableCell>
+                    </TableRow>
+                  )}
                   <TableRow
                     onClick={
                       onRowClick
@@ -424,11 +494,21 @@ export function PortalDataTable<T, K extends string = string>({
                       </TableCell>
                     </TableRow>
                   )}
+                  {endsGroup && (
+                    <TableRow data-group-subtotal="" className="font-medium">
+                      {totalsCells(groupBy.subtotal!(group!))}
+                    </TableRow>
+                  )}
                 </Fragment>
               );
             })
           )}
         </TableBody>
+        {footer && rows.length > 0 && (
+          <TableFooter>
+            <TableRow>{totalsCells(footer)}</TableRow>
+          </TableFooter>
+        )}
       </Table>
       {showFooter && (
         <div className="flex flex-wrap items-center justify-between gap-3 px-4 pt-3">

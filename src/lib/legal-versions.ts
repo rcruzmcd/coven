@@ -2,6 +2,7 @@ import { cache } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { DEFAULT_ORG_TIME_ZONE } from "@/lib/org-timezone";
 import type { LegalDocumentContent } from "@/lib/site-content";
+import { reportQueryError } from "@/lib/observability/query-error";
 
 /**
  * The publication history of a tenant's legal documents, as the public site
@@ -74,10 +75,11 @@ export const getPublishedLegalVersions = cache(
     // unreadable view looks exactly like a tenant that has published nothing,
     // so it says so in the log.
     if (error) {
-      console.error(
-        "[legal-versions] could not read public_legal_document_versions; serving no version history",
-        error,
-      );
+      reportQueryError(error, {
+        source: "legal-versions.public_legal_document_versions",
+        message:
+          "could not read public_legal_document_versions; serving no version history",
+      });
       return [];
     }
 

@@ -115,6 +115,12 @@ describe("resolvePortalRoute on the portal host", () => {
     });
   });
 
+  test("leaves the health check at the app root (#1894)", () => {
+    expect(resolvePortalRoute(PORTAL, "/api/health")).toEqual({
+      kind: "pass",
+    });
+  });
+
   test("leaves public/ assets at the app root", () => {
     expect(resolvePortalRoute(PORTAL, "/chatter-logo-transparent.png")).toEqual(
       { kind: "pass" },

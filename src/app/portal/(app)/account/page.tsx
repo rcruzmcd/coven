@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { PublicSiteLink } from "@/components/portal/public-site-link";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
@@ -169,15 +170,15 @@ export default async function AccountPage() {
               <ul className="space-y-1 text-sm">
                 {policies.map((document) => (
                   <li key={document.key}>
-                    <Link
-                      href={document.route}
+                    <PublicSiteLink
+                      path={document.route}
                       target="_blank"
                       rel="noopener noreferrer"
                       aria-label={`${document.label} (opens in new tab)`}
                       className="underline underline-offset-4"
                     >
                       {document.label}
-                    </Link>
+                    </PublicSiteLink>
                   </li>
                 ))}
               </ul>

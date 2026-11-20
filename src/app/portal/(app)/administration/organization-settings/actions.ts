@@ -50,6 +50,7 @@ import {
   verifiedSendingDomains,
 } from "@/lib/email/identity";
 import { currentTenant, getTenantContext } from "@/lib/portal/tenants";
+import { scheduleOutageSnapshotSync } from "@/lib/outage/sync";
 
 export type { SettingActionResult };
 
@@ -384,6 +385,10 @@ export async function updateBrandingAction(
   if (error) {
     return { error: "Could not save the branding. Please try again." };
   }
+
+  // The outage page's copy of this branding (#1896).
+  const tenantId = currentTenant(await getTenantContext(supabase))?.id;
+  if (tenantId) scheduleOutageSnapshotSync(tenantId);
 
   revalidatePath(SETTINGS_PATH);
   revalidatePath("/", "layout");

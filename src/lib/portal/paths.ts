@@ -172,7 +172,25 @@ export function publicSiteHref(
   customDomain: string | null,
   path: string,
 ): string | null {
-  if (!isPortalHost(requestHost)) return path;
+  const origin = publicSiteOrigin(requestHost, customDomain);
+  return origin === null ? null : `${origin}${path}`;
+}
+
+/**
+ * publicSiteHref() without the path: `""` when the public site is this host,
+ * `https://<domain>` from a portal host, null when there is none. A plain
+ * string so the portal layout can hand it to client components, which link
+ * to public pages too and cannot read the request host themselves.
+ *
+ * A bare `/privacy` from a portal host is not merely the wrong page: the proxy
+ * rewrites it to `/portal/privacy`, so the link 404s and `next/link`'s
+ * prefetch logs a 404 for every one in view.
+ */
+export function publicSiteOrigin(
+  requestHost: string,
+  customDomain: string | null,
+): string | null {
+  if (!isPortalHost(requestHost)) return "";
   const domain = publicSiteDomain(customDomain);
-  return domain ? `https://${domain}${path}` : null;
+  return domain ? `https://${domain}` : null;
 }

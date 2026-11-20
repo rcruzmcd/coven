@@ -6,6 +6,7 @@ import {
   type ArticleCategoryWithArticles,
   type PublicArticleRow,
 } from "@/lib/articles";
+import { reportIfQueryFailed } from "@/lib/observability/query-error";
 
 /**
  * The public site's read of the tenant's article collection (#894).
@@ -33,10 +34,13 @@ export const getPublicArticleCategories = cache(
     if (categories.error || articles.error) {
       // Same stance as `getPublicSite`: render what we can and say so, because
       // a silent empty section looks like the editor refusing to save.
-      console.error(
-        "[public-articles] could not read the article collection; rendering none",
-        categories.error ?? articles.error,
+      const message = "could not read the article collection; rendering none";
+      reportIfQueryFailed(
+        categories,
+        "public-articles.public_article_categories",
+        message,
       );
+      reportIfQueryFailed(articles, "public-articles.public_articles", message);
       return [];
     }
 

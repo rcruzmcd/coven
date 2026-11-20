@@ -6,6 +6,7 @@ import { applyLexicon, type Lexicon } from "@/lib/lexicon";
 import { getPublicTenant } from "@/lib/branding";
 import { isPlatformTenant } from "@/lib/portal/tenants";
 import { LEGAL_DOCUMENTS } from "@/lib/legal-documents";
+import { reportQueryError } from "@/lib/observability/query-error";
 
 export type PublicPageSlot = {
   /**
@@ -462,10 +463,11 @@ export const getPublicTenantModules = cache(
       .select("module_key, enabled");
 
     if (error) {
-      console.error(
-        "[page-visibility] could not read public_tenant_modules; every module is falling back to enabled",
-        error,
-      );
+      reportQueryError(error, {
+        source: "page-visibility.public_tenant_modules",
+        message:
+          "could not read public_tenant_modules; every module is falling back to enabled",
+      });
       return {};
     }
 
@@ -522,10 +524,11 @@ export const getPageVisibility = cache(
     // on every request was swallowed here, so the admin toggles looked like
     // they simply refused to save. A broken read has to say so out loud.
     if (error) {
-      console.error(
-        "[page-visibility] could not read public_page_visibility; every section is falling back to its registry default",
-        error,
-      );
+      reportQueryError(error, {
+        source: "page-visibility.public_page_visibility",
+        message:
+          "could not read public_page_visibility; every section is falling back to its registry default",
+      });
     }
 
     const visibility: Record<string, boolean> = {};
@@ -562,10 +565,11 @@ export const getTenantPageVisibility = cache(
       .like("key", `${PAGE_VISIBILITY_PREFIX}%`);
 
     if (error) {
-      console.error(
-        "[page-visibility] could not read page_visibility.* from app_settings; the panel is showing registry defaults",
-        error,
-      );
+      reportQueryError(error, {
+        source: "page-visibility.app_settings.page_visibility",
+        message:
+          "could not read page_visibility.* from app_settings; the panel is showing registry defaults",
+      });
     }
 
     const stored = new Map(
@@ -601,10 +605,11 @@ export const getTenantModules = cache(
     const { data, error } = await supabase.rpc("my_modules");
 
     if (error) {
-      console.error(
-        "[page-visibility] could not read my_modules; the panel is treating every module as available",
-        error,
-      );
+      reportQueryError(error, {
+        source: "page-visibility.my_modules",
+        message:
+          "could not read my_modules; the panel is treating every module as available",
+      });
       return {};
     }
 
@@ -687,10 +692,10 @@ async function readAsksProfileQuestions(
 ): Promise<boolean> {
   const { data, error } = await supabase.rpc(rpc);
   if (error) {
-    console.error(
-      `[page-visibility] could not read ${rpc}; the privacy policy is describing profile questions`,
-      error,
-    );
+    reportQueryError(error, {
+      source: `page-visibility.${rpc}`,
+      message: `could not read ${rpc}; the privacy policy is describing profile questions`,
+    });
     return true;
   }
   return data !== false;
