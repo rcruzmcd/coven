@@ -17,6 +17,7 @@ import {
   Table,
   TableBody,
   TableCell,
+  TableFooter,
   TableHead,
   TableHeader,
   TableRow,
@@ -98,6 +99,7 @@ export function PortalDataTable<T, K extends string = string>({
   pageSize: controlledPageSize,
   onPageSizeChange,
   onRowClick,
+  footer,
 }: {
   columns: readonly PortalDataTableColumn<T, K>[];
   /** Already filtered. */
@@ -143,6 +145,13 @@ export function PortalDataTable<T, K extends string = string>({
    * the row is left to that element.
    */
   onRowClick?: (row: T) => void;
+  /**
+   * A totals row under the body, keyed by column (#1898). Each cell follows
+   * its column's `hideBelow`, so a total never sits under the wrong header
+   * at a width that dropped a column. The caller computes it over every row,
+   * not the page on screen.
+   */
+  footer?: Partial<Record<K, ReactNode>>;
 }) {
   const [internalSort, setInternalSort] = useState<{
     key: K;
@@ -429,6 +438,24 @@ export function PortalDataTable<T, K extends string = string>({
             })
           )}
         </TableBody>
+        {footer && rows.length > 0 && (
+          <TableFooter>
+            <TableRow>
+              {columns.map((column) => (
+                <TableCell
+                  key={column.key}
+                  hideBelow={column.hideBelow}
+                  className={column.cellClassName}
+                >
+                  {footer[column.key]}
+                </TableCell>
+              ))}
+              {showsDetail && (
+                <TableCell className={showBelow(detailBreakpoint)} />
+              )}
+            </TableRow>
+          </TableFooter>
+        )}
       </Table>
       {showFooter && (
         <div className="flex flex-wrap items-center justify-between gap-3 px-4 pt-3">

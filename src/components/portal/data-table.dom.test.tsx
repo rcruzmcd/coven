@@ -346,4 +346,23 @@ describe("PortalDataTable", () => {
       ).toBeNull();
     });
   });
+
+  describe("footer (#1898)", () => {
+    test("renders a totals row under the body, one cell per column", () => {
+      renderTable(gear(3), {
+        footer: { name: "Total", qty: "3" },
+      });
+
+      const footer = screen.getByText("Total").closest("tfoot") as HTMLElement;
+      const cells = within(footer).getAllByRole("cell");
+      expect(cells).toHaveLength(COLUMNS.length);
+      expect(cells[1]).toHaveTextContent("3");
+    });
+
+    test("has no footer when no row survived the filters", () => {
+      renderTable([], { footer: { name: "Total" } });
+
+      expect(screen.queryByText("Total")).toBeNull();
+    });
+  });
 });
