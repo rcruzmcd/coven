@@ -63,6 +63,11 @@ export type StoryLoad =
 
 /** Gear photos are stored up to this size (series-gear-fill.ts). */
 const MAX_PHOTO_BYTES = 10 * 1024 * 1024;
+/**
+ * A photo is up to 10 MB and a Drive thumbnail is a redirect away, so it gets
+ * the time the post's own photo copy does rather than an icon's 3s.
+ */
+const PHOTO_TIMEOUT_MS = 10_000;
 
 const COPY_KEYS = [
   "gears.spotlight_headline",
@@ -202,8 +207,8 @@ export function storyFingerprint(source: StorySource): string {
 }
 
 /**
- * One frame's input with its images fetched and inlined: the photo on frame 1
- * only, the logo on every frame.
+ * One frame's input with its images fetched and inlined: the photo on the
+ * frames that show it (1 and 2), the logo on every frame.
  */
 export async function inlineStoryImages(
   source: StorySource,
@@ -211,8 +216,9 @@ export async function inlineStoryImages(
   requestUrl: string,
 ): Promise<Omit<StoryInput, "frame" | "headingTracking">> {
   const [photo, logo] = await Promise.all([
-    loadRemoteIcon(frame === 1 ? source.photoSource : null, requestUrl, {
+    loadRemoteIcon(frame === 3 ? null : source.photoSource, requestUrl, {
       maxBytes: MAX_PHOTO_BYTES,
+      timeoutMs: PHOTO_TIMEOUT_MS,
     }),
     loadRemoteIcon(source.input.branding.logoUrl, requestUrl),
   ]);

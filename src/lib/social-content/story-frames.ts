@@ -97,6 +97,8 @@ export type SpotlightFrame = {
 export type DetailsFrame = {
   frame: 2;
   heading: string;
+  /** A data URL, or null to leave the photo out: the tiles need no panel. */
+  photo: string | null;
   tiles: DetailTile[];
   categoryLabel: string | null;
   script: string | null;
@@ -388,6 +390,7 @@ function detailsFrame(input: StoryInput): DetailsFrame {
   return {
     frame: 2,
     heading: "The details",
+    photo: input.photo,
     tiles: detailTiles(input.item, input.details),
     categoryLabel: clean(input.item.category_label) || null,
     script: why ? "why we love it" : null,
