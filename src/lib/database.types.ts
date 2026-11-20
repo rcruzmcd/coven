@@ -13907,6 +13907,8 @@ export type Database = {
           content_opportunity_id: string;
           content_type: string;
           event_media_id: string | null;
+          generated_fingerprint: string | null;
+          generated_frame: number | null;
           id: string;
           kind: string;
           original_filename: string;
