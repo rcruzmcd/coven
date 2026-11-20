@@ -10,6 +10,10 @@ import {
   stripPortalPrefix,
 } from "@/lib/portal/paths";
 import { publicCdnCacheControl } from "@/lib/public-cdn-cache";
+import { databaseHealth } from "@/lib/outage/probe";
+import { outageResponse } from "@/lib/outage/page";
+import { readOutageSnapshot } from "@/lib/outage/snapshot";
+import { tenantHost } from "@/lib/supabase/tenant-host";
 
 // Paths that live at the app root and must keep working unprefixed on the
 // portal host. `/portal` is a route-group prefix, not a mount point, so
@@ -418,6 +422,23 @@ export function trailingSlashRedirect(pathname: string): string | null {
   return pathname.replace(/\/+$/, "") || "/";
 }
 
+/**
+ * Whether a request is a page the outage gate answers for (#1896): a read of
+ * anything but a route handler, the auth callback or a static file. Route
+ * handlers keep their own failure answers -- `/api/health` above all, whose
+ * 503 body is what the uptime monitors key on -- and a static file needs no
+ * database. RSC fetches are gated too: a client navigation that gets HTML
+ * back falls back to a full page load, which then lands on the same page.
+ */
+export function isOutageGated(method: string, pathname: string): boolean {
+  if (method !== "GET" && method !== "HEAD") return false;
+  if (ROOT_PATH_PREFIXES.some((prefix) => pathname.startsWith(prefix))) {
+    return false;
+  }
+  const lastSegment = pathname.slice(pathname.lastIndexOf("/") + 1);
+  return !lastSegment.includes(".");
+}
+
 export async function proxy(request: NextRequest) {
   const hostname = request.headers.get("host") ?? "";
   const { pathname } = request.nextUrl;
@@ -427,6 +448,23 @@ export async function proxy(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = slashless;
     return NextResponse.redirect(url, 308);
+  }
+
+  // The outage gate (#1896). While the database is down every page would
+  // otherwise render the platform's placeholder copy with a 200 -- and the CDN
+  // would keep it. Answered here because nothing in the render can set a 503
+  // or `Retry-After`. The probe is remembered per instance (`PROBE_TTL_MS`),
+  // so a healthy request pays a read at most once in that window. Ahead of
+  // the redirects below: none of them is worth following into a page that
+  // cannot load, and this applies to public and portal hosts alike.
+  if (isOutageGated(request.method, pathname)) {
+    const health = await databaseHealth();
+    if (!health.up) {
+      return outageResponse(
+        await readOutageSnapshot(tenantHost(hostname)),
+        request.method,
+      );
+    }
   }
 
   // HEAD is a page load with the body left off -- crawlers probe with it -- so

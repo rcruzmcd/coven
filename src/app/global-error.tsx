@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import * as Sentry from "@sentry/nextjs";
+import { DATA_UNAVAILABLE_DIGEST } from "@/lib/outage/data-unavailable";
 import "./globals.css";
 
 /**
@@ -37,6 +38,12 @@ export default function GlobalError({
     });
   }, [error]);
 
+  // The database is down (#1896). Neutral like the rest of this boundary:
+  // the tenant's branding is in the database that failed. The proxy serves the
+  // branded page; this is only the request that started rendering before its
+  // probe noticed.
+  const outage = error.digest === DATA_UNAVAILABLE_DIGEST;
+
   return (
     <html lang="en" className="h-full antialiased">
       <body className="flex min-h-full flex-col items-center justify-center gap-4 bg-[var(--background)] p-8 text-center text-[var(--foreground)]">
@@ -45,13 +52,16 @@ export default function GlobalError({
             tenant -- and it fires on exactly the failure where a tenant read
             is what went wrong. One client's name here reached every tenant. */}
         <h1 className="text-3xl font-semibold tracking-brand">
-          This page is having a moment
+          {outage
+            ? "This site is temporarily unavailable"
+            : "This page is having a moment"}
         </h1>
         <p className="max-w-md text-sm leading-relaxed opacity-80">
-          Something went wrong while loading the page. Try again — if it keeps
-          happening, let an administrator know.
+          {outage
+            ? "We're having trouble loading this site right now. Please try again in a few minutes."
+            : "Something went wrong while loading the page. Try again — if it keeps happening, let an administrator know."}
         </p>
-        {error.digest && (
+        {error.digest && !outage && (
           <p className="text-xs opacity-60">
             Reference for support: <code>{error.digest}</code>
           </p>

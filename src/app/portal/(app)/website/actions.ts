@@ -18,6 +18,11 @@ import {
   getTenantPageVisibility,
 } from "@/lib/page-visibility";
 import type { Json } from "@/lib/supabase/types";
+import { currentTenant, getTenantContext } from "@/lib/portal/tenants";
+import {
+  OUTAGE_EMAIL_KEY,
+  scheduleOutageSnapshotSync,
+} from "@/lib/outage/sync";
 
 export type SiteContentActionResult = { error: string } | { success: true };
 
@@ -199,6 +204,12 @@ export async function publishSiteContentAction(
         PUBLISH_ERROR_MESSAGES[error.message] ??
         "Could not publish this content. Please try again.",
     };
+  }
+
+  // The contact address is on the outage page (#1896).
+  if (keys.includes(OUTAGE_EMAIL_KEY)) {
+    const tenantId = currentTenant(await getTenantContext(supabase))?.id;
+    if (tenantId) scheduleOutageSnapshotSync(tenantId);
   }
 
   revalidatePath("/", "layout");

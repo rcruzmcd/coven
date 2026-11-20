@@ -22,6 +22,10 @@ import {
 import { getPublicLexicon, type Lexicon } from "@/lib/lexicon";
 import { tagTenant } from "@/lib/observability/tenant-tag";
 import { reportQueryError } from "@/lib/observability/query-error";
+import {
+  DataUnavailableError,
+  isOutageCode,
+} from "@/lib/outage/data-unavailable";
 
 /**
  * Everything the public site needs to know about the organization it is
@@ -97,6 +101,22 @@ export const getPublicSite = cache(
         message:
           "could not read public_site_content; rendering the default copy",
       });
+    }
+
+    // The database is down, not merely empty (#1896). Rendering on would
+    // serve the platform's placeholder copy under a 200 the CDN keeps; the
+    // throw gives an uncached 500 and the outage copy instead -- after the
+    // reports above, so Sentry still hears about every read. Decided on the
+    // tenant read alone: it is the read every public request makes first,
+    // and an empty-but-healthy tenant resolves fine and keeps the defaults.
+    if (
+      tenantResult.status === "unavailable" &&
+      isOutageCode(tenantResult.code)
+    ) {
+      throw new DataUnavailableError(
+        "public-site.public_tenant",
+        tenantResult.code ?? "",
+      );
     }
 
     const tenant =
