@@ -140,6 +140,33 @@ export function occurrencesFrom(
   return dates;
 }
 
+/**
+ * Which of the series' dates `day` is, counting the anchor as 1: "Week 12"
+ * on a Gear Spotlight story (#1908). Null for a day that is not one of its
+ * dates (a post moved off the schedule keeps its `occurrence_date`, so this
+ * only fails on bad data).
+ */
+export function occurrenceNumber(
+  schedule: Pick<SeriesSchedule, "cadence" | "anchor_date">,
+  day: string,
+): number | null {
+  if (day < schedule.anchor_date) return null;
+  const { year: ay, month: am } = parseDay(schedule.anchor_date);
+  const { year: dy, month: dm } = parseDay(day);
+  const daysBetween =
+    (Date.parse(`${day}T00:00:00Z`) -
+      Date.parse(`${schedule.anchor_date}T00:00:00Z`)) /
+    86_400_000;
+  const index =
+    schedule.cadence === "weekly"
+      ? daysBetween / 7
+      : schedule.cadence === "biweekly"
+        ? daysBetween / 14
+        : (dy - ay) * 12 + (dm - am);
+  if (!Number.isInteger(index)) return null;
+  return occurrenceDate(schedule, index) === day ? index + 1 : null;
+}
+
 /** When the occurrence on `day` is published, as a UTC ISO instant. */
 export function occurrencePublishAt(
   schedule: Pick<SeriesSchedule, "publish_time" | "time_zone">,
