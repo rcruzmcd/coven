@@ -133,7 +133,7 @@ export default async function InventoryCategoriesPage() {
                   <TableHead>Category</TableHead>
                   <TableHead hideBelow="sm">Key</TableHead>
                   <TableHead>Items</TableHead>
-                  <TableHead>Active</TableHead>
+                  <TableHead hideBelow="sm">Active</TableHead>
                   <TableHead>Color</TableHead>
                   <TableHead className="w-10" />
                 </TableRow>
@@ -183,7 +183,7 @@ export default async function InventoryCategoriesPage() {
                                 {category.key}
                               </TableCell>
                               <TableCell>{row.item_count}</TableCell>
-                              <TableCell>
+                              <TableCell hideBelow="sm">
                                 {category.is_active ? "Yes" : "No"}
                               </TableCell>
                               <TableCell>
