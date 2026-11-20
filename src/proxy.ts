@@ -13,7 +13,7 @@ import { publicCdnCacheControl } from "@/lib/public-cdn-cache";
 import { databaseHealth } from "@/lib/outage/probe";
 import { outageResponse } from "@/lib/outage/page";
 import { readOutageSnapshot } from "@/lib/outage/snapshot";
-import { tenantHost } from "@/lib/supabase/server";
+import { tenantHost } from "@/lib/supabase/tenant-host";
 
 // Paths that live at the app root and must keep working unprefixed on the
 // portal host. `/portal` is a route-group prefix, not a mount point, so
