@@ -6411,6 +6411,7 @@ export type Database = {
       };
       inventory_categories: {
         Row: {
+          accent_stop: number | null;
           created_at: string;
           created_by: string | null;
           group_id: string;
@@ -6424,6 +6425,7 @@ export type Database = {
           updated_by: string | null;
         };
         Insert: {
+          accent_stop?: number | null;
           created_at?: string;
           created_by?: string | null;
           group_id: string;
@@ -6437,6 +6439,7 @@ export type Database = {
           updated_by?: string | null;
         };
         Update: {
+          accent_stop?: number | null;
           created_at?: string;
           created_by?: string | null;
           group_id?: string;
@@ -6475,6 +6478,7 @@ export type Database = {
       };
       inventory_category_groups: {
         Row: {
+          accent_stop: number | null;
           created_at: string;
           created_by: string | null;
           id: string;
@@ -6487,6 +6491,7 @@ export type Database = {
           updated_by: string | null;
         };
         Insert: {
+          accent_stop?: number | null;
           created_at?: string;
           created_by?: string | null;
           id?: string;
@@ -6499,6 +6504,7 @@ export type Database = {
           updated_by?: string | null;
         };
         Update: {
+          accent_stop?: number | null;
           created_at?: string;
           created_by?: string | null;
           id?: string;
