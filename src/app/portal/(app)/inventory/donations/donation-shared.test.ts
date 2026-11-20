@@ -5,8 +5,10 @@ function item(
   category: string | null,
   face_value: DonationItemRow["face_value"],
   type: string | null = null,
+  intended_use = "internal",
 ) {
   return {
+    intended_use,
     category_key: category?.toLowerCase() ?? null,
     category_label: category,
     type,
@@ -19,6 +21,7 @@ describe("summarizeItems", () => {
     expect(summarizeItems([])).toEqual({
       count: 0,
       byCategory: [],
+      byIntendedUse: [],
       totalValue: 0,
       unvaluedCount: 0,
     });
@@ -80,5 +83,24 @@ describe("summarizeItems", () => {
       "Uncategorized",
       "Wax kit",
     ]);
+  });
+
+  test("breaks the same items down by intended use (#1899)", () => {
+    const summary = summarizeItems([
+      item("Shoes", 50, null, "internal"),
+      item("Shoes", 50, null, "giveaway"),
+      item("Bag", 30, null, "giveaway"),
+      item("Bag", null, null, "giveaway"),
+    ]);
+
+    expect(summary.byIntendedUse).toEqual([
+      { label: "Giveaway prize", count: 3, value: 80, unvaluedCount: 1 },
+      { label: "Internal use", count: 1, value: 50, unvaluedCount: 0 },
+    ]);
+    // Either breakdown adds up to the same total.
+    const sum = (groups: { value: number }[]) =>
+      groups.reduce((total, group) => total + group.value, 0);
+    expect(sum(summary.byIntendedUse)).toBe(summary.totalValue);
+    expect(sum(summary.byCategory)).toBe(summary.totalValue);
   });
 });

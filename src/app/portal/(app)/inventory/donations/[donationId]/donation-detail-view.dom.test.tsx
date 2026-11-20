@@ -1,7 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import { fireEvent, render, screen, within } from "@testing-library/react";
+import { mockUrlTabState } from "@/../test/url-tab-state-mock";
 import type { DonationItemRow, DonationRow } from "../donation-shared";
-import { DonationDetailView } from "./donation-detail-view";
+
+// Before the component's import: the grouping toggle keeps its state in the
+// URL, which happy-dom does not wire up.
+const urlState = mockUrlTabState();
+const { DonationDetailView } = await import("./donation-detail-view");
 
 function makeItem(
   id: string,
@@ -68,7 +73,9 @@ const VANS_ITEMS = [
       i < 2 ? 120 : null,
     ),
   ),
-  makeItem("bag", "Vans backpack", "Bag", "35.50"),
+  makeItem("bag", "Vans backpack", "Bag", "35.50", {
+    intended_use: "giveaway",
+  }),
 ];
 
 function summaryFigure(label: string) {
@@ -224,5 +231,81 @@ describe("DonationDetailView", () => {
     render(<DonationDetailView donation={makeDonation()} events={[]} />);
 
     expect(screen.getByRole("button", { name: "Edit" })).toBeInTheDocument();
+  });
+
+  describe("group by category (#1899)", () => {
+    function subtotal(label: string) {
+      const row = screen.getByText(label).closest("tr") as HTMLElement;
+      return within(row).getByText(/^\$/).textContent;
+    }
+
+    test("the toggle groups the items under category rows, in one table", () => {
+      urlState.seed(null);
+      render(
+        <DonationDetailView
+          donation={makeDonation({ inventory_items: VANS_ITEMS })}
+          events={[]}
+        />,
+      );
+      expect(screen.queryByText("Shoes subtotal")).not.toBeInTheDocument();
+
+      fireEvent.click(
+        screen.getByRole("switch", { name: "Group by category" }),
+      );
+
+      // One table, so the columns line up across the groups.
+      expect(screen.getAllByRole("table")).toHaveLength(1);
+      const headings = screen
+        .getAllByRole("row")
+        .filter((row) => row.hasAttribute("data-group-heading"))
+        .map((row) => row.textContent);
+      expect(headings).toEqual([
+        "Shoes7 items",
+        "Snowboard boots4 items",
+        "Bag1 item",
+      ]);
+      // The subtotals add up to the total: $350 + $240 + $35.50.
+      expect(subtotal("Shoes subtotal")).toBe("$350.00");
+      expect(subtotal("Snowboard boots subtotal")).toBe("$240.00");
+      expect(subtotal("Bag subtotal")).toBe("$35.50");
+      expect(subtotal("Total")).toBe("$625.50");
+    });
+
+    test("opens grouped when the URL says so", () => {
+      urlState.seed("category");
+      render(
+        <DonationDetailView
+          donation={makeDonation({ inventory_items: VANS_ITEMS })}
+          events={[]}
+        />,
+      );
+
+      expect(
+        screen.getByRole("switch", { name: "Group by category" }),
+      ).toBeChecked();
+      expect(screen.getByText("Shoes subtotal")).toBeInTheDocument();
+      urlState.seed(null);
+    });
+  });
+
+  test("the summary breaks the items down by intended use (#1899)", () => {
+    render(
+      <DonationDetailView
+        donation={makeDonation({ inventory_items: VANS_ITEMS })}
+        events={[]}
+      />,
+    );
+
+    expect(
+      within(summaryFigure("Internal use")).getByText("11 items"),
+    ).toBeInTheDocument();
+    expect(
+      within(summaryFigure("Internal use")).getByText(
+        "$590.00 · 2 items not valued",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(summaryFigure("Giveaway prize")).getByText("$35.50"),
+    ).toBeInTheDocument();
   });
 });

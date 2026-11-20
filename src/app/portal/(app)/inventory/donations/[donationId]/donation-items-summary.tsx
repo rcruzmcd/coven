@@ -34,9 +34,26 @@ export function GroupFigures({ groups }: { groups: ItemGroupSummary[] }) {
   ));
 }
 
+function Breakdown({
+  title,
+  groups,
+}: {
+  title: string;
+  groups: ItemGroupSummary[];
+}) {
+  return (
+    <section className="flex flex-col gap-2">
+      <h2 className="app-muted text-sm font-semibold">{title}</h2>
+      <CardSummary label={`Items ${title.toLowerCase()}`}>
+        <GroupFigures groups={groups} />
+      </CardSummary>
+    </section>
+  );
+}
+
 /**
  * The donation's items at a glance, above the table (#1898): how many, what
- * they are worth, and how they break down by category. Built on
+ * they are worth, and how they break down by category and by intended use. Built on
  * `summarizeItems`, the same helper the donations list totals with.
  */
 export function DonationItemsSummary({ items }: { items: DonationItemRow[] }) {
@@ -61,12 +78,10 @@ export function DonationItemsSummary({ items }: { items: DonationItemRow[] }) {
           }
         />
       </CardSummary>
-      <section className="flex flex-col gap-2">
-        <h2 className="app-muted text-sm font-semibold">By category</h2>
-        <CardSummary label="Items by category">
-          <GroupFigures groups={summary.byCategory} />
-        </CardSummary>
-      </section>
+      <Breakdown title="By category" groups={summary.byCategory} />
+      {/* Internal use vs. giveaway is what decides where the items go next
+          (#1899). */}
+      <Breakdown title="By intended use" groups={summary.byIntendedUse} />
     </div>
   );
 }

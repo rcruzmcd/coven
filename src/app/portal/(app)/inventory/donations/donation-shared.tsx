@@ -93,6 +93,8 @@ export type ItemsSummary = {
   count: number;
   /** Largest first, by item count then by value. */
   byCategory: ItemGroupSummary[];
+  /** The same items by intended use -- Internal use vs. Giveaway (#1899). */
+  byIntendedUse: ItemGroupSummary[];
   totalValue: number;
   /** Items with no face value, flagged rather than counted as $0. */
   unvaluedCount: number;
@@ -100,7 +102,7 @@ export type ItemsSummary = {
 
 type SummarizableItem = Pick<
   DonationItemRow,
-  "face_value" | "type" | "category_key" | "category_label"
+  "face_value" | "type" | "category_key" | "category_label" | "intended_use"
 >;
 
 /** A face value as a number, or null for one that was never set. */
@@ -159,6 +161,10 @@ export function summarizeItems(
   return {
     count: items.length,
     byCategory,
+    byIntendedUse: groupItems(
+      items,
+      (item) => labelFor(INTENDED_USES, item.intended_use) || "Not set",
+    ),
     totalValue:
       byCategory.reduce(
         (cents, group) => cents + Math.round(group.value * 100),
