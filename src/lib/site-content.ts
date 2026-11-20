@@ -365,6 +365,15 @@ export const CONTENT_SECTIONS: readonly ContentSection[] = [
     label: "Gear drives",
     route: "/inventory/donate",
   },
+  {
+    // Not a page of the site: the fixed copy on the last frame of a Gear
+    // Spotlight story, which the portal renders as an image (#1905, #1907).
+    key: "gears:spotlight",
+    page: "gears",
+    label: "Gear Spotlight story",
+    description:
+      "The words on the last frame of a featured-gear Instagram story, under the item's photo and details. Instagram's link sticker goes below the steps.",
+  },
 
   { key: "get_involved:opening", page: "get_involved", label: "Opening" },
   { key: "get_involved:sponsor", page: "get_involved", label: "Sponsor" },
@@ -683,6 +692,13 @@ type SlotBase = {
   section: string;
   label: string;
   description?: string;
+  /**
+   * Placeholders the slot's *reader* fills, not the lexicon -- `{item_name}`
+   * in the Gear Spotlight story's line about the item (#1907). Declared so the
+   * sweep in `lexicon.test.ts` can tell one from a typo'd lexicon term, which
+   * it otherwise rejects as braces that would ship on a real page.
+   */
+  placeholders?: readonly string[];
 };
 
 export type ContentSlot = SlotBase &
@@ -871,6 +887,13 @@ function image(
     ratio,
   };
 }
+
+/**
+ * Where the featured item's name goes in `gears.spotlight_item_line`. Not a
+ * lexicon term: `applyLexicon` leaves a placeholder it does not know as it is,
+ * so it survives to the story renderer, which substitutes it (#1907).
+ */
+export const SPOTLIGHT_ITEM_PLACEHOLDER = "{item_name}";
 
 export const SITE_CONTENT_SLOTS: readonly ContentSlot[] = [
   // Organization --------------------------------------------------------------
@@ -2377,6 +2400,40 @@ export const SITE_CONTENT_SLOTS: readonly ContentSlot[] = [
     type: "text",
     default:
       "We periodically run donation drives and swap events where the community can donate, trade, and pick up {item_plural:lower} in person. See",
+  },
+  {
+    key: "gears.spotlight_headline",
+    page: "gears",
+    section: "gears:spotlight",
+    label: "Headline",
+    type: "text",
+    default: "Want it? Here's how.",
+  },
+  {
+    key: "gears.spotlight_item_line",
+    page: "gears",
+    section: "gears:spotlight",
+    label: "Line about the item",
+    description:
+      "Under the headline. {item_name} is replaced with the featured item's name.",
+    placeholders: [SPOTLIGHT_ITEM_PLACEHOLDER],
+    type: "text",
+    default: "{item_name} is available now.",
+  },
+  {
+    key: "gears.spotlight_steps",
+    page: "gears",
+    section: "gears:spotlight",
+    label: "Steps",
+    description:
+      "Shown numbered, in order. Three fit the frame; the story draws the first three.",
+    type: "list",
+    fields: BULLET,
+    default: [
+      { text: "Tap the link below" },
+      { text: "Request the {item:lower} you want" },
+      { text: "We'll be in touch to arrange pickup" },
+    ],
   },
   image(
     "gear_placeholder",

@@ -35,6 +35,8 @@
  * never should be.
  */
 
+import { contrastRatio } from "@/lib/color-contrast";
+
 /** Only the `brand.*` tokens an email can use. See `tenantMailContext()`. */
 export type EmailBranding = {
   /** `brand.logo_url`, already resolved by `brandingFromRows()`. */
@@ -126,23 +128,7 @@ function hexColor(value: string | null): string | null {
   return HEX_COLOR.test(trimmed) ? trimmed : null;
 }
 
-function relativeLuminance(hex: string): number {
-  const channels = [1, 3, 5].map((start) => {
-    const channel = parseInt(hex.slice(start, start + 2), 16) / 255;
-    return channel <= 0.04045
-      ? channel / 12.92
-      : ((channel + 0.055) / 1.055) ** 2.4;
-  });
-  return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
-}
-
-/** WCAG 2.1's contrast ratio, 1 to 21. Both arguments must be `#rrggbb`. */
-export function contrastRatio(foreground: string, background: string): number {
-  const a = relativeLuminance(foreground);
-  const b = relativeLuminance(background);
-  const [lighter, darker] = a >= b ? [a, b] : [b, a];
-  return (lighter + 0.05) / (darker + 0.05);
-}
+export { contrastRatio };
 
 /**
  * The first candidate a reader could actually read, or the platform's accent.

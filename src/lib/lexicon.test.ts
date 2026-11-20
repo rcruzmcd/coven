@@ -182,12 +182,21 @@ describe("every registry template resolves", () => {
   test("site content defaults", () => {
     const content = resolveSiteContent([]);
     for (const slot of SITE_CONTENT_SLOTS) {
+      // A placeholder the slot's reader fills is declared on the slot, so only
+      // those are exempt -- anything else in braces is still a typo.
+      const unresolvedHere = (value: string) =>
+        unresolved(
+          (slot.placeholders ?? []).reduce(
+            (text, placeholder) => text.replaceAll(placeholder, ""),
+            value,
+          ),
+        );
       if (slot.type === "text") {
-        expect(unresolved(content.text(slot.key)), slot.key).toBe(false);
+        expect(unresolvedHere(content.text(slot.key)), slot.key).toBe(false);
       }
       if (slot.type === "paragraphs") {
         for (const paragraph of content.paragraphs(slot.key)) {
-          expect(unresolved(paragraph), slot.key).toBe(false);
+          expect(unresolvedHere(paragraph), slot.key).toBe(false);
         }
       }
       if (slot.type === "list") {
@@ -197,7 +206,7 @@ describe("every registry template resolves", () => {
             if (typeof value === "boolean") continue;
             const values = Array.isArray(value) ? value : [value];
             for (const entry of values) {
-              expect(unresolved(entry), slot.key).toBe(false);
+              expect(unresolvedHere(entry), slot.key).toBe(false);
             }
           }
         }

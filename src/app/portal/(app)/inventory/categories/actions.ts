@@ -7,6 +7,7 @@ import { checkUser } from "@/lib/auth/current-user";
 import { friendlyError } from "@/lib/db-errors";
 import { toInventoryCategories, type InventoryCategory } from "@/lib/inventory";
 import {
+  isAccentStop,
   parseCategoryForm,
   parseCategoryGroupForm,
   slugifyCategoryKey,
@@ -211,5 +212,38 @@ export async function updateInventoryCategoryGroupAction(
 
   revalidatePath("/portal/inventory/categories");
   revalidatePath("/portal/inventory/items");
+  return { success: true };
+}
+
+/**
+ * Sets (or clears, with null) a group's or a category's colour: an index into
+ * the tenant's accent stops (#1907). Its own action rather than a field on the
+ * category forms, because it is picked from the table in one click.
+ */
+export async function setInventoryCategoryAccentAction(
+  kind: "group" | "category",
+  id: string,
+  stop: number | null,
+): Promise<CategoryActionResult> {
+  const supabase = await createSupabaseServerClient();
+  const denied = await requireManage(supabase);
+  if (denied) return denied;
+
+  if (!isAccentStop(stop)) return { error: "Choose one of the brand colors." };
+
+  const { data, error } = await supabase
+    .from(
+      kind === "group" ? "inventory_category_groups" : "inventory_categories",
+    )
+    .update({ accent_stop: stop })
+    .eq("id", id)
+    .select("id");
+
+  // RLS filters rather than errors, so another tenant's id updates nothing.
+  if (error || !data?.length) {
+    return { error: "Could not change the color. Please try again." };
+  }
+
+  revalidatePath("/portal/inventory/categories");
   return { success: true };
 }
