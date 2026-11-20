@@ -89,4 +89,30 @@ describe("SocialMonthView", () => {
     expect(current).toHaveLength(1);
     expect(current[0]).toHaveAttribute("dateTime", today);
   });
+
+  test("colours each post by its status", () => {
+    const draft = { ...piece("1"), content_status: "draft" };
+    const changes = { ...piece("2"), content_status: "changes_requested" };
+    const published = { ...piece("3"), content_status: "published" };
+    render(
+      <SocialMonthView
+        month="2026-11"
+        piecesByDay={new Map([["2026-11-10", [draft, changes, published]]])}
+        overlay={[]}
+        timeZone="UTC"
+        monthHref={(month) => `/portal/social?month=${month}`}
+      />,
+    );
+
+    expect(screen.getByRole("link", { name: "Post 1" })).toHaveClass(
+      "border-l-primary",
+    );
+    expect(screen.getByRole("link", { name: "Post 2" })).toHaveClass(
+      "border-l-destructive",
+    );
+    // Published is the one solid chip.
+    expect(screen.getByRole("link", { name: "Post 3" })).toHaveClass(
+      "bg-success",
+    );
+  });
 });
