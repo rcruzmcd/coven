@@ -244,6 +244,15 @@ describe("buildStoryFrame", () => {
     ]);
   });
 
+  test("frame 2 shows the item's photo, and leaves it out without one", () => {
+    const withPhoto = buildStoryFrame(input({ frame: 2 }))
+      .frame as DetailsFrame;
+    expect(withPhoto.photo).toBe("data:image/jpeg;base64,AAAA");
+    const without = buildStoryFrame(input({ frame: 2, photo: null }))
+      .frame as DetailsFrame;
+    expect(without.photo).toBeNull();
+  });
+
   test("frame 2 never names a donor", () => {
     const frame = buildStoryFrame(input({ frame: 2 })).frame;
     expect(JSON.stringify(frame)).not.toMatch(/donat/i);
