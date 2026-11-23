@@ -1,4 +1,5 @@
 import type { ParseResult } from "@/lib/forms";
+import { MAX_ACCENT_STOPS } from "@/lib/branding";
 
 export type CategoryFormData = {
   group_id: string;
@@ -88,4 +89,18 @@ export function parseCategoryGroupForm(
       is_active: formData.get("isActive") !== "off",
     },
   };
+}
+
+/**
+ * A category colour as stored: null (follow the default) or an index into the
+ * tenant's accent stops, bounded by the most stops a palette can hold -- the
+ * same bound as the column's check constraint.
+ */
+export function isAccentStop(value: unknown): value is number | null {
+  return (
+    value === null ||
+    (Number.isInteger(value) &&
+      (value as number) >= 0 &&
+      (value as number) < MAX_ACCENT_STOPS)
+  );
 }

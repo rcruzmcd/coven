@@ -46,6 +46,8 @@ export type SocialPostMedia = {
   event_media_id: string | null;
   /** It referenced event media that has since been deleted. */
   missing: boolean;
+  /** Drawn by "Generate story images" (#1909) rather than added by hand. */
+  generated: boolean;
 };
 
 export type SocialPostExtras = {
@@ -86,7 +88,9 @@ export async function getSocialPostExtrasAction(
           .order("position", { ascending: true }),
         supabase
           .from("social_post_media")
-          .select("id, kind, original_filename, storage_path, event_media_id")
+          .select(
+            "id, kind, original_filename, storage_path, event_media_id, generated_frame",
+          )
           .eq("content_opportunity_id", postId)
           .order("position", { ascending: true }),
       ])
@@ -143,6 +147,7 @@ export async function getSocialPostExtrasAction(
           : null,
       event_media_id: row.event_media_id,
       missing: !row.storage_path && !row.event_media_id,
+      generated: row.generated_frame !== null,
     })),
   };
 }

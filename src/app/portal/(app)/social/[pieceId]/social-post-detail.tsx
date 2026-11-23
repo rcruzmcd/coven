@@ -23,6 +23,8 @@ import {
   usePostExtras,
 } from "@/components/portal/social-content/post-content-fields";
 import { ShareToInstagram } from "@/components/portal/social-content/share-to-instagram";
+import { StoryImagesPanel } from "@/components/portal/social-content/story-images-panel";
+import type { StoryImagesState } from "@/lib/social-content/story-images";
 import {
   SocialPostSheet,
   type SocialPostSheetSession,
@@ -45,11 +47,14 @@ export function SocialPostDetail({
   owners,
   defaultLeadTimeDays,
   canManage,
+  storyImages = null,
 }: {
   piece: SocialPieceRow;
   owners: CalendarOwner[];
   defaultLeadTimeDays: number;
   canManage: boolean;
+  /** A featured-gear story's generated images (#1909); null on other posts. */
+  storyImages?: StoryImagesState | null;
 }) {
   const router = useRouter();
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -137,6 +142,18 @@ export function SocialPostDetail({
                 extras={extras}
                 idPrefix="post"
               />
+              {storyImages && (
+                <StoryImagesPanel
+                  postId={piece.id}
+                  state={storyImages}
+                  published={piece.content_status === "published"}
+                  canManage={canManage}
+                  onGenerated={() => {
+                    reloadExtras();
+                    router.refresh();
+                  }}
+                />
+              )}
               <ShareToInstagram piece={piece} extras={extras} />
             </FieldGroup>
           </CardContent>

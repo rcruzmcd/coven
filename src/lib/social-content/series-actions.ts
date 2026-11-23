@@ -193,6 +193,16 @@ export async function updateSeriesTemplateFromPostAction(
   if ("error" in auth) return auth;
   const { supabase } = auth;
 
+  // The series caption before the post overwrites it, for a gear post whose
+  // caption nobody edited (#1906).
+  const { data: before } = await supabase
+    .from("content_opportunities")
+    .select(
+      "series:social_post_series!content_opportunities_series_id_fkey(content)",
+    )
+    .eq("id", postId)
+    .maybeSingle();
+
   const { error } = await supabase.rpc("update_social_post_series_template", {
     p_post_id: postId,
   });
@@ -204,7 +214,11 @@ export async function updateSeriesTemplateFromPostAction(
 
   // A gear post's caption names its own item (#1841); the series keeps the
   // caption without it, so later posts don't carry this one's item too.
-  const gearTemplate = await gearTemplateFromPost(supabase, postId);
+  const gearTemplate = await gearTemplateFromPost(
+    supabase,
+    postId,
+    before?.series?.content ?? null,
+  );
   if (gearTemplate !== null) {
     const { data: post } = await supabase
       .from("content_opportunities")

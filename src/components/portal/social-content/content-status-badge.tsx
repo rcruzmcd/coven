@@ -17,14 +17,15 @@ const CONTENT_STATUS_STYLES: Record<string, StatusTone> = {
   skipped: "neutral",
 };
 
+/** The tone a content status is drawn in, shared by the badge and the month view's chips. */
+export function contentStatusTone(status: string): StatusTone {
+  return CONTENT_STATUS_STYLES[status] ?? "neutral";
+}
+
 export function ContentStatusBadge({ status }: { status: string }) {
   const label =
     CONTENT_STATUSES.find((option) => option.value === status)?.label ?? status;
-  return (
-    <StatusBadge tone={CONTENT_STATUS_STYLES[status] ?? "neutral"}>
-      {label}
-    </StatusBadge>
-  );
+  return <StatusBadge tone={contentStatusTone(status)}>{label}</StatusBadge>;
 }
 
 /**

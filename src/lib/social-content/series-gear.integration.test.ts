@@ -208,6 +208,45 @@ describe("random Gear Library item series (#1841)", () => {
     expect(published?.message).toContain("POST_PUBLISHED");
   });
 
+  test("swapping clears the post's brand, best for and why (#1906)", async () => {
+    await gear(2);
+    const series = await createSeries();
+    await run(series, T0);
+    const [post] = await postsOf(series);
+
+    // A manager types them like any other post field.
+    const { error: typed } = await admin
+      .from("content_opportunities")
+      .update({
+        gear_brand: "Burton",
+        gear_best_for: "First season",
+        gear_why: "Warm without the bulk.",
+      })
+      .eq("id", post.id);
+    expect(typed).toBeNull();
+
+    const { error } = await admin.rpc("set_social_post_featured_gear", {
+      p_post_id: post.id,
+    });
+    expect(error).toBeNull();
+    const { data: after } = await service
+      .from("content_opportunities")
+      .select("gear_brand, gear_best_for, gear_why")
+      .eq("id", post.id)
+      .single();
+    expect(after).toEqual({
+      gear_brand: null,
+      gear_best_for: null,
+      gear_why: null,
+    });
+
+    const { error: tooLong } = await admin
+      .from("content_opportunities")
+      .update({ gear_why: "x".repeat(161) })
+      .eq("id", post.id);
+    expect(tooLong?.code).toBe("23514");
+  });
+
   test("swapping needs content_calendar manage", async () => {
     await gear(1);
     const series = await createSeries();

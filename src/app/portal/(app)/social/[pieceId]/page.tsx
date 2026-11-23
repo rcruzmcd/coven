@@ -13,6 +13,8 @@ import { SocialPostSeriesCard } from "./social-post-series-card";
 import { getOrgTimeZone } from "@/lib/org-timezone";
 import { loadPostFeaturedGear } from "@/lib/social-content/series-gear-fill";
 import { SocialPostFeaturedGearCard } from "./social-post-featured-gear-card";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { loadStoryImagesState } from "@/lib/social-content/story-images";
 
 export async function generateMetadata({
   params,
@@ -59,17 +61,30 @@ export default async function SocialPostPage({
   if (!piece) notFound();
 
   const featuresGear = piece.series?.content_source === "random_gear_item";
-  const [ownersResult, { data: leadTimeSetting }, orgTimeZone, featuredGear] =
-    await Promise.all([
-      listCalendarOwnersAction(),
-      supabase
-        .from("app_settings")
-        .select("value")
-        .eq("key", "content.default_lead_time_days")
-        .maybeSingle(),
-      getOrgTimeZone(supabase),
-      featuresGear ? loadPostFeaturedGear(supabase, piece) : null,
-    ]);
+  // Story images (#1909) are drawn for a story that features (or featured) a
+  // Gear Library item.
+  const makesStoryImages =
+    piece.post_format === "instagram_story" &&
+    (featuresGear || piece.featured_inventory_item_id !== null);
+  const [
+    ownersResult,
+    { data: leadTimeSetting },
+    orgTimeZone,
+    featuredGear,
+    storyImages,
+  ] = await Promise.all([
+    listCalendarOwnersAction(),
+    supabase
+      .from("app_settings")
+      .select("value")
+      .eq("key", "content.default_lead_time_days")
+      .maybeSingle(),
+    getOrgTimeZone(supabase),
+    featuresGear ? loadPostFeaturedGear(supabase, piece) : null,
+    makesStoryImages
+      ? loadStoryImagesState(supabase, createSupabaseAdminClient(), piece.id)
+      : null,
+  ]);
   const owners = "data" in ownersResult ? ownersResult.data : [];
   const defaultLeadTimeDays =
     typeof leadTimeSetting?.value === "number" ? leadTimeSetting.value : 21;
@@ -82,6 +97,7 @@ export default async function SocialPostPage({
         owners={owners}
         defaultLeadTimeDays={defaultLeadTimeDays}
         canManage={canManage}
+        storyImages={storyImages}
       />
       {featuredGear && (
         <div className="mt-4">
@@ -92,6 +108,7 @@ export default async function SocialPostPage({
             featured={featuredGear.featured}
             options={featuredGear.options}
             captionEdited={featuredGear.captionEdited}
+            details={featuredGear.details}
           />
         </div>
       )}

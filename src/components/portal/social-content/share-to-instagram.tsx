@@ -126,6 +126,8 @@ export function ShareToInstagram({
   const headingId = useId();
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Which story of a sequence goes next, for the files loaded under `key`.
+  const [step, setStep] = useState<{ key: string; index: number } | null>(null);
 
   const takesCaption = formatTakesCaption(piece.post_format);
   const captionLabel = takesCaption ? "caption" : "story text";
@@ -146,31 +148,55 @@ export function ShareToInstagram({
 
   const files = loaded && "files" in loaded ? loaded.files : null;
   const loadError = loaded && "error" in loaded ? loaded.error : null;
+  // Several files on a story -- the generated Gear Spotlight images (#1909) --
+  // go one story at a time, in order: whether Instagram takes several shared
+  // files as consecutive stories differs by phone; one at a time works on all.
+  const sequence =
+    piece.post_format === "instagram_story" &&
+    files !== null &&
+    files.length > 1
+      ? files
+      : null;
+  const index =
+    sequence && step && step.key === loaded?.key
+      ? Math.min(step.index, sequence.length - 1)
+      : 0;
 
   function share() {
     if (!files) return;
     setError(null);
     setStatus(null);
+    const sharing = sequence ? [sequence[index]] : files;
     // Neither is awaited before `share`: Safari only allows it while the click
-    // is still the user's gesture.
-    const copied = piece.content
-      ? navigator.clipboard.writeText(piece.content).then(
-          () => true,
-          () => false,
-        )
-      : Promise.resolve(false);
-    if (!navigator.canShare?.({ files })) {
+    // is still the user's gesture. The text is copied with the first story.
+    const copied =
+      piece.content && index === 0
+        ? navigator.clipboard.writeText(piece.content).then(
+            () => true,
+            () => false,
+          )
+        : Promise.resolve(false);
+    if (!navigator.canShare?.({ files: sharing })) {
       setError(
         "This device can't share these files. Save them from the post and add them in Instagram by hand.",
       );
       return;
     }
-    navigator.share({ files }).then(
+    navigator.share({ files: sharing }).then(
       async () => {
+        const pasted = (await copied)
+          ? ` The ${captionLabel} is on your clipboard: paste it in Instagram.`
+          : "";
+        if (!sequence) {
+          setStatus(`Shared.${pasted}`);
+          return;
+        }
+        const last = index === sequence.length - 1;
+        setStep({ key: loaded?.key ?? "", index: last ? 0 : index + 1 });
         setStatus(
-          (await copied)
-            ? `Shared. The ${captionLabel} is on your clipboard: paste it in Instagram.`
-            : "Shared.",
+          last
+            ? `All ${sequence.length} stories shared.${pasted}`
+            : `Story ${index + 1} of ${sequence.length} shared.${pasted} Share story ${index + 2} next.`,
         );
       },
       (shareError: unknown) => {
@@ -214,7 +240,10 @@ export function ShareToInstagram({
             <Button type="button" disabled={!files} onClick={share}>
               {files ? (
                 <>
-                  <Share /> Share to Instagram
+                  <Share />{" "}
+                  {sequence
+                    ? `Share story ${index + 1} of ${sequence.length}`
+                    : "Share to Instagram"}
                 </>
               ) : (
                 <>
@@ -224,9 +253,9 @@ export function ShareToInstagram({
             </Button>
           </div>
           <p className="app-muted text-xs">
-            Copies the {captionLabel} and opens your phone&apos;s share sheet
-            with {ready.length === 1 ? "the file" : `${ready.length} files`} in
-            order.
+            {sequence
+              ? `Shares one story at a time, in order: pick Instagram, then Stories, post it, and come back for the next. The ${captionLabel} is copied with the first.`
+              : `Copies the ${captionLabel} and opens your phone's share sheet with ${ready.length === 1 ? "the file" : `${ready.length} files`} in order.`}
           </p>
         </div>
       )}

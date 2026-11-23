@@ -1990,6 +1990,9 @@ export type Database = {
           event_id: string | null;
           featured_inventory_item_id: string | null;
           featured_media_id: string | null;
+          gear_best_for: string | null;
+          gear_brand: string | null;
+          gear_why: string | null;
           id: string;
           internal_notes: string | null;
           lead_time_days: number;
@@ -2020,6 +2023,9 @@ export type Database = {
           event_id?: string | null;
           featured_inventory_item_id?: string | null;
           featured_media_id?: string | null;
+          gear_best_for?: string | null;
+          gear_brand?: string | null;
+          gear_why?: string | null;
           id?: string;
           internal_notes?: string | null;
           lead_time_days?: number;
@@ -2050,6 +2056,9 @@ export type Database = {
           event_id?: string | null;
           featured_inventory_item_id?: string | null;
           featured_media_id?: string | null;
+          gear_best_for?: string | null;
+          gear_brand?: string | null;
+          gear_why?: string | null;
           id?: string;
           internal_notes?: string | null;
           lead_time_days?: number;
@@ -6402,6 +6411,7 @@ export type Database = {
       };
       inventory_categories: {
         Row: {
+          accent_stop: number | null;
           created_at: string;
           created_by: string | null;
           group_id: string;
@@ -6415,6 +6425,7 @@ export type Database = {
           updated_by: string | null;
         };
         Insert: {
+          accent_stop?: number | null;
           created_at?: string;
           created_by?: string | null;
           group_id: string;
@@ -6428,6 +6439,7 @@ export type Database = {
           updated_by?: string | null;
         };
         Update: {
+          accent_stop?: number | null;
           created_at?: string;
           created_by?: string | null;
           group_id?: string;
@@ -6466,6 +6478,7 @@ export type Database = {
       };
       inventory_category_groups: {
         Row: {
+          accent_stop: number | null;
           created_at: string;
           created_by: string | null;
           id: string;
@@ -6478,6 +6491,7 @@ export type Database = {
           updated_by: string | null;
         };
         Insert: {
+          accent_stop?: number | null;
           created_at?: string;
           created_by?: string | null;
           id?: string;
@@ -6490,6 +6504,7 @@ export type Database = {
           updated_by?: string | null;
         };
         Update: {
+          accent_stop?: number | null;
           created_at?: string;
           created_by?: string | null;
           id?: string;
@@ -10206,6 +10221,8 @@ export type Database = {
           content_opportunity_id: string;
           content_type: string;
           event_media_id: string | null;
+          generated_fingerprint: string | null;
+          generated_frame: number | null;
           id: string;
           kind: string;
           original_filename: string;
@@ -10220,6 +10237,8 @@ export type Database = {
           content_opportunity_id: string;
           content_type: string;
           event_media_id?: string | null;
+          generated_fingerprint?: string | null;
+          generated_frame?: number | null;
           id?: string;
           kind?: string;
           original_filename: string;
@@ -10234,6 +10253,8 @@ export type Database = {
           content_opportunity_id?: string;
           content_type?: string;
           event_media_id?: string | null;
+          generated_fingerprint?: string | null;
+          generated_frame?: number | null;
           id?: string;
           kind?: string;
           original_filename?: string;
@@ -13886,6 +13907,8 @@ export type Database = {
           content_opportunity_id: string;
           content_type: string;
           event_media_id: string | null;
+          generated_fingerprint: string | null;
+          generated_frame: number | null;
           id: string;
           kind: string;
           original_filename: string;
@@ -14140,6 +14163,10 @@ export type Database = {
       reorder_social_post_media: {
         Args: { p_media_ids: string[]; p_post_id: string };
         Returns: undefined;
+      };
+      replace_social_post_story_images: {
+        Args: { p_fingerprint: string; p_paths: string[]; p_post_id: string };
+        Returns: string[];
       };
       request_gear_item: {
         Args: {

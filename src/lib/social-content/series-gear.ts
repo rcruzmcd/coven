@@ -31,7 +31,48 @@ export const GEAR_PLACEHOLDERS = {
   size: "{size}",
   details: "{details}",
   link: "{link}",
+  brand: "{brand}",
+  best_for: "{best_for}",
+  why: "{why}",
 } as const;
+
+/**
+ * What a featured-gear post says about its item beyond the item's own record
+ * (#1906): typed on the post, not on the inventory item, and cleared when the
+ * post's item changes.
+ */
+export type GearPostDetails = {
+  brand: string | null;
+  best_for: string | null;
+  why: string | null;
+};
+
+export const GEAR_DETAIL_LIMITS = {
+  brand: 60,
+  best_for: 40,
+  why: 160,
+} as const satisfies Record<keyof GearPostDetails, number>;
+
+export const NO_GEAR_DETAILS: GearPostDetails = {
+  brand: null,
+  best_for: null,
+  why: null,
+};
+
+/** Whether any of a post's gear details is filled in. */
+export function hasGearDetails(details: GearPostDetails | null | undefined) {
+  return Boolean(
+    details &&
+    (clean(details.brand) || clean(details.best_for) || clean(details.why)),
+  );
+}
+
+/** The post-level placeholders, which drop their line when blank. */
+const DETAIL_PLACEHOLDERS: [keyof GearPostDetails, string][] = [
+  ["brand", GEAR_PLACEHOLDERS.brand],
+  ["best_for", GEAR_PLACEHOLDERS.best_for],
+  ["why", GEAR_PLACEHOLDERS.why],
+];
 
 /** What a caption says about an item. */
 export type FeaturedGear = {
@@ -78,18 +119,42 @@ function appendedBlock(item: FeaturedGear, link: string): string {
   ].join("\n");
 }
 
+/**
+ * Fills the post-level placeholders. A line naming one that is blank is
+ * dropped, so "Brand: {brand}" doesn't go out as "Brand: ".
+ */
+function fillDetails(text: string, details: GearPostDetails): string {
+  return text
+    .split("\n")
+    .filter((line) =>
+      DETAIL_PLACEHOLDERS.every(
+        ([key, placeholder]) =>
+          !line.includes(placeholder) || clean(details[key]) !== "",
+      ),
+    )
+    .map((line) =>
+      DETAIL_PLACEHOLDERS.reduce(
+        (filled, [key, placeholder]) =>
+          filled.replaceAll(placeholder, clean(details[key])),
+        line,
+      ),
+    )
+    .join("\n");
+}
+
 /** A post's caption: the series caption with the item filled in. */
 export function renderGearCaption(
   template: string | null,
   item: FeaturedGear,
   link: string,
+  details: GearPostDetails = NO_GEAR_DETAILS,
 ): string {
   const base = template?.trim() ?? "";
   if (!hasPlaceholder(base)) {
     const block = appendedBlock(item, link);
     return base ? `${base}\n\n${block}` : block;
   }
-  return base
+  return fillDetails(base, details)
     .replaceAll(GEAR_PLACEHOLDERS.item, clean(item.description))
     .replaceAll(GEAR_PLACEHOLDERS.size, clean(item.size))
     .replaceAll(GEAR_PLACEHOLDERS.details, gearItemDetails(item))
@@ -106,6 +171,7 @@ export function gearCaptionToTemplate(
   caption: string | null,
   item: FeaturedGear,
   link: string,
+  details: GearPostDetails = NO_GEAR_DETAILS,
 ): string {
   const text = caption?.trim() ?? "";
   const block = appendedBlock(item, link);
@@ -117,7 +183,13 @@ export function gearCaptionToTemplate(
     [link, GEAR_PLACEHOLDERS.link],
     [gearItemDetails(item), GEAR_PLACEHOLDERS.details],
     [clean(item.description), GEAR_PLACEHOLDERS.item],
+    [clean(details.why), GEAR_PLACEHOLDERS.why],
+    [clean(details.best_for), GEAR_PLACEHOLDERS.best_for],
+    [clean(details.brand), GEAR_PLACEHOLDERS.brand],
   ];
+  // Longest first, so a brand that is part of the item's name ("Burton" in
+  // "Burton jacket") doesn't take a piece of it.
+  replacements.sort(([a], [b]) => b.length - a.length);
   let template = text;
   for (const [value, placeholder] of replacements) {
     if (value) template = template.replaceAll(value, placeholder);
@@ -135,10 +207,11 @@ export function gearCaptionEdited(
   template: string | null,
   item: FeaturedGear | null,
   link: string | null,
+  details: GearPostDetails = NO_GEAR_DETAILS,
 ): boolean {
   const current = content?.trim() ?? "";
   // Empty, or still the series caption (never filled in): nothing to lose.
   if (!current || current === (template?.trim() ?? "")) return false;
   if (!item || !link) return true;
-  return current !== renderGearCaption(template, item, link);
+  return current !== renderGearCaption(template, item, link, details);
 }

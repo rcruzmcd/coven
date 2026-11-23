@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Fragment } from "react";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getTenantLexicon } from "@/lib/tenant-lexicon";
+import { getTenantBranding } from "@/lib/tenant-branding";
+import { groupStop, tenantAccentStops } from "@/lib/inventory-category-colors";
 import {
   getCurrentUserPermissions,
   hasPermission,
@@ -17,6 +19,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { NewCategoryDialog } from "./new-category-dialog";
+import { CategoryColorPicker } from "./category-color-picker";
 import {
   CategoryDetailsSheet,
   type CategoryRow,
@@ -35,12 +38,14 @@ type GroupRow = {
   label: string;
   sort_order: number;
   is_active: boolean;
+  accent_stop: number | null;
   inventory_categories: {
     id: string;
     key: string;
     label: string;
     sort_order: number;
     is_active: boolean;
+    accent_stop: number | null;
   }[];
 };
 
@@ -50,17 +55,20 @@ export default async function InventoryCategoriesPage() {
   const permissions = await getCurrentUserPermissions(supabase);
   const canManage = hasPermission(permissions, "inventory", "manage");
 
-  const [{ data: groupRows, error }, { data: itemRows }] = await Promise.all([
-    supabase
-      .from("inventory_category_groups")
-      .select(
-        "id, key, label, sort_order, is_active, inventory_categories(id, key, label, sort_order, is_active)",
-      )
-      .order("sort_order", { ascending: true }),
-    // How many items each category holds, so the sheet can explain why a
-    // delete is refused before the staffer tries it.
-    supabase.from("inventory_items").select("category_id"),
-  ]);
+  const [{ data: groupRows, error }, { data: itemRows }, branding] =
+    await Promise.all([
+      supabase
+        .from("inventory_category_groups")
+        .select(
+          "id, key, label, sort_order, is_active, accent_stop, inventory_categories(id, key, label, sort_order, is_active, accent_stop)",
+        )
+        .order("sort_order", { ascending: true }),
+      // How many items each category holds, so the sheet can explain why a
+      // delete is refused before the staffer tries it.
+      supabase.from("inventory_items").select("category_id"),
+      getTenantBranding(supabase),
+    ]);
+  const stops = tenantAccentStops(branding);
 
   const itemCounts = new Map<string, number>();
   for (const row of (itemRows ?? []) as { category_id: string | null }[]) {
@@ -94,6 +102,12 @@ export default async function InventoryCategoriesPage() {
         match the <em>snowboard</em> hint and suggest a gold ticket for a pair
         of boots.
       </p>
+      <p className="app-muted mt-2 max-w-2xl text-sm">
+        Each color is one of your brand&rsquo;s accent colors, used for the
+        category label on Gear Spotlight story images. Groups take the accent
+        colors in turn unless you pick one, and a category uses its
+        group&rsquo;s color unless you pick its own.
+      </p>
 
       {canManage ? (
         <div className="rainbow-surface mt-6 flex flex-wrap items-center justify-end gap-3 rounded-xl border border-[var(--line)] p-4 shadow-md">
@@ -119,52 +133,83 @@ export default async function InventoryCategoriesPage() {
                   <TableHead>Category</TableHead>
                   <TableHead hideBelow="sm">Key</TableHead>
                   <TableHead>Items</TableHead>
-                  <TableHead>Active</TableHead>
+                  <TableHead hideBelow="sm">Active</TableHead>
+                  <TableHead>Color</TableHead>
                   <TableHead className="w-10" />
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {groups.map((group) => (
-                  <Fragment key={group.id}>
-                    <TableRow className="bg-muted/40">
-                      <TableCell colSpan={5} className="font-medium">
-                        {group.label}
-                        {group.is_active ? null : " (retired)"}
-                      </TableCell>
-                    </TableRow>
-                    {[...group.inventory_categories]
-                      .sort((a, b) => a.sort_order - b.sort_order)
-                      .map((category) => {
-                        const row: CategoryRow = {
-                          ...category,
-                          group_id: group.id,
-                          group_label: group.label,
-                          item_count: itemCounts.get(category.id) ?? 0,
-                        };
-                        return (
-                          <TableRow key={category.id}>
-                            <TableCell className="pl-8">
-                              {category.label}
-                            </TableCell>
-                            <TableCell hideBelow="sm" className="app-muted">
-                              {category.key}
-                            </TableCell>
-                            <TableCell>{row.item_count}</TableCell>
-                            <TableCell>
-                              {category.is_active ? "Yes" : "No"}
-                            </TableCell>
-                            <TableCell>
-                              <CategoryDetailsSheet
-                                category={row}
-                                groups={groupOptions}
-                                canManage={canManage}
-                              />
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                  </Fragment>
-                ))}
+                {groups.map((group) => {
+                  const groupColor = groupStop(
+                    { ...group, accent_stop: null },
+                    groups,
+                  );
+                  const groupResolved = group.accent_stop ?? groupColor;
+                  return (
+                    <Fragment key={group.id}>
+                      <TableRow className="bg-muted/40">
+                        <TableCell colSpan={4} className="font-medium">
+                          {group.label}
+                          {group.is_active ? null : " (retired)"}
+                        </TableCell>
+                        <TableCell>
+                          <CategoryColorPicker
+                            kind="group"
+                            id={group.id}
+                            name={group.label}
+                            stop={group.accent_stop}
+                            inheritedStop={groupColor}
+                            stops={stops}
+                            canManage={canManage}
+                          />
+                        </TableCell>
+                        <TableCell />
+                      </TableRow>
+                      {[...group.inventory_categories]
+                        .sort((a, b) => a.sort_order - b.sort_order)
+                        .map((category) => {
+                          const row: CategoryRow = {
+                            ...category,
+                            group_id: group.id,
+                            group_label: group.label,
+                            item_count: itemCounts.get(category.id) ?? 0,
+                          };
+                          return (
+                            <TableRow key={category.id}>
+                              <TableCell className="pl-8">
+                                {category.label}
+                              </TableCell>
+                              <TableCell hideBelow="sm" className="app-muted">
+                                {category.key}
+                              </TableCell>
+                              <TableCell>{row.item_count}</TableCell>
+                              <TableCell hideBelow="sm">
+                                {category.is_active ? "Yes" : "No"}
+                              </TableCell>
+                              <TableCell>
+                                <CategoryColorPicker
+                                  kind="category"
+                                  id={category.id}
+                                  name={category.label}
+                                  stop={category.accent_stop}
+                                  inheritedStop={groupResolved}
+                                  stops={stops}
+                                  canManage={canManage}
+                                />
+                              </TableCell>
+                              <TableCell>
+                                <CategoryDetailsSheet
+                                  category={row}
+                                  groups={groupOptions}
+                                  canManage={canManage}
+                                />
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                    </Fragment>
+                  );
+                })}
               </TableBody>
             </Table>
           )}

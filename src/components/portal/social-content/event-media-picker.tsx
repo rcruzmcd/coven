@@ -39,6 +39,7 @@ export function EventMediaPicker({
   eventId,
   format,
   held,
+  heldGenerated = 0,
   referencedIds,
   onAdded,
   onError,
@@ -48,6 +49,8 @@ export function EventMediaPicker({
   format: PostFormat | null;
   /** How many files the post holds now. */
   held: number;
+  /** How many of them are generated story images (#1909). */
+  heldGenerated?: number;
   /** Event media the post already shows. */
   referencedIds: ReadonlySet<string>;
   onAdded: () => void;
@@ -58,7 +61,7 @@ export function EventMediaPicker({
   const [loadError, setLoadError] = useState<string | null>(null);
   const [picked, setPicked] = useState<string[]>([]);
   const [adding, startTransition] = useTransition();
-  const room = mediaRoom(format, held);
+  const room = mediaRoom(format, held, heldGenerated);
 
   function openPicker() {
     setOpen(true);

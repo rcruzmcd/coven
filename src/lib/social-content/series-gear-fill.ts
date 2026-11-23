@@ -3,6 +3,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 import { resolveTenantOrigin } from "@/lib/email/identity";
+import { resolveImageUrl } from "@/lib/inventory";
 import { eventMediaPath } from "@/lib/storage/event-media-files";
 import {
   GEAR_PHOTOS_BUCKET,
@@ -13,7 +14,9 @@ import {
   gearCaptionEdited,
   gearCaptionToTemplate,
   gearItemLink,
+  renderGearCaption,
   type FeaturedGear,
+  type GearPostDetails,
 } from "./series-gear";
 
 type Client = SupabaseClient<Database>;
@@ -60,9 +63,13 @@ export async function tenantSiteOrigin(
 /**
  * Where to read an item photo from. A gear-photos object is read from this
  * project's own storage, whatever origin the stored URL names; anything else
- * (an older external link) only over https.
+ * (an older external link) only over https. A Google Drive share link names
+ * Drive's HTML viewer, so it is read from the thumbnail endpoint the catalog
+ * shows (`resolveImageUrl`), and a `#crop=` fragment is dropped: it is a CSS
+ * crop for the site, not part of the address.
  */
-export function gearPhotoSource(photoUrl: string): string | null {
+export function gearPhotoSource(storedUrl: string): string | null {
+  const photoUrl = resolveImageUrl(storedUrl.split("#")[0]) ?? "";
   const objectPath = gearPhotoPathFromUrl(photoUrl);
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   if (objectPath && supabaseUrl) {
@@ -168,18 +175,36 @@ export async function loadGearItems(
   return data ?? [];
 }
 
+/** A post row's gear details (#1906). */
+export function gearPostDetails(post: {
+  gear_brand?: string | null;
+  gear_best_for?: string | null;
+  gear_why?: string | null;
+}): GearPostDetails {
+  return {
+    brand: post.gear_brand ?? null,
+    best_for: post.gear_best_for ?? null,
+    why: post.gear_why ?? null,
+  };
+}
+
 /**
  * The series caption a gear post's caption stands for, for "Use this post
- * for future posts": its item taken back out. Null when the post features
- * nothing, so the caption is used as it is.
+ * for future posts": its item taken back out. A caption nobody edited is
+ * still `previousTemplate` filled in, so that comes back whole -- lines a
+ * blank detail dropped included. Null when the post features nothing, so the
+ * caption is used as it is.
  */
 export async function gearTemplateFromPost(
   supabase: Client,
   postId: string,
+  previousTemplate: string | null,
 ): Promise<string | null> {
   const { data: post } = await supabase
     .from("content_opportunities")
-    .select("tenant_id, content, featured_inventory_item_id")
+    .select(
+      "tenant_id, content, featured_inventory_item_id, gear_brand, gear_best_for, gear_why",
+    )
     .eq("id", postId)
     .maybeSingle();
   if (!post?.featured_inventory_item_id) return null;
@@ -187,11 +212,16 @@ export async function gearTemplateFromPost(
   const item = items?.find((option) => option.featured);
   if (!item) return null;
   const origin = await tenantSiteOrigin(supabase, post.tenant_id);
-  return gearCaptionToTemplate(
-    post.content,
-    item,
-    gearItemLink(origin, item.id),
-  );
+  const link = gearItemLink(origin, item.id);
+  const details = gearPostDetails(post);
+  if (
+    previousTemplate !== null &&
+    post.content?.trim() ===
+      renderGearCaption(previousTemplate, item, link, details)
+  ) {
+    return previousTemplate.trim();
+  }
+  return gearCaptionToTemplate(post.content, item, link, details);
 }
 
 export type PostFeaturedGear = {
@@ -201,12 +231,21 @@ export type PostFeaturedGear = {
   featured: GearItemOption | null;
   /** Whether its caption was changed after it was filled in. */
   captionEdited: boolean;
+  /** Its brand, best for and why-we-love-it (#1906). */
+  details: GearPostDetails;
 };
 
 /** What the post page shows about a gear post's item (#1841). */
 export async function loadPostFeaturedGear(
   supabase: Client,
-  post: { id: string; content: string | null; series_id: string | null },
+  post: {
+    id: string;
+    content: string | null;
+    series_id: string | null;
+    gear_brand?: string | null;
+    gear_best_for?: string | null;
+    gear_why?: string | null;
+  },
 ): Promise<PostFeaturedGear | null> {
   if (!post.series_id) return null;
   const [items, { data: series }] = await Promise.all([
@@ -227,9 +266,17 @@ export async function loadPostFeaturedGear(
       ? gearItemLink(await tenantSiteOrigin(supabase, tenantId), featured.id)
       : null;
   }
+  const details = gearPostDetails(post);
   return {
     options: items.filter((item) => item.qualifies),
     featured,
-    captionEdited: gearCaptionEdited(post.content, template, featured, link),
+    captionEdited: gearCaptionEdited(
+      post.content,
+      template,
+      featured,
+      link,
+      details,
+    ),
+    details,
   };
 }
