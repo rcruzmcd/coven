@@ -30,7 +30,7 @@ export async function SocialPostAuditHistory({
   const entries = (data ?? []) as AuditEntry[];
 
   return (
-    <Card className="mt-4">
+    <Card>
       <CardHeader>
         <CardTitle className="app-muted text-sm font-semibold">
           Audit history
