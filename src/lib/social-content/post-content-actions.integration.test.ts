@@ -59,7 +59,10 @@ function form(fields: Record<string, string>) {
 async function createPost(fields: Record<string, string> = {}) {
   currentSupabase = adminClient;
   const fd = form(fields);
-  expect(await createContentPieceAction(fd)).toEqual({ success: true });
+  expect(await createContentPieceAction(fd)).toMatchObject({
+    success: true,
+    id: expect.any(String),
+  });
   const { data } = await adminClient
     .from("content_opportunities")
     .select("id, post_format, collaborator_handles, content")

@@ -177,6 +177,21 @@ export function programSocialHref(programId: string): string {
   return `/portal/social?program=${programId}`;
 }
 
+/**
+ * The new-post page, starting the post related to a program when one is named
+ * (a program's details "New post", #1838).
+ */
+export function newSocialPostHref(programId?: string): string {
+  return programId
+    ? `/portal/social/new?program=${programId}`
+    : "/portal/social/new";
+}
+
+/** A program id from a URL, or null when it is missing or not an id. */
+export function programIdParam(value: string | undefined): string | null {
+  return value && UUID_PATTERN.test(value) ? value : null;
+}
+
 /** An event's Social content section (#1795). */
 export function eventSocialHref(eventId: string): string {
   return `/portal/events/${eventId}?tab=social`;

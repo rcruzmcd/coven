@@ -46,29 +46,17 @@ export default async function SocialContentPage({
   const filters = parseSocialFilters(params);
   const monthGiven = hasMonthParam(params);
 
-  const [
-    { pieces, error },
-    ownersResult,
-    linkOptions,
-    { data: leadTimeSetting },
-    overlay,
-  ] = await Promise.all([
-    listSocialPieces(supabase, filters),
-    listCalendarOwnersAction(),
-    listSocialContentLinkOptionsAction(),
-    supabase
-      .from("app_settings")
-      .select("value")
-      .eq("key", "content.default_lead_time_days")
-      .maybeSingle(),
-    filters.overlay && filters.view === "month"
-      ? loadOverlay(supabase, canViewEvents, filters.month)
-      : Promise.resolve([] as CalendarEntry<CalendarItemEntryRow>[]),
-  ]);
+  const [{ pieces, error }, ownersResult, linkOptions, overlay] =
+    await Promise.all([
+      listSocialPieces(supabase, filters),
+      listCalendarOwnersAction(),
+      listSocialContentLinkOptionsAction(),
+      filters.overlay && filters.view === "month"
+        ? loadOverlay(supabase, canViewEvents, filters.month)
+        : Promise.resolve([] as CalendarEntry<CalendarItemEntryRow>[]),
+    ]);
 
   const owners = "data" in ownersResult ? ownersResult.data : [];
-  const defaultLeadTimeDays =
-    typeof leadTimeSetting?.value === "number" ? leadTimeSetting.value : 21;
 
   return (
     <>
@@ -93,19 +81,13 @@ export default async function SocialContentPage({
             owners={owners}
             events={linkOptions.events}
             programs={linkOptions.programs}
-            openNewPost={first(params.new) === "1"}
             canManage={canManage}
             canViewEvents={canViewEvents}
-            defaultLeadTimeDays={defaultLeadTimeDays}
           />
         </div>
       )}
     </>
   );
-}
-
-function first(value: string | string[] | undefined) {
-  return Array.isArray(value) ? value[0] : value;
 }
 
 /**

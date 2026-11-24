@@ -1,17 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import {
-  SocialPostSheet,
-  type SocialPostSheetSession,
-} from "@/components/portal/social-content/social-post-sheet";
-import {
   monthInZone,
+  newSocialPostHref,
   socialHref,
   type SocialFilters,
   type SocialView,
@@ -44,8 +41,6 @@ export function SocialWorkspace({
   programs,
   canManage,
   canViewEvents,
-  defaultLeadTimeDays,
-  openNewPost: openNewPostOnLoad = false,
 }: {
   filters: SocialFilters;
   /** The URL named the month; otherwise it is the server's, not the viewer's. */
@@ -57,28 +52,8 @@ export function SocialWorkspace({
   programs: SocialContentLinkOption[];
   canManage: boolean;
   canViewEvents: boolean;
-  defaultLeadTimeDays: number;
-  /**
-   * The URL asked for the new-post form (`?new=1`), as a program's details
-   * "New post" does (#1838): it opens on arrival, related to the program the
-   * page is filtered to.
-   */
-  openNewPost?: boolean;
 }) {
   const router = useRouter();
-  const startNew = openNewPostOnLoad && canManage;
-  const [sheetOpen, setSheetOpen] = useState(startNew);
-  const [session, setSession] = useState<SocialPostSheetSession | null>(() =>
-    startNew ? { key: 1, piece: null, mode: "edit" } : null,
-  );
-
-  // `new=1` has done its job once the form is open; drop it (`socialHref`
-  // never writes it) so a reload or the back button does not open it again.
-  useEffect(() => {
-    if (openNewPostOnLoad) {
-      router.replace(socialHref(filters), { scroll: false });
-    }
-  }, [openNewPostOnLoad, filters, router]);
 
   // UTC until the browser reports its zone, so the server render and the
   // first client render place every post in the same cell.
@@ -103,15 +78,6 @@ export function SocialWorkspace({
     () => pieces.filter((piece) => piece.publish_due_at),
     [pieces],
   );
-
-  function openNewPost() {
-    setSession((prev) => ({
-      key: (prev?.key ?? 0) + 1,
-      piece: null,
-      mode: "edit",
-    }));
-    setSheetOpen(true);
-  }
 
   return (
     <div className="flex flex-col gap-3">
@@ -152,7 +118,17 @@ export function SocialWorkspace({
             programs={programs}
           />
           {canManage && (
-            <Button type="button" onClick={openNewPost}>
+            // Filtered to one program, a new post starts related to it (#1838).
+            <Button
+              nativeButton={false}
+              render={
+                <Link
+                  href={newSocialPostHref(
+                    filters.program !== "all" ? filters.program : undefined,
+                  )}
+                />
+              }
+            >
               <Plus /> New social post
             </Button>
           )}
@@ -175,22 +151,6 @@ export function SocialWorkspace({
         )}
         <UnscheduledTray pieces={unscheduled} owners={owners} />
       </div>
-
-      {canManage && (
-        <SocialPostSheet
-          open={sheetOpen}
-          session={session}
-          onClose={() => setSheetOpen(false)}
-          owners={owners}
-          defaultLeadTimeDays={defaultLeadTimeDays}
-          canManage={canManage}
-          // Filtered to one program, a new post starts related to it (#1838).
-          defaults={
-            filters.program !== "all" ? { programId: filters.program } : {}
-          }
-          newPostDescription="One social post or story. Relate it to an event, community date or program, or leave it standalone."
-        />
-      )}
     </div>
   );
 }

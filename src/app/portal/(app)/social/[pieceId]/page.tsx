@@ -61,27 +61,15 @@ export default async function SocialPostPage({
   if (!piece) notFound();
 
   const featuresGear = piece.series?.content_source === "random_gear_item";
-  const [
-    ownersResult,
-    { data: leadTimeSetting },
-    orgTimeZone,
-    featuredGear,
-    templateEditor,
-  ] = await Promise.all([
-    listCalendarOwnersAction(),
-    supabase
-      .from("app_settings")
-      .select("value")
-      .eq("key", "content.default_lead_time_days")
-      .maybeSingle(),
-    getOrgTimeZone(supabase),
-    featuresGear ? loadPostFeaturedGear(supabase, piece) : null,
-    // The post's template card (#1925), with its story images (#1909).
-    loadPostTemplateEditor(supabase, createSupabaseAdminClient(), piece),
-  ]);
+  const [ownersResult, orgTimeZone, featuredGear, templateEditor] =
+    await Promise.all([
+      listCalendarOwnersAction(),
+      getOrgTimeZone(supabase),
+      featuresGear ? loadPostFeaturedGear(supabase, piece) : null,
+      // The post's template card (#1925), with its story images (#1909).
+      loadPostTemplateEditor(supabase, createSupabaseAdminClient(), piece),
+    ]);
   const owners = "data" in ownersResult ? ownersResult.data : [];
-  const defaultLeadTimeDays =
-    typeof leadTimeSetting?.value === "number" ? leadTimeSetting.value : 21;
 
   return (
     <>
@@ -89,12 +77,17 @@ export default async function SocialPostPage({
       <SocialPostDetail
         piece={piece}
         owners={owners}
-        defaultLeadTimeDays={defaultLeadTimeDays}
         canManage={canManage}
         templateEditor={templateEditor}
-      />
-      {featuredGear && (
-        <div className="mt-4">
+        repeats={
+          <SocialPostSeriesCard
+            piece={piece}
+            orgTimeZone={orgTimeZone}
+            canManage={canManage}
+          />
+        }
+      >
+        {featuredGear && (
           <SocialPostFeaturedGearCard
             postId={piece.id}
             published={piece.content_status === "published"}
@@ -104,15 +97,8 @@ export default async function SocialPostPage({
             captionEdited={featuredGear.captionEdited}
             details={featuredGear.details}
           />
-        </div>
-      )}
-      <div className="mt-4">
-        <SocialPostSeriesCard
-          piece={piece}
-          orgTimeZone={orgTimeZone}
-          canManage={canManage}
-        />
-      </div>
+        )}
+      </SocialPostDetail>
       {/* The audit log is readable with administration:manage only (its RLS
           policy), so the full history is shown to those who can read it; the
           last status change above is on the row and shown to everyone. */}
