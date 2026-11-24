@@ -91,7 +91,10 @@ async function createPost(eventId: string | null) {
   fd.set("contentStatus", "idea");
   fd.set("leadTimeDays", "21");
   if (eventId) fd.set("eventId", eventId);
-  expect(await createContentPieceAction(fd)).toEqual({ success: true });
+  expect(await createContentPieceAction(fd)).toMatchObject({
+    success: true,
+    id: expect.any(String),
+  });
   const { data } = await adminClient
     .from("content_opportunities")
     .select("id")

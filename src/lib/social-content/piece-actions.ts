@@ -14,7 +14,9 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 
 export type ContentPieceActionResult =
-  { error: string } | { success: true; warning?: string };
+  | { error: string }
+  /** `id` is the post's, on a create, so the caller can open it. */
+  | { success: true; warning?: string; id?: string };
 
 /**
  * An event, community date or program a social post can be related to
@@ -137,7 +139,9 @@ export async function createContentPieceAction(
       : undefined;
 
   revalidatePiecePaths([data.eventId]);
-  return warning ? { success: true, warning } : { success: true };
+  return warning
+    ? { success: true, warning, id: created.id }
+    : { success: true, id: created.id };
 }
 
 export async function updateContentPieceAction(
