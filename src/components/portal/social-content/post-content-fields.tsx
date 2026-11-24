@@ -557,6 +557,7 @@ export function PostContentSummary({
   piece,
   extras,
   idPrefix,
+  showMedia = true,
 }: {
   piece: Pick<
     ContentPieceRow,
@@ -564,6 +565,8 @@ export function PostContentSummary({
   >;
   extras: SocialPostExtras | null;
   idPrefix: string;
+  /** False where the media is shown elsewhere on the page (a template preview). */
+  showMedia?: boolean;
 }) {
   return (
     <>
@@ -595,15 +598,17 @@ export function PostContentSummary({
           <Spinner />
         )}
       </ReadOnlyField>
-      <ReadOnlyField label="Media" htmlFor={`${idPrefix}-media`}>
-        {!extras ? (
-          <Spinner />
-        ) : extras.media.length > 0 ? (
-          <PostMediaGrid media={extras.media} />
-        ) : (
-          "—"
-        )}
-      </ReadOnlyField>
+      {showMedia && (
+        <ReadOnlyField label="Media" htmlFor={`${idPrefix}-media`}>
+          {!extras ? (
+            <Spinner />
+          ) : extras.media.length > 0 ? (
+            <PostMediaGrid media={extras.media} />
+          ) : (
+            "—"
+          )}
+        </ReadOnlyField>
+      )}
     </>
   );
 }

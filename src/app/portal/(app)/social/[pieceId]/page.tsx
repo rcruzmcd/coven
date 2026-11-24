@@ -79,6 +79,14 @@ export default async function SocialPostPage({
         owners={owners}
         canManage={canManage}
         templateEditor={templateEditor}
+        history={
+          // The audit log is readable with administration:manage only (its
+          // RLS policy), so its tab is shown to those who can read it; the
+          // last status change is on the row and shown to everyone.
+          hasPermission(permissions, "administration", "manage") ? (
+            <SocialPostAuditHistory supabase={supabase} pieceId={piece.id} />
+          ) : null
+        }
         repeats={
           <SocialPostSeriesCard
             piece={piece}
@@ -99,12 +107,6 @@ export default async function SocialPostPage({
           />
         )}
       </SocialPostDetail>
-      {/* The audit log is readable with administration:manage only (its RLS
-          policy), so the full history is shown to those who can read it; the
-          last status change above is on the row and shown to everyone. */}
-      {hasPermission(permissions, "administration", "manage") && (
-        <SocialPostAuditHistory supabase={supabase} pieceId={piece.id} />
-      )}
     </>
   );
 }

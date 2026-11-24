@@ -27,6 +27,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Tooltip,
   TooltipContent,
@@ -34,9 +35,11 @@ import {
 } from "@/components/ui/tooltip";
 import { CardEditButton } from "@/components/portal/card-edit-button";
 import { runAction } from "@/components/portal/action-toast";
+import { useUrlTabState } from "@/components/portal/use-url-tab-state";
 import { ContentStatusBadge } from "@/components/portal/social-content/content-status-badge";
 import {
   PostContentSummary,
+  PostMediaGrid,
   usePostExtras,
 } from "@/components/portal/social-content/post-content-fields";
 import {
@@ -90,6 +93,7 @@ export function SocialPostDetail({
   templateEditor = null,
   children,
   repeats,
+  history = null,
 }: {
   piece: SocialPieceRow;
   owners: CalendarOwner[];
@@ -100,6 +104,8 @@ export function SocialPostDetail({
   children?: ReactNode;
   /** The post's Repeats card, placed with its schedule. */
   repeats?: ReactNode;
+  /** The post's audit history; null for those who cannot read the log. */
+  history?: ReactNode;
 }) {
   const router = useRouter();
   const { extras, reload: reloadExtras } = usePostExtras(
@@ -128,27 +134,36 @@ export function SocialPostDetail({
       </div>
 
       <div className="mt-4 grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
-        <div className="flex min-w-0 flex-col gap-4">
-          <PostCard
-            piece={piece}
-            extras={extras}
-            reloadExtras={reloadExtras}
-            canManage={canManage}
-          />
-          {templateEditor && (
-            <PostTemplateCard
-              postId={piece.id}
-              editor={templateEditor}
-              published={piece.content_status === "published"}
+        <PostTabs hasHistory={history !== null}>
+          <TabsContent value="post" className="flex min-w-0 flex-col gap-4">
+            <PostCard
+              piece={piece}
+              extras={extras}
+              reloadExtras={reloadExtras}
               canManage={canManage}
-              onGenerated={() => {
-                reloadExtras();
-                router.refresh();
-              }}
+              showMedia={!templateEditor}
             />
+            {templateEditor && (
+              <PostTemplateCard
+                postId={piece.id}
+                editor={templateEditor}
+                published={piece.content_status === "published"}
+                canManage={canManage}
+                onGenerated={() => {
+                  reloadExtras();
+                  router.refresh();
+                }}
+              />
+            )}
+            {children}
+          </TabsContent>
+          <TabsContent value="share">
+            <ShareCard piece={piece} extras={extras} />
+          </TabsContent>
+          {history !== null && (
+            <TabsContent value="history">{history}</TabsContent>
           )}
-          {children}
-        </div>
+        </PostTabs>
 
         <div className="flex min-w-0 flex-col gap-4">
           <StatusCard piece={piece} owners={owners} canManage={canManage} />
@@ -333,16 +348,97 @@ const POST_FIELDS = [
 ] as const;
 
 /** What gets published: title, format, caption, collaborators, tags, media. */
+const POST_TABS = ["post", "share", "history"] as const;
+type PostTab = (typeof POST_TABS)[number];
+
+/**
+ * Three views of the post, in `?tab=`: what it says (and its template, which
+ * renders its media, so the media shows once), how to share it, and its audit
+ * history. The workflow rail beside them stays put on every tab.
+ */
+function PostTabs({
+  hasHistory,
+  children,
+}: {
+  hasHistory: boolean;
+  children: ReactNode;
+}) {
+  const [tab, setTab] = useUrlTabState<PostTab>({
+    fallback: "post",
+    isValid: (value): value is PostTab =>
+      (POST_TABS as readonly string[]).includes(value) &&
+      (hasHistory || value !== "history"),
+  });
+
+  return (
+    <Tabs
+      value={tab}
+      onValueChange={(value) => setTab(value as PostTab)}
+      className="flex min-w-0 flex-col gap-4"
+    >
+      <TabsList variant="line" aria-label="Post views">
+        <TabsTrigger value="post">Post</TabsTrigger>
+        <TabsTrigger value="share">Share</TabsTrigger>
+        {hasHistory && <TabsTrigger value="history">History</TabsTrigger>}
+      </TabsList>
+      {children}
+    </Tabs>
+  );
+}
+
+/**
+ * What goes out, in the order it goes, and the phone share sheet. A skipped
+ * post has nothing to share, so it says so instead of loading its media.
+ */
+function ShareCard({
+  piece,
+  extras,
+}: {
+  piece: SocialPieceRow;
+  extras: SocialPostExtras | null;
+}) {
+  const skipped = piece.content_status === "skipped";
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="app-muted text-sm font-semibold">Share</CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        <ReadOnlyField label="Media" htmlFor="share-media">
+          {!extras ? (
+            <Spinner />
+          ) : extras.media.length > 0 ? (
+            <PostMediaGrid media={extras.media} />
+          ) : (
+            "—"
+          )}
+        </ReadOnlyField>
+        {skipped ? (
+          <Alert>
+            <AlertDescription>
+              This post is skipped. Change its status to share it.
+            </AlertDescription>
+          </Alert>
+        ) : (
+          <ShareToInstagram piece={piece} extras={extras} />
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function PostCard({
   piece,
   extras,
   reloadExtras,
   canManage,
+  showMedia,
 }: {
   piece: SocialPieceRow;
   extras: SocialPostExtras | null;
   reloadExtras: () => void;
   canManage: boolean;
+  showMedia: boolean;
 }) {
   const card = usePostCardForm(piece, "Post", POST_FIELDS);
   // Null until edited, so the saved tags are what a save sends.
@@ -399,8 +495,12 @@ function PostCard({
         </form>
       ) : (
         <FieldGroup>
-          <PostContentSummary piece={piece} extras={extras} idPrefix="post" />
-          <ShareToInstagram piece={piece} extras={extras} />
+          <PostContentSummary
+            piece={piece}
+            extras={extras}
+            idPrefix="post"
+            showMedia={showMedia}
+          />
         </FieldGroup>
       )}
     </EditableCard>
