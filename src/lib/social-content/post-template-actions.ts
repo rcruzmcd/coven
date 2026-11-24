@@ -5,8 +5,11 @@ import { checkUser } from "@/lib/auth/current-user";
 import { checkPermission } from "@/lib/auth/permissions";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { loadEventTemplateRecord } from "./event-post-data";
 import {
   GEAR_SPOTLIGHT,
+  POST_TEMPLATES,
+  isEventTemplateKey,
   normalizeTemplateText,
   parseTemplateText,
   postTemplate,
@@ -66,7 +69,7 @@ export async function savePostTemplateTextAction(
   const { data: post } = await supabase
     .from("content_opportunities")
     .select(
-      "id, tenant_id, content_status, template_key, template_text, series:social_post_series!content_opportunities_series_id_fkey(content_source)",
+      "id, tenant_id, event_id, content_status, template_key, template_text, series:social_post_series!content_opportunities_series_id_fkey(content_source)",
     )
     .eq("id", String(postId))
     .maybeSingle();
@@ -94,7 +97,26 @@ export async function savePostTemplateTextAction(
     });
   }
 
-  const normalized = normalizeTemplateText(template, null, input);
+  // An event template stores only what differs from the event (#1926), so
+  // its defaults keep following the event.
+  let normalized: ReturnType<typeof normalizeTemplateText>;
+  if (isEventTemplateKey(template.key)) {
+    const loaded = post.event_id
+      ? await loadEventTemplateRecord(
+          createSupabaseAdminClient(),
+          post.tenant_id,
+          post.event_id,
+        )
+      : null;
+    if (!loaded) return { error: MESSAGES.NO_TEMPLATE };
+    normalized = normalizeTemplateText(
+      POST_TEMPLATES[template.key],
+      loaded.record,
+      input,
+    );
+  } else {
+    normalized = normalizeTemplateText(GEAR_SPOTLIGHT, null, input);
+  }
   if ("error" in normalized) return normalized;
   const text = { ...parseTemplateText(post.template_text) };
   for (const field of template.fields) delete text[field.key];

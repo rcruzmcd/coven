@@ -1,4 +1,10 @@
 import type { Json } from "@/lib/database.types";
+import {
+  buildEventPostFrame,
+  type EventPostInput,
+  type EventPostModel,
+  type EventPostRecord,
+} from "./event-post-frames";
 import { GEAR_DETAIL_LIMITS, type GearPostDetails } from "./series-gear";
 import {
   buildStoryFrame,
@@ -23,14 +29,17 @@ export type TemplateRecordKind = "inventory_item" | "event" | "report";
 /** Story 1080x1920, post 1080x1350 (4:5). Square is left to Canva. */
 export type TemplateFormat = "story" | "post";
 
-/** A one-line box, a wrapping box, or a photo chosen from the record's media. */
-export type TemplateFieldKind = "line" | "paragraph" | "photo";
+/**
+ * A one-line box, a wrapping box, a photo chosen from the record's media, or
+ * an option that is on or off (#1926), stored as "on" / "off".
+ */
+export type TemplateFieldKind = "line" | "paragraph" | "photo" | "toggle";
 
 export type TemplateField<Record> = {
   key: string;
   label: string;
   kind: TemplateFieldKind;
-  /** Characters the layout holds at a readable size; null for a photo. */
+  /** Characters the layout holds at a readable size; null for a photo or toggle. */
   max: number | null;
   /** What the field shows before anyone types over it. */
   start: (record: Record) => string | null;
@@ -42,6 +51,8 @@ export type Template<Record, Input, Model> = {
   recordKind: TemplateRecordKind;
   formats: readonly TemplateFormat[];
   frames: readonly number[];
+  /** A line under the picker on what the template adds, if it needs one. */
+  description?: string;
   fields: readonly TemplateField<Record>[];
   /** What one frame shows. Pure: decides everything, draws nothing. */
   build: (input: Input) => Model;
@@ -55,6 +66,11 @@ export type Template<Record, Input, Model> = {
 export const NO_PHOTO = "none";
 export const ITEM_PHOTO = "item";
 const PHOTO_CHOICE = /^(?:none|item|[a-z_]{1,32}:[0-9a-f-]{36})$/;
+/** An event photo's choice (#1926): `event_media:<uuid>`. */
+export const EVENT_PHOTO_PREFIX = "event_media:";
+
+export const TOGGLE_ON = "on";
+export const TOGGLE_OFF = "off";
 
 /** The fields someone typed over, by field key. */
 export type TemplateText = Record<string, string>;
@@ -107,11 +123,120 @@ export const GEAR_SPOTLIGHT = {
 } as const satisfies Template<StoryItem, StoryInput, StoryModel>;
 
 /* ------------------------------------------------------------------------ */
+/* Event announcement and reminder (#1926)                                   */
+/* ------------------------------------------------------------------------ */
+
+/**
+ * Caps sized against the layouts: the line holds two lines at its smallest
+ * size in both formats, the call to action one.
+ */
+export const EVENT_TEXT_LIMITS = { line: 60, cta: 40 } as const;
+
+const eventLine: TemplateField<EventPostRecord> = {
+  key: "line",
+  label: "Line",
+  kind: "line",
+  max: EVENT_TEXT_LIMITS.line,
+  start: (event) => event.name,
+};
+
+/**
+ * Date, time and place: a flyer usually says them, so they start off with
+ * one and on without. The logo starts on, drawn small beside a flyer.
+ */
+const eventOptions: readonly TemplateField<EventPostRecord>[] = [
+  {
+    key: "details",
+    label: "Show date, time and place",
+    kind: "toggle",
+    max: null,
+    start: (event) => (event.has_flyer ? TOGGLE_OFF : TOGGLE_ON),
+  },
+  {
+    key: "logo",
+    label: "Show logo",
+    kind: "toggle",
+    max: null,
+    start: () => TOGGLE_ON,
+  },
+  {
+    key: "photo",
+    label: "Image",
+    kind: "photo",
+    max: null,
+    // Left unset, the flyer, else the event's first public photo.
+    start: typedOnly,
+  },
+];
+
+export const EVENT_ANNOUNCEMENT = {
+  key: "event_announcement",
+  label: "Event announcement",
+  recordKind: "event",
+  formats: ["story", "post"],
+  frames: [1],
+  description:
+    "Frames the event's flyer on its own colour, with a line and a call to action. Without a flyer, your brand with the event's title, date, place and a photo.",
+  fields: [
+    eventLine,
+    {
+      key: "cta",
+      label: "Call to action",
+      kind: "line",
+      max: EVENT_TEXT_LIMITS.cta,
+      start: (event) =>
+        `${event.registration_enabled ? "Register at" : "More at"} ${event.host}`,
+    },
+    ...eventOptions,
+  ],
+  build: buildEventPostFrame,
+} as const satisfies Template<EventPostRecord, EventPostInput, EventPostModel>;
+
+export const EVENT_REMINDER = {
+  key: "event_reminder",
+  label: "Event reminder",
+  recordKind: "event",
+  formats: ["story", "post"],
+  frames: [1],
+  description:
+    'Says when the event is from the day the image is made ("Tomorrow", "This Saturday"), over the event\'s flyer or your brand.',
+  fields: [eventLine, ...eventOptions],
+  build: buildEventPostFrame,
+} as const satisfies Template<EventPostRecord, EventPostInput, EventPostModel>;
+
+export const EVENT_TEMPLATES = [EVENT_ANNOUNCEMENT, EVENT_REMINDER] as const;
+export type EventTemplateKey = (typeof EVENT_TEMPLATES)[number]["key"];
+
+export function isEventTemplateKey(value: unknown): value is EventTemplateKey {
+  return EVENT_TEMPLATES.some((template) => template.key === value);
+}
+
+/** An event template's words and options for `event`, after what was typed. */
+export function eventTemplateValues(
+  template: (typeof EVENT_TEMPLATES)[number],
+  event: EventPostRecord,
+  text: TemplateText,
+): { line: string; cta: string | null; details: boolean; logo: boolean } {
+  const value = (key: string) => {
+    const field = template.fields.find((f) => f.key === key);
+    return field ? templateFieldValue(field, event, text) : null;
+  };
+  return {
+    line: value("line") ?? "",
+    cta: value("cta"),
+    details: value("details") === TOGGLE_ON,
+    logo: value("logo") === TOGGLE_ON,
+  };
+}
+
+/* ------------------------------------------------------------------------ */
 /* Registry                                                                  */
 /* ------------------------------------------------------------------------ */
 
 export const POST_TEMPLATES = {
   [GEAR_SPOTLIGHT.key]: GEAR_SPOTLIGHT,
+  [EVENT_ANNOUNCEMENT.key]: EVENT_ANNOUNCEMENT,
+  [EVENT_REMINDER.key]: EVENT_REMINDER,
 } as const;
 
 export type PostTemplateKey = keyof typeof POST_TEMPLATES;
@@ -224,6 +349,16 @@ export function normalizeTemplateText<R>(
         };
       }
       text[field.key] = value;
+      continue;
+    }
+    if (field.kind === "toggle") {
+      if (!value) continue;
+      if (value !== TOGGLE_ON && value !== TOGGLE_OFF) {
+        return { error: `${field.label} is on or off.` };
+      }
+      if (record === null || value !== field.start(record)) {
+        text[field.key] = value;
+      }
       continue;
     }
     if (field.max !== null && value.length > field.max) {

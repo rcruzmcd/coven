@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { readEventMediaImage } from "@/lib/social-content/event-media-image";
 import { checkUser } from "@/lib/auth/current-user";
 import {
   publicEventPhotosPath,
@@ -284,15 +286,27 @@ export async function setEventFlyerAction(
   );
   if (permissionError) return permissionError;
 
+  let flyer: {
+    id: string;
+    tenant_id: string;
+    path: string;
+    dominant_color: string | null;
+  } | null = null;
   if (mediaId !== null) {
     const { data: media } = await supabase
       .from("event_media")
-      .select("kind")
+      .select("id, kind, tenant_id, storage_path, thumb_path, dominant_color")
       .eq("id", String(mediaId))
       .eq("event_id", String(eventId))
       .maybeSingle();
     if (!media) return { error: "That photo is no longer here." };
     if (media.kind !== "photo") return { error: "A flyer is a photo." };
+    flyer = {
+      id: media.id,
+      tenant_id: media.tenant_id,
+      path: media.thumb_path ?? media.storage_path,
+      dominant_color: media.dominant_color,
+    };
   }
 
   const { data, error } = await supabase
@@ -305,8 +319,33 @@ export async function setEventFlyerAction(
     return { error: "Could not save the flyer. Please try again." };
   }
 
+  if (flyer && !flyer.dominant_color) await storeFlyerColor(flyer);
+
   revalidatePath("/portal/events");
   return { ok: true };
+}
+
+/**
+ * Reads the flyer's dominant colour with sharp and stores it with the photo
+ * (#1926), for the event post templates' bands. Best effort: a photo that
+ * can't be read keeps a null colour, and the templates read it when they draw.
+ * Written with the service role, filtered by the row's tenant, after the
+ * caller's own client returned the row: the column has no update grant.
+ */
+async function storeFlyerColor(flyer: {
+  id: string;
+  tenant_id: string;
+  path: string;
+}) {
+  const admin = createSupabaseAdminClient();
+  const image = await readEventMediaImage(admin, flyer.path);
+  if (!image) return;
+  const { error } = await admin
+    .from("event_media")
+    .update({ dominant_color: image.color })
+    .eq("id", flyer.id)
+    .eq("tenant_id", flyer.tenant_id);
+  if (error) console.error("Could not store the flyer's colour", error);
 }
 
 /**

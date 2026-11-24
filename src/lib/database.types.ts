@@ -3451,6 +3451,7 @@ export type Database = {
         Row: {
           caption: string | null;
           content_type: string;
+          dominant_color: string | null;
           event_id: string;
           id: string;
           is_public: boolean;
@@ -3472,6 +3473,7 @@ export type Database = {
         Insert: {
           caption?: string | null;
           content_type: string;
+          dominant_color?: string | null;
           event_id: string;
           id?: string;
           is_public: boolean;
@@ -3491,6 +3493,7 @@ export type Database = {
         Update: {
           caption?: string | null;
           content_type?: string;
+          dominant_color?: string | null;
           event_id?: string;
           id?: string;
           is_public?: boolean;
@@ -13837,6 +13840,7 @@ export type Database = {
         Returns: {
           caption: string | null;
           content_type: string;
+          dominant_color: string | null;
           event_id: string;
           id: string;
           is_public: boolean;

@@ -4,16 +4,25 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 import { resolveImageUrl } from "@/lib/inventory";
 import { parseImageCrop, type ImageCrop } from "@/lib/image-crop";
+import { EVENT_MEDIA_BUCKET } from "@/lib/storage/event-media-files";
+import { eventPhotoChoice, loadEventTemplateRecord } from "./event-post-data";
 import {
+  GEAR_SPOTLIGHT,
   ITEM_PHOTO,
   NO_PHOTO,
   POST_TEMPLATES,
+  TOGGLE_ON,
   gearPostDetails,
+  isEventTemplateKey,
   parseTemplateText,
   postTemplate,
+  templateFormat,
   templatesFor,
+  type EventTemplateKey,
   type PostTemplateKey,
+  type TemplateFormat,
   type TemplateRecordKind,
+  type TemplateText,
 } from "./post-templates";
 import { loadPostTemplatesOff } from "./story-data";
 import { loadStoryImagesState, type StoryImagesState } from "./story-images";
@@ -30,6 +39,15 @@ export type TemplateTextField = {
   start: string;
   /** What the post shows now: the saved text, else `start`. */
   value: string;
+};
+
+/** An option that is on or off (#1926), e.g. "Show logo". */
+export type TemplateToggleField = {
+  key: string;
+  label: string;
+  /** The record's default, what Reset goes back to. */
+  start: boolean;
+  value: boolean;
 };
 
 export type TemplatePhotoOption = {
@@ -57,8 +75,13 @@ export type PostTemplateEditor = {
   choices: { key: PostTemplateKey; label: string }[];
   /** The post's template is switched off for the tenant; names it. */
   switchedOff: string | null;
+  /** What the template adds, said under the picker. */
+  description: string | null;
+  /** Story or 4:5 post: the preview's shape. */
+  format: TemplateFormat | null;
   frames: readonly number[];
   fields: TemplateTextField[];
+  toggles: TemplateToggleField[];
   photo: TemplatePhotoField | null;
   storyImages: StoryImagesState | null;
 };
@@ -116,17 +139,49 @@ export async function loadPostTemplateEditor(
       templateKey: null,
       choices,
       switchedOff,
+      description: null,
+      format: null,
       frames: [],
       fields: [],
+      toggles: [],
       photo: null,
       storyImages: null,
     };
   }
 
-  // Gear Spotlight is the only template so far, so its record is the item.
+  const format = templateFormat(post.post_format);
+  const storyImages =
+    format !== null
+      ? await loadStoryImagesState(supabase, admin, post.id)
+      : null;
+
+  if (isEventTemplateKey(template.key)) {
+    if (!post.event_id) return null;
+    const event = await loadEventEditor(
+      admin,
+      tenantId,
+      post.event_id,
+      template.key,
+      parseTemplateText(post.template_text),
+    );
+    if (!event) return null;
+    return {
+      templateKey: template.key,
+      choices,
+      switchedOff: null,
+      description: POST_TEMPLATES[template.key].description,
+      format,
+      frames: template.frames,
+      ...event,
+      storyImages,
+    };
+  }
+
+  // Gear Spotlight: its record is the item.
+  const gear = GEAR_SPOTLIGHT;
   const saved = parseTemplateText(post.template_text);
   const details = gearPostDetails(post);
-  const fields: TemplateTextField[] = template.fields.flatMap((field) =>
+  const fields: TemplateTextField[] = gear.fields.flatMap((field) =>
     field.kind === "photo" || field.max === null
       ? []
       : [
@@ -141,7 +196,7 @@ export async function loadPostTemplateEditor(
         ],
   );
 
-  const photoField = template.fields.find((field) => field.kind === "photo");
+  const photoField = gear.fields.find((field) => field.kind === "photo");
   let photo: TemplatePhotoField | null = null;
   if (photoField && post.featured_inventory_item_id) {
     const { data: item } = await admin
@@ -176,12 +231,100 @@ export async function loadPostTemplateEditor(
     templateKey: template.key,
     choices,
     switchedOff: null,
+    description: null,
+    format,
     frames: template.frames,
     fields,
+    toggles: [],
     photo,
-    storyImages:
-      post.post_format === "instagram_story"
-        ? await loadStoryImagesState(supabase, admin, post.id)
-        : null,
+    storyImages,
+  };
+}
+
+/** Thumbnails in the photo choice are signed for an hour. */
+const PHOTO_URL_TTL_SECONDS = 60 * 60;
+
+/**
+ * An event template's boxes, options and photo choice (#1926), each starting
+ * from the event. The photos are its flyer and its public gallery's, signed
+ * with the service role after the post was read with the user's own client,
+ * as the frames themselves are drawn.
+ */
+async function loadEventEditor(
+  admin: Client,
+  tenantId: string,
+  eventId: string,
+  key: EventTemplateKey,
+  saved: TemplateText,
+): Promise<Pick<PostTemplateEditor, "fields" | "toggles" | "photo"> | null> {
+  const loaded = await loadEventTemplateRecord(admin, tenantId, eventId);
+  if (!loaded) return null;
+  const template = POST_TEMPLATES[key];
+  const { record } = loaded;
+
+  const fields: TemplateTextField[] = [];
+  const toggles: TemplateToggleField[] = [];
+  for (const field of template.fields) {
+    if (field.kind === "toggle") {
+      const start = field.start(record) === TOGGLE_ON;
+      toggles.push({
+        key: field.key,
+        label: field.label,
+        start,
+        value: saved[field.key] ? saved[field.key] === TOGGLE_ON : start,
+      });
+    } else if (field.kind !== "photo" && field.max !== null) {
+      const start = field.start(record) ?? "";
+      fields.push({
+        key: field.key,
+        label: field.label,
+        kind: field.kind,
+        max: field.max,
+        start,
+        value: saved[field.key] ?? start,
+      });
+    }
+  }
+
+  const urls = new Map<string, string>();
+  if (loaded.photos.length > 0) {
+    const { data, error } = await admin.storage
+      .from(EVENT_MEDIA_BUCKET)
+      .createSignedUrls(
+        loaded.photos.map((photo) => photo.path),
+        PHOTO_URL_TTL_SECONDS,
+      );
+    if (error) console.error("Could not sign event photos", error);
+    for (const entry of data ?? []) {
+      if (entry.path && entry.signedUrl) urls.set(entry.path, entry.signedUrl);
+    }
+  }
+  let n = 0;
+  const options: TemplatePhotoOption[] = [
+    ...loaded.photos.map((photo) => ({
+      id: eventPhotoChoice(photo),
+      label: photo.isFlyer ? "The flyer" : `Event photo ${++n}`,
+      src: urls.get(photo.path) ?? null,
+      crop: null,
+    })),
+    { id: NO_PHOTO, label: "No photo", src: null, crop: null },
+  ];
+  const photoField = template.fields.find((field) => field.kind === "photo");
+  const start = options[0].id;
+  const chosen = photoField ? saved[photoField.key] : undefined;
+  return {
+    fields,
+    toggles,
+    photo: photoField
+      ? {
+          key: photoField.key,
+          label: photoField.label,
+          options,
+          start,
+          value: options.some((option) => option.id === chosen)
+            ? (chosen as string)
+            : start,
+        }
+      : null,
   };
 }

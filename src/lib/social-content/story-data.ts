@@ -13,8 +13,17 @@ import { lexiconForTenant } from "@/lib/tenant-lexicon";
 import { occurrenceNumber, isSeriesCadence } from "./series";
 import { parseImageCrop, type ImageCrop } from "@/lib/image-crop";
 import {
+  eventPostFingerprint,
+  eventPostSource,
+  loadEventTemplateRecord,
+  type EventPostSource,
+} from "./event-post-data";
+import {
   GEAR_SPOTLIGHT,
   NO_PHOTO,
+  POST_TEMPLATES,
+  isEventTemplateKey,
+  templateFormat,
   POST_TEMPLATES_OFF_SETTING_KEY,
   gearPostDetails,
   normalizeTemplateText,
@@ -53,9 +62,9 @@ type StoryTypography = ReturnType<typeof resolvedTypography>;
  * still its URL and the photo its storage source. Hashed for the post page's
  * "out of date" check (#1909), so it changes exactly when a frame would.
  */
-export type StorySource = {
+export type GearStorySource = {
   /** The template the post is drawn with (#1924); not hashed, as no frame changes with it alone. */
-  templateKey: PostTemplateKey;
+  templateKey: typeof GEAR_SPOTLIGHT.key;
   input: Omit<StoryInput, "frame" | "headingTracking" | "photo" | "photoCrop">;
   photoSource: string | null;
   /** The photo's stored crop (#1925); hashed only when there is one. */
@@ -64,6 +73,13 @@ export type StorySource = {
   itemHasPhoto: boolean;
   typography: StoryTypography;
 };
+
+/** What any template's frames are drawn from: Gear Spotlight's, or an event's (#1926). */
+export type StorySource = GearStorySource | EventPostSource;
+
+export function isEventSource(source: StorySource): source is EventPostSource {
+  return isEventTemplateKey(source.templateKey);
+}
 
 export type StorySourceLoad =
   | { status: "unauthenticated" }
@@ -116,12 +132,16 @@ export async function loadStorySource(
   const { data: post } = await supabase
     .from("content_opportunities")
     .select(
-      "id, tenant_id, featured_inventory_item_id, template_key, gear_brand, gear_best_for, gear_why, template_text, occurrence_date, series:social_post_series!content_opportunities_series_id_fkey(cadence, anchor_date)",
+      "id, tenant_id, event_id, post_format, featured_inventory_item_id, template_key, gear_brand, gear_best_for, gear_why, template_text, occurrence_date, series:social_post_series!content_opportunities_series_id_fkey(cadence, anchor_date)",
     )
     .eq("id", postId)
     .maybeSingle();
   // A malformed id is a cast error, which is a 404 like any other miss.
-  if (!post?.featured_inventory_item_id) return { status: "not_found" };
+  if (!post) return { status: "not_found" };
+  if (isEventTemplateKey(post.template_key)) {
+    return loadEventStorySource(supabase, admin, post, overrides);
+  }
+  if (!post.featured_inventory_item_id) return { status: "not_found" };
   // Gear Spotlight is the only story template that reads an item so far.
   if (post.template_key !== GEAR_SPOTLIGHT.key) return { status: "not_found" };
   const tenantId = post.tenant_id;
@@ -252,8 +272,67 @@ export async function loadStorySource(
   };
 }
 
+/**
+ * An event template's source (#1926): the post's event, its flyer and public
+ * photos, and the words typed -- or, for a preview, the words as typed now.
+ */
+async function loadEventStorySource(
+  supabase: Client,
+  admin: Client,
+  post: {
+    tenant_id: string;
+    event_id: string | null;
+    post_format: string | null;
+    template_key: string | null;
+    template_text: Database["public"]["Tables"]["content_opportunities"]["Row"]["template_text"];
+  },
+  overrides?: StoryOverrides,
+): Promise<StorySourceLoad> {
+  if (!isEventTemplateKey(post.template_key) || !post.event_id) {
+    return { status: "not_found" };
+  }
+  const template = POST_TEMPLATES[post.template_key];
+  const format = templateFormat(post.post_format);
+  if (!format || !(template.formats as readonly string[]).includes(format)) {
+    return { status: "not_found" };
+  }
+  const [loaded, branding, off] = await Promise.all([
+    loadEventTemplateRecord(admin, post.tenant_id, post.event_id),
+    getTenantBranding(supabase),
+    loadPostTemplatesOff(admin, post.tenant_id),
+  ]);
+  if (!loaded || off.includes(template.key)) return { status: "not_found" };
+
+  let text: TemplateText;
+  if (overrides) {
+    const normalized = normalizeTemplateText(
+      template,
+      loaded.record,
+      overrides.text,
+    );
+    if ("error" in normalized) {
+      return { status: "invalid", error: normalized.error };
+    }
+    text = normalized.text;
+  } else {
+    text = parseTemplateText(post.template_text);
+  }
+  return {
+    status: "ok",
+    source: eventPostSource({
+      templateKey: template.key,
+      format,
+      loaded,
+      text,
+      branding,
+      now: new Date(),
+    }),
+  };
+}
+
 /** A stable hash of everything a frame is drawn from (#1909). */
 export function storyFingerprint(source: StorySource): string {
+  if (isEventSource(source)) return eventPostFingerprint(source);
   return createHash("sha256")
     .update(
       JSON.stringify({
@@ -274,7 +353,7 @@ export function storyFingerprint(source: StorySource): string {
  * frames that show it (1 and 2), the logo on every frame.
  */
 export async function inlineStoryImages(
-  source: StorySource,
+  source: GearStorySource,
   frame: StoryFrameNumber,
   requestUrl: string,
 ): Promise<Omit<StoryInput, "frame" | "headingTracking">> {
@@ -303,6 +382,7 @@ export async function loadStoryFrame(
 ): Promise<StoryLoad> {
   const load = await loadStorySource(supabase, admin, postId);
   if (load.status !== "ok") return load;
+  if (isEventSource(load.source)) return { status: "not_found" };
   return {
     status: "ok",
     typography: load.source.typography,

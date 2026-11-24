@@ -29,6 +29,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useActionToast } from "@/components/portal/action-toast";
 import { StoryImagesPanel } from "@/components/portal/social-content/story-images-panel";
@@ -72,6 +73,7 @@ export function PostTemplateCard({
   const savedKey = JSON.stringify([
     editor.templateKey,
     editor.fields.map((field) => field.value),
+    editor.toggles.map((toggle) => toggle.value),
     editor.photo?.value,
   ]);
 
@@ -92,6 +94,9 @@ export function PostTemplateCard({
             {editor.switchedOff} is switched off for your organization, so this
             post can&apos;t be drawn with it. Images made before stay.
           </p>
+        )}
+        {editor.templateKey && editor.description && (
+          <p className="app-muted text-sm">{editor.description}</p>
         )}
         {editor.templateKey ? (
           <TemplateForm
@@ -184,20 +189,30 @@ function TemplateForm({
     Object.fromEntries(editor.fields.map((field) => [field.key, field.value])),
   );
   const [photo, setPhoto] = useState(editor.photo?.value ?? "");
+  const [toggles, setToggles] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(
+      editor.toggles.map((toggle) => [toggle.key, toggle.value]),
+    ),
+  );
 
   const dirty =
     editor.fields.some((field) => values[field.key] !== field.value) ||
+    editor.toggles.some((toggle) => toggles[toggle.key] !== toggle.value) ||
     (editor.photo !== null && photo !== editor.photo.value);
 
   // What is sent: every field as typed, and the photo only when it isn't the
   // record's default, so the default follows the record.
   const typed = useMemo(() => {
     const out: Record<string, string> = { ...values };
+    // Every option as it stands; one at its default isn't stored.
+    for (const toggle of editor.toggles) {
+      out[toggle.key] = toggles[toggle.key] ? "on" : "off";
+    }
     if (editor.photo) {
       out[editor.photo.key] = photo === editor.photo.start ? "" : photo;
     }
     return out;
-  }, [values, photo, editor.photo]);
+  }, [values, toggles, photo, editor.toggles, editor.photo]);
 
   function save() {
     run(() => savePostTemplateTextAction(postId, typed), {
@@ -265,6 +280,25 @@ function TemplateForm({
               </Field>
             );
           })}
+          {editor.toggles.map((toggle) => {
+            const id = `template-${toggle.key}`;
+            return (
+              <Field key={toggle.key} orientation="horizontal">
+                <Switch
+                  id={id}
+                  checked={toggles[toggle.key] ?? toggle.start}
+                  disabled={!canEdit}
+                  onCheckedChange={(checked) =>
+                    setToggles((current) => ({
+                      ...current,
+                      [toggle.key]: checked,
+                    }))
+                  }
+                />
+                <FieldLabel htmlFor={id}>{toggle.label}</FieldLabel>
+              </Field>
+            );
+          })}
           {editor.photo && (
             <PhotoChoice
               field={editor.photo}
@@ -302,7 +336,12 @@ function TemplateForm({
           />
         )}
       </form>
-      <TemplatePreview postId={postId} frames={editor.frames} typed={typed} />
+      <TemplatePreview
+        postId={postId}
+        frames={editor.frames}
+        format={editor.format}
+        typed={typed}
+      />
     </div>
   );
 }
@@ -394,10 +433,12 @@ type PreviewImage = { src: string; url: string } | null;
 function TemplatePreview({
   postId,
   frames,
+  format,
   typed,
 }: {
   postId: string;
   frames: readonly number[];
+  format: PostTemplateEditor["format"];
   typed: Record<string, string>;
 }) {
   const [index, setIndex] = useState(0);
@@ -452,14 +493,21 @@ function TemplatePreview({
   return (
     <div className="mx-auto flex w-full max-w-64 flex-col gap-2">
       <div
-        className="relative aspect-[9/16] w-full overflow-hidden rounded-lg border bg-muted"
+        className={cn(
+          "relative w-full overflow-hidden rounded-lg border bg-muted",
+          format === "post" ? "aspect-[4/5]" : "aspect-[9/16]",
+        )}
         aria-busy={loading}
       >
         {shown && (
           // eslint-disable-next-line @next/next/no-img-element -- a blob URL of the PNG route
           <img
             src={shown.src}
-            alt={`Preview of frame ${frame}`}
+            alt={
+              frames.length > 1
+                ? `Preview of frame ${frame}`
+                : "Preview of the image"
+            }
             className="size-full object-contain"
           />
         )}
