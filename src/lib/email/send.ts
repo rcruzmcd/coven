@@ -51,6 +51,11 @@ export type EmailMessage = {
    * is Resend's wire format, not something a renderer should know about.
    */
   attachments?: readonly EmailAttachment[];
+  /**
+   * Extra message headers (#1921): today only the RFC 8058 unsubscribe pair
+   * deliverEmail() composes. Passed through verbatim; the caller owns them.
+   */
+  headers?: Readonly<Record<string, string>>;
 };
 
 /**
@@ -68,7 +73,7 @@ export async function sendEmail(
   message: EmailMessage,
 ): Promise<SendEmailResult> {
   const apiKey = process.env.RESEND_API_KEY;
-  const { from, replyTo, attachments } = message;
+  const { from, replyTo, attachments, headers } = message;
 
   // No key configured: log and succeed. Development, preview deploys and CI all
   // run without one, and this is what lets the whole path -- the cron route,
@@ -111,6 +116,7 @@ export async function sendEmail(
         // worse than none, and some providers reject it outright. The same for
         // an empty attachment list, which is every message but one.
         ...(replyTo ? { reply_to: replyTo } : {}),
+        ...(headers && Object.keys(headers).length ? { headers } : {}),
         ...(attachments?.length
           ? {
               attachments: attachments.map((file) => ({

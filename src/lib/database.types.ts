@@ -7380,6 +7380,9 @@ export type Database = {
           id: string;
           kind: string;
           person_id: string | null;
+          provider_event: string | null;
+          provider_event_at: string | null;
+          provider_event_detail: string | null;
           provider_message_id: string | null;
           sent_at: string | null;
           skip_reason: string | null;
@@ -7393,6 +7396,9 @@ export type Database = {
           id?: string;
           kind: string;
           person_id?: string | null;
+          provider_event?: string | null;
+          provider_event_at?: string | null;
+          provider_event_detail?: string | null;
           provider_message_id?: string | null;
           sent_at?: string | null;
           skip_reason?: string | null;
@@ -7406,6 +7412,9 @@ export type Database = {
           id?: string;
           kind?: string;
           person_id?: string | null;
+          provider_event?: string | null;
+          provider_event_at?: string | null;
+          provider_event_detail?: string | null;
           provider_message_id?: string | null;
           sent_at?: string | null;
           skip_reason?: string | null;
