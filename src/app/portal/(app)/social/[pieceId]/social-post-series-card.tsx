@@ -306,216 +306,220 @@ function SeriesDetails({
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-sm font-medium">
-          {cadenceLabel(series.cadence, series.anchor_date)}
-        </span>
-        <Badge variant={state === "active" ? "secondary" : "outline"}>
-          {STATE_LABELS[state]}
-        </Badge>
-      </div>
-      {series.ends_on && (
-        <p className="app-muted text-xs">
-          Ends on {formatCalendarDate(series.ends_on)}.
-        </p>
-      )}
-
-      {upcoming.length > 0 && (
-        <div className="flex flex-col gap-1">
-          <h3 className="app-muted text-xs font-semibold">
-            {state === "paused" ? "Next dates once resumed" : "Next dates"}
-          </h3>
-          <ul className="flex flex-col gap-0.5 text-sm">
-            {upcoming.map((day) => (
-              <li key={day}>
-                <ViewerTime
-                  iso={occurrencePublishAt(series, day)}
-                  fallbackZone={series.time_zone}
-                />
-              </li>
-            ))}
-          </ul>
+    <div className="grid gap-x-8 gap-y-4 md:grid-cols-2">
+      <div className="flex min-w-0 flex-col gap-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm font-medium">
+            {cadenceLabel(series.cadence, series.anchor_date)}
+          </span>
+          <Badge variant={state === "active" ? "secondary" : "outline"}>
+            {STATE_LABELS[state]}
+          </Badge>
         </div>
-      )}
-
-      {series.missed_occurrences.length > 0 && (
-        <div className="flex flex-col gap-1">
-          <h3 className="app-muted text-xs font-semibold">Not created</h3>
+        {series.ends_on && (
           <p className="app-muted text-xs">
-            These dates had passed before their post could be made, so they were
-            skipped:{" "}
-            {series.missed_occurrences
-              .slice(-MISSED_SHOWN)
-              .map((day) => formatCalendarDate(day))
-              .join(", ")}
-            .
+            Ends on {formatCalendarDate(series.ends_on)}.
           </p>
-        </div>
-      )}
+        )}
 
-      {series.content_source === "random_gear_item" &&
-        series.no_gear_occurrences.length > 0 && (
+        {upcoming.length > 0 && (
           <div className="flex flex-col gap-1">
             <h3 className="app-muted text-xs font-semibold">
-              Skipped for want of gear
+              {state === "paused" ? "Next dates once resumed" : "Next dates"}
             </h3>
+            <ul className="flex flex-col gap-0.5 text-sm">
+              {upcoming.map((day) => (
+                <li key={day}>
+                  <ViewerTime
+                    iso={occurrencePublishAt(series, day)}
+                    fallbackZone={series.time_zone}
+                  />
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {series.missed_occurrences.length > 0 && (
+          <div className="flex flex-col gap-1">
+            <h3 className="app-muted text-xs font-semibold">Not created</h3>
             <p className="app-muted text-xs">
-              {series.no_gear_occurrences
+              These dates had passed before their post could be made, so they
+              were skipped:{" "}
+              {series.missed_occurrences
                 .slice(-MISSED_SHOWN)
-                .map(
-                  (day) =>
-                    `No available gear with a photo on ${formatCalendarDate(day)}`,
-                )
-                .join(". ")}
+                .map((day) => formatCalendarDate(day))
+                .join(", ")}
               .
             </p>
           </div>
         )}
 
-      {canManage && state !== "ended" && !editing && (
-        <ContentSourceFields series={series} />
-      )}
-      {!canManage && series.content_source === "random_gear_item" && (
-        <p className="app-muted text-xs">
-          Each post features a random Gear Library item.
-        </p>
-      )}
+        {series.content_source === "random_gear_item" &&
+          series.no_gear_occurrences.length > 0 && (
+            <div className="flex flex-col gap-1">
+              <h3 className="app-muted text-xs font-semibold">
+                Skipped for want of gear
+              </h3>
+              <p className="app-muted text-xs">
+                {series.no_gear_occurrences
+                  .slice(-MISSED_SHOWN)
+                  .map(
+                    (day) =>
+                      `No available gear with a photo on ${formatCalendarDate(day)}`,
+                  )
+                  .join(". ")}
+                .
+              </p>
+            </div>
+          )}
+      </div>
+      <div className="flex min-w-0 flex-col gap-4">
+        {canManage && state !== "ended" && !editing && (
+          <ContentSourceFields series={series} />
+        )}
+        {!canManage && series.content_source === "random_gear_item" && (
+          <p className="app-muted text-xs">
+            Each post features a random Gear Library item.
+          </p>
+        )}
 
-      {canManage && state !== "ended" && (
-        <FieldGroup>
-          {editing ? (
-            <>
-              <CadenceFields
-                idPrefix="series-edit"
-                anchorDate={series.anchor_date}
-                cadence={cadence}
-                endsOn={endsOn}
-                allowNone={false}
-                disabled={isPending}
-                onCadenceChange={(value) => setCadence(value as SeriesCadence)}
-                onEndsOnChange={setEndsOn}
-              />
-              <div className="flex gap-2">
+        {canManage && state !== "ended" && (
+          <FieldGroup>
+            {editing ? (
+              <>
+                <CadenceFields
+                  idPrefix="series-edit"
+                  anchorDate={series.anchor_date}
+                  cadence={cadence}
+                  endsOn={endsOn}
+                  allowNone={false}
+                  disabled={isPending}
+                  onCadenceChange={(value) =>
+                    setCadence(value as SeriesCadence)
+                  }
+                  onEndsOnChange={setEndsOn}
+                />
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={saveSchedule}
+                    disabled={isPending}
+                    focusableWhenDisabled
+                  >
+                    Save
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      setCadence(series.cadence);
+                      setEndsOn(series.ends_on ?? "");
+                      setEditing(false);
+                    }}
+                    disabled={isPending}
+                    focusableWhenDisabled
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <Field orientation="horizontal">
+                <Switch
+                  id="series-auto-approve"
+                  checked={series.auto_approve}
+                  disabled={isPending}
+                  onCheckedChange={(checked) =>
+                    run(() => setSeriesAutoApproveAction(series.id, checked), {
+                      success: checked
+                        ? "New posts will skip review."
+                        : "New posts will need review.",
+                      onSuccess: refresh,
+                    })
+                  }
+                />
+                <div className="flex flex-col gap-0.5">
+                  <FieldLabel htmlFor="series-auto-approve">
+                    Auto-approve new posts
+                  </FieldLabel>
+                  <FieldDescription>
+                    New posts in this series start approved and skip review.
+                  </FieldDescription>
+                </div>
+              </Field>
+            )}
+
+            {!editing && (
+              <div className="flex flex-wrap gap-2">
                 <Button
                   type="button"
                   size="sm"
-                  onClick={saveSchedule}
+                  variant="secondary"
+                  onClick={() => setEditing(true)}
                   disabled={isPending}
                   focusableWhenDisabled
                 >
-                  Save
+                  Change repeat
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  onClick={() =>
+                    run(
+                      () =>
+                        setSeriesStateAction(
+                          series.id,
+                          state === "paused" ? "resume" : "pause",
+                        ),
+                      {
+                        success:
+                          state === "paused"
+                            ? "Series resumed."
+                            : "Series paused.",
+                        onSuccess: refresh,
+                      },
+                    )
+                  }
+                  disabled={isPending}
+                  focusableWhenDisabled
+                >
+                  {state === "paused" ? "Resume" : "Pause"}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => setConfirming("template")}
+                  disabled={isPending}
+                  focusableWhenDisabled
+                >
+                  Use this post for future posts
                 </Button>
                 <Button
                   type="button"
                   size="sm"
                   variant="ghost"
-                  onClick={() => {
-                    setCadence(series.cadence);
-                    setEndsOn(series.ends_on ?? "");
-                    setEditing(false);
-                  }}
+                  onClick={() => setConfirming("end")}
                   disabled={isPending}
                   focusableWhenDisabled
                 >
-                  Cancel
+                  End series
                 </Button>
               </div>
-            </>
-          ) : (
-            <Field orientation="horizontal">
-              <Switch
-                id="series-auto-approve"
-                checked={series.auto_approve}
-                disabled={isPending}
-                onCheckedChange={(checked) =>
-                  run(() => setSeriesAutoApproveAction(series.id, checked), {
-                    success: checked
-                      ? "New posts will skip review."
-                      : "New posts will need review.",
-                    onSuccess: refresh,
-                  })
-                }
-              />
-              <div className="flex flex-col gap-0.5">
-                <FieldLabel htmlFor="series-auto-approve">
-                  Auto-approve new posts
-                </FieldLabel>
-                <FieldDescription>
-                  New posts in this series start approved and skip review.
-                </FieldDescription>
-              </div>
-            </Field>
-          )}
-
-          {!editing && (
-            <div className="flex flex-wrap gap-2">
-              <Button
-                type="button"
-                size="sm"
-                variant="secondary"
-                onClick={() => setEditing(true)}
-                disabled={isPending}
-                focusableWhenDisabled
-              >
-                Change repeat
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="secondary"
-                onClick={() =>
-                  run(
-                    () =>
-                      setSeriesStateAction(
-                        series.id,
-                        state === "paused" ? "resume" : "pause",
-                      ),
-                    {
-                      success:
-                        state === "paused"
-                          ? "Series resumed."
-                          : "Series paused.",
-                      onSuccess: refresh,
-                    },
-                  )
-                }
-                disabled={isPending}
-                focusableWhenDisabled
-              >
-                {state === "paused" ? "Resume" : "Pause"}
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="secondary"
-                onClick={() => setConfirming("template")}
-                disabled={isPending}
-                focusableWhenDisabled
-              >
-                Use this post for future posts
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                onClick={() => setConfirming("end")}
-                disabled={isPending}
-                focusableWhenDisabled
-              >
-                End series
-              </Button>
-            </div>
-          )}
-        </FieldGroup>
-      )}
-      {canManage && !editing && (
-        <p className="app-muted text-xs">
-          Changes to the series apply to posts it hasn&apos;t created yet. Posts
-          already created are edited one at a time.
-        </p>
-      )}
-
+            )}
+          </FieldGroup>
+        )}
+        {canManage && !editing && (
+          <p className="app-muted text-xs">
+            Changes to the series apply to posts it hasn&apos;t created yet.
+            Posts already created are edited one at a time.
+          </p>
+        )}
+      </div>
       <AlertDialog
         open={confirming !== null}
         onOpenChange={(open) => {
