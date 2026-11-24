@@ -3,10 +3,12 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { loadStorySource } from "@/lib/social-content/story-data";
 import { renderStoryFrame } from "@/lib/social-content/story-render";
 import { parseStoryFrame } from "@/lib/social-content/story-frames";
+import { POST_TEMPLATES } from "@/lib/social-content/post-templates";
 
 /**
- * One frame of a featured-gear post's Gear Spotlight story, as a 1080x1920
- * PNG (#1908): 1 the item, 2 its details, 3 how to get it.
+ * One frame of a post's story, as a 1080x1920 PNG (#1908), drawn by the
+ * post's template (#1924). Gear Spotlight's: 1 the item, 2 its details, 3 how
+ * to get it.
  *
  * Under `/api/` so the portal host's proxy passes it through rather than
  * rewriting it into `/portal/*`, like `/api/app-icon/[size]`. Nothing here is
@@ -31,6 +33,11 @@ export async function GET(
     return new Response("Sign in to view this image", { status: 401 });
   }
   if (load.status === "not_found") {
+    return new Response("Not found", { status: 404 });
+  }
+
+  // A frame the post's template doesn't have is a miss like any other.
+  if (!POST_TEMPLATES[load.source.templateKey].frames.includes(frame)) {
     return new Response("Not found", { status: 404 });
   }
 

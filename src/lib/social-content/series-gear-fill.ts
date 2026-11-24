@@ -1,7 +1,7 @@
 import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "@/lib/database.types";
+import type { Database, Json } from "@/lib/database.types";
 import { resolveTenantOrigin } from "@/lib/email/identity";
 import { resolveImageUrl } from "@/lib/inventory";
 import { eventMediaPath } from "@/lib/storage/event-media-files";
@@ -10,6 +10,7 @@ import {
   gearPhotoPathFromUrl,
 } from "@/lib/storage/gear-photos";
 import { SOCIAL_POST_MEDIA_BUCKET } from "./pieces";
+import { gearPostDetails } from "./post-templates";
 import {
   gearCaptionEdited,
   gearCaptionToTemplate,
@@ -175,18 +176,7 @@ export async function loadGearItems(
   return data ?? [];
 }
 
-/** A post row's gear details (#1906). */
-export function gearPostDetails(post: {
-  gear_brand?: string | null;
-  gear_best_for?: string | null;
-  gear_why?: string | null;
-}): GearPostDetails {
-  return {
-    brand: post.gear_brand ?? null,
-    best_for: post.gear_best_for ?? null,
-    why: post.gear_why ?? null,
-  };
-}
+export { gearPostDetails };
 
 /**
  * The series caption a gear post's caption stands for, for "Use this post
@@ -203,7 +193,7 @@ export async function gearTemplateFromPost(
   const { data: post } = await supabase
     .from("content_opportunities")
     .select(
-      "tenant_id, content, featured_inventory_item_id, gear_brand, gear_best_for, gear_why",
+      "tenant_id, content, featured_inventory_item_id, gear_brand, gear_best_for, gear_why, template_text",
     )
     .eq("id", postId)
     .maybeSingle();
@@ -245,6 +235,7 @@ export async function loadPostFeaturedGear(
     gear_brand?: string | null;
     gear_best_for?: string | null;
     gear_why?: string | null;
+    template_text?: Json;
   },
 ): Promise<PostFeaturedGear | null> {
   if (!post.series_id) return null;

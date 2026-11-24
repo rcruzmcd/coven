@@ -11,7 +11,12 @@ import { resolveSiteContent } from "@/lib/site-content";
 import { getTenantBranding } from "@/lib/tenant-branding";
 import { lexiconForTenant } from "@/lib/tenant-lexicon";
 import { occurrenceNumber, isSeriesCadence } from "./series";
-import { gearPhotoSource, gearPostDetails } from "./series-gear-fill";
+import {
+  GEAR_SPOTLIGHT,
+  gearPostDetails,
+  type PostTemplateKey,
+} from "./post-templates";
+import { gearPhotoSource } from "./series-gear-fill";
 import {
   displayHost,
   type StoryFrameNumber,
@@ -42,6 +47,8 @@ type StoryTypography = ReturnType<typeof resolvedTypography>;
  * "out of date" check (#1909), so it changes exactly when a frame would.
  */
 export type StorySource = {
+  /** The template the post is drawn with (#1924); not hashed, as no frame changes with it alone. */
+  templateKey: PostTemplateKey;
   input: Omit<StoryInput, "frame" | "headingTracking" | "photo">;
   photoSource: string | null;
   typography: StoryTypography;
@@ -88,12 +95,14 @@ export async function loadStorySource(
   const { data: post } = await supabase
     .from("content_opportunities")
     .select(
-      "id, tenant_id, featured_inventory_item_id, gear_brand, gear_best_for, gear_why, occurrence_date, series:social_post_series!content_opportunities_series_id_fkey(cadence, anchor_date)",
+      "id, tenant_id, featured_inventory_item_id, template_key, gear_brand, gear_best_for, gear_why, template_text, occurrence_date, series:social_post_series!content_opportunities_series_id_fkey(cadence, anchor_date)",
     )
     .eq("id", postId)
     .maybeSingle();
   // A malformed id is a cast error, which is a 404 like any other miss.
   if (!post?.featured_inventory_item_id) return { status: "not_found" };
+  // Gear Spotlight is the only story template that reads an item so far.
+  if (post.template_key !== GEAR_SPOTLIGHT.key) return { status: "not_found" };
   const tenantId = post.tenant_id;
 
   const { data: item } = await admin
@@ -153,6 +162,7 @@ export async function loadStorySource(
   return {
     status: "ok",
     source: {
+      templateKey: GEAR_SPOTLIGHT.key,
       typography: resolvedTypography(branding),
       photoSource: item.photo_url ? gearPhotoSource(item.photo_url) : null,
       input: {

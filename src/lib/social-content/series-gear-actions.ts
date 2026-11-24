@@ -8,6 +8,12 @@ import { checkUser } from "@/lib/auth/current-user";
 import type { Database } from "@/lib/database.types";
 import { SOCIAL_POST_MEDIA_BUCKET } from "./pieces";
 import {
+  GEAR_SPOTLIGHT,
+  normalizeTemplateText,
+  parseTemplateText,
+  type TemplateText,
+} from "./post-templates";
+import {
   copyGearPhotoToPost,
   gearPostDetails,
   loadGearItems,
@@ -15,7 +21,6 @@ import {
   type GearItemOption,
 } from "./series-gear-fill";
 import {
-  GEAR_DETAIL_LIMITS,
   MAX_RECENT_EXCLUSION,
   gearCaptionEdited,
   gearItemLink,
@@ -133,7 +138,7 @@ export async function swapFeaturedGearAction(
   const { data: post, error: postError } = await supabase
     .from("content_opportunities")
     .select(
-      "id, tenant_id, content, content_status, featured_inventory_item_id, featured_media_id, gear_brand, gear_best_for, gear_why, series:social_post_series!content_opportunities_series_id_fkey(content)",
+      "id, tenant_id, content, content_status, featured_inventory_item_id, featured_media_id, gear_brand, gear_best_for, gear_why, template_text, series:social_post_series!content_opportunities_series_id_fkey(content)",
     )
     .eq("id", postId)
     .maybeSingle();
@@ -225,12 +230,6 @@ export type GearDetailsInput = {
   why: string;
 };
 
-const DETAIL_LABELS: Record<keyof GearPostDetails, string> = {
-  brand: "Brand",
-  best_for: "Best for",
-  why: "Why we love it",
-};
-
 /**
  * Saves a gear post's brand, best for and why-we-love-it (#1906). A caption
  * nobody edited is filled in again, so its {brand}, {best_for} and {why}
@@ -244,23 +243,20 @@ export async function updateGearDetailsAction(
   if ("error" in auth) return auth;
   const { supabase } = auth;
 
-  const next: GearPostDetails = { brand: null, best_for: null, why: null };
-  for (const key of Object.keys(DETAIL_LABELS) as (keyof GearPostDetails)[]) {
-    const value = String(input?.[key] ?? "")
-      .replace(/\s+/g, " ")
-      .trim();
-    if (value.length > GEAR_DETAIL_LIMITS[key]) {
-      return {
-        error: `${DETAIL_LABELS[key]} can be at most ${GEAR_DETAIL_LIMITS[key]} characters.`,
-      };
-    }
-    next[key] = value || null;
-  }
+  const normalized = normalizeTemplateText(GEAR_SPOTLIGHT, null, {
+    ...input,
+  });
+  if ("error" in normalized) return normalized;
+  const next: GearPostDetails = {
+    brand: normalized.text.brand ?? null,
+    best_for: normalized.text.best_for ?? null,
+    why: normalized.text.why ?? null,
+  };
 
   const { data: post, error: postError } = await supabase
     .from("content_opportunities")
     .select(
-      "id, tenant_id, content, content_status, featured_inventory_item_id, gear_brand, gear_best_for, gear_why, series:social_post_series!content_opportunities_series_id_fkey(content, content_source)",
+      "id, tenant_id, content, content_status, featured_inventory_item_id, gear_brand, gear_best_for, gear_why, template_text, series:social_post_series!content_opportunities_series_id_fkey(content, content_source)",
     )
     .eq("id", postId)
     .maybeSingle();
@@ -272,16 +268,28 @@ export async function updateGearDetailsAction(
     return { error: "This post is published, so it can't be changed." };
   }
 
+  // template_text is what the story reads (#1924); the gear columns stay in
+  // step until main reads it.
   const update: {
+    template_key: string;
+    template_text: TemplateText;
     gear_brand: string | null;
     gear_best_for: string | null;
     gear_why: string | null;
     content?: string;
   } = {
+    template_key: GEAR_SPOTLIGHT.key,
+    template_text: {
+      ...parseTemplateText(post.template_text),
+      ...normalized.text,
+    },
     gear_brand: next.brand,
     gear_best_for: next.best_for,
     gear_why: next.why,
   };
+  for (const { key } of GEAR_SPOTLIGHT.fields) {
+    if (!(key in normalized.text)) delete update.template_text[key];
+  }
 
   const template = post.series.content ?? null;
   const items = post.featured_inventory_item_id

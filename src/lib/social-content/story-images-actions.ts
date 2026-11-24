@@ -9,7 +9,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { MAX_POST_MEDIA, SOCIAL_POST_MEDIA_BUCKET } from "./pieces";
 import { loadStorySource, storyFingerprint } from "./story-data";
-import { STORY_FRAMES } from "./story-frames";
+import { POST_TEMPLATES } from "./post-templates";
 import { renderStoryFrame } from "./story-render";
 
 const MESSAGES: Record<string, string> = {
@@ -61,7 +61,7 @@ export async function generateSocialPostStoryImagesAction(
     if (error) console.error("Could not remove unused story images", error);
   };
 
-  for (const frame of STORY_FRAMES) {
+  for (const frame of POST_TEMPLATES[load.source.templateKey].frames) {
     let bytes: ArrayBuffer;
     try {
       const image = await renderStoryFrame(load.source, frame, requestUrl);
