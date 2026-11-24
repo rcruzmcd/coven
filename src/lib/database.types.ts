@@ -13840,6 +13840,7 @@ export type Database = {
         Returns: {
           caption: string | null;
           content_type: string;
+          dominant_color: string | null;
           event_id: string;
           id: string;
           is_public: boolean;
