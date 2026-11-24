@@ -5,6 +5,7 @@ import {
   type EventPostModel,
   type EventPostRecord,
 } from "./event-post-frames";
+import { MAX_POST_MEDIA } from "./pieces";
 import { GEAR_DETAIL_LIMITS, type GearPostDetails } from "./series-gear";
 import {
   buildStoryFrame,
@@ -30,10 +31,12 @@ export type TemplateRecordKind = "inventory_item" | "event" | "report";
 export type TemplateFormat = "story" | "post";
 
 /**
- * A one-line box, a wrapping box, a photo chosen from the record's media, or
- * an option that is on or off (#1926), stored as "on" / "off".
+ * A one-line box, a wrapping box, a photo chosen from the record's media,
+ * several photos chosen in order (#1927), or an option that is on or off
+ * (#1926), stored as "on" / "off".
  */
-export type TemplateFieldKind = "line" | "paragraph" | "photo" | "toggle";
+export type TemplateFieldKind =
+  "line" | "paragraph" | "photo" | "photos" | "toggle";
 
 export type TemplateField<Record> = {
   key: string;
@@ -68,6 +71,27 @@ export const ITEM_PHOTO = "item";
 const PHOTO_CHOICE = /^(?:none|item|[a-z_]{1,32}:[0-9a-f-]{36})$/;
 /** An event photo's choice (#1926): `event_media:<uuid>`. */
 export const EVENT_PHOTO_PREFIX = "event_media:";
+
+/**
+ * Several photos (#1927): `none`, or their `event_media:<uuid>` choices
+ * joined with commas, in the order they were picked. Left unset, the
+ * template's default photos.
+ */
+const PHOTO_LIST_ITEM = /^event_media:[0-9a-f-]{36}$/;
+export const PHOTO_LIST_SEPARATOR = ",";
+
+/** A photo list's choices, in order, without repeats; [] for none or unset. */
+export function parsePhotoList(value: string | undefined): string[] {
+  if (!value || value === NO_PHOTO) return [];
+  return [
+    ...new Set(
+      value
+        .split(PHOTO_LIST_SEPARATOR)
+        .map((item) => item.trim())
+        .filter(Boolean),
+    ),
+  ];
+}
 
 export const TOGGLE_ON = "on";
 export const TOGGLE_OFF = "off";
@@ -204,19 +228,134 @@ export const EVENT_REMINDER = {
   build: buildEventPostFrame,
 } as const satisfies Template<EventPostRecord, EventPostInput, EventPostModel>;
 
-export const EVENT_TEMPLATES = [EVENT_ANNOUNCEMENT, EVENT_REMINDER] as const;
+/* ------------------------------------------------------------------------ */
+/* Event recap and sponsor thank-you (#1927)                                 */
+/* ------------------------------------------------------------------------ */
+
+/**
+ * The photos an event recap may show. A story is one frame, a collage of up
+ * to four. A 4:5 post is a carousel: the first photo under the recap's words,
+ * then each further photo a slide of its own, up to Instagram's limit -- the
+ * most a post holds.
+ */
+export const RECAP_PHOTO_LIMITS = {
+  story: 4,
+  post: MAX_POST_MEDIA,
+} as const satisfies Record<TemplateFormat, number>;
+
+/** Picked for a recap until someone chooses: the gallery's first four. */
+export const RECAP_DEFAULT_PHOTOS = 4;
+
+export const EVENT_RECAP = {
+  key: "event_recap",
+  label: "Event recap",
+  recordKind: "event",
+  formats: ["story", "post"],
+  frames: [1],
+  description:
+    "Thanks everyone who came, over photos from the event's public gallery. A story is one collage of up to four; a post is a carousel of up to 20, the first photo under the words and each further one a slide of its own.",
+  fields: [
+    {
+      key: "line",
+      label: "Line",
+      kind: "line",
+      max: EVENT_TEXT_LIMITS.line,
+      start: () => "Thank you to everyone who came",
+    },
+    {
+      key: "attendance",
+      label: "Show how many came",
+      kind: "toggle",
+      max: null,
+      // From check-ins: on once anyone has been checked in.
+      start: (event) => ((event.attended ?? 0) > 0 ? TOGGLE_ON : TOGGLE_OFF),
+    },
+    {
+      key: "logo",
+      label: "Show logo",
+      kind: "toggle",
+      max: null,
+      start: () => TOGGLE_ON,
+    },
+    {
+      key: "photos",
+      label: "Photos",
+      kind: "photos",
+      max: null,
+      // Left unset, the gallery's first photos.
+      start: typedOnly,
+    },
+  ],
+  build: buildEventPostFrame,
+} as const satisfies Template<EventPostRecord, EventPostInput, EventPostModel>;
+
+export const SPONSOR_THANK_YOU = {
+  key: "sponsor_thank_you",
+  label: "Sponsor thank-you",
+  recordKind: "event",
+  formats: ["story", "post"],
+  frames: [1],
+  description:
+    "Thanks the event's sponsors by name or logo. Only sponsors credited publicly on the event are shown, never donors.",
+  fields: [
+    {
+      key: "line",
+      label: "Line",
+      kind: "line",
+      max: EVENT_TEXT_LIMITS.line,
+      start: () => "Thank you to our sponsors",
+    },
+    {
+      key: "sponsor_logos",
+      label: "Show sponsors' logos",
+      kind: "toggle",
+      max: null,
+      start: (event) =>
+        event.sponsors?.some((sponsor) => sponsor.logo_url)
+          ? TOGGLE_ON
+          : TOGGLE_OFF,
+    },
+    {
+      key: "logo",
+      label: "Show logo",
+      kind: "toggle",
+      max: null,
+      start: () => TOGGLE_ON,
+    },
+  ],
+  build: buildEventPostFrame,
+} as const satisfies Template<EventPostRecord, EventPostInput, EventPostModel>;
+
+export const EVENT_TEMPLATES = [
+  EVENT_ANNOUNCEMENT,
+  EVENT_REMINDER,
+  EVENT_RECAP,
+  SPONSOR_THANK_YOU,
+] as const;
 export type EventTemplateKey = (typeof EVENT_TEMPLATES)[number]["key"];
 
 export function isEventTemplateKey(value: unknown): value is EventTemplateKey {
   return EVENT_TEMPLATES.some((template) => template.key === value);
 }
 
+/** An event template's words and options, after what was typed. */
+export type EventTemplateValues = {
+  line: string;
+  cta: string | null;
+  details: boolean;
+  logo: boolean;
+  /** A recap's head count (#1927). */
+  attendance: boolean;
+  /** A sponsor thank-you's logos rather than names (#1927). */
+  sponsorLogos: boolean;
+};
+
 /** An event template's words and options for `event`, after what was typed. */
 export function eventTemplateValues(
   template: (typeof EVENT_TEMPLATES)[number],
   event: EventPostRecord,
   text: TemplateText,
-): { line: string; cta: string | null; details: boolean; logo: boolean } {
+): EventTemplateValues {
   const value = (key: string) => {
     const field = template.fields.find((f) => f.key === key);
     return field ? templateFieldValue(field, event, text) : null;
@@ -226,6 +365,8 @@ export function eventTemplateValues(
     cta: value("cta"),
     details: value("details") === TOGGLE_ON,
     logo: value("logo") === TOGGLE_ON,
+    attendance: value("attendance") === TOGGLE_ON,
+    sponsorLogos: value("sponsor_logos") === TOGGLE_ON,
   };
 }
 
@@ -237,6 +378,8 @@ export const POST_TEMPLATES = {
   [GEAR_SPOTLIGHT.key]: GEAR_SPOTLIGHT,
   [EVENT_ANNOUNCEMENT.key]: EVENT_ANNOUNCEMENT,
   [EVENT_REMINDER.key]: EVENT_REMINDER,
+  [EVENT_RECAP.key]: EVENT_RECAP,
+  [SPONSOR_THANK_YOU.key]: SPONSOR_THANK_YOU,
 } as const;
 
 export type PostTemplateKey = keyof typeof POST_TEMPLATES;
@@ -349,6 +492,24 @@ export function normalizeTemplateText<R>(
         };
       }
       text[field.key] = value;
+      continue;
+    }
+    if (field.kind === "photos") {
+      if (!value) continue;
+      if (value === NO_PHOTO) {
+        text[field.key] = NO_PHOTO;
+        continue;
+      }
+      const items = parsePhotoList(value);
+      if (items.some((item) => !PHOTO_LIST_ITEM.test(item))) {
+        return { error: `Choose ${field.label.toLowerCase()} from the list.` };
+      }
+      if (items.length > MAX_POST_MEDIA) {
+        return {
+          error: `Choose at most ${MAX_POST_MEDIA} ${field.label.toLowerCase()}.`,
+        };
+      }
+      if (items.length > 0) text[field.key] = items.join(PHOTO_LIST_SEPARATOR);
       continue;
     }
     if (field.kind === "toggle") {

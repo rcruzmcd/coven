@@ -8,8 +8,7 @@ import { getRequestOrigin } from "@/lib/request-origin";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { MAX_POST_MEDIA, SOCIAL_POST_MEDIA_BUCKET } from "./pieces";
-import { loadStorySource, storyFingerprint } from "./story-data";
-import { POST_TEMPLATES } from "./post-templates";
+import { loadStorySource, sourceFrames, storyFingerprint } from "./story-data";
 import { renderStoryFrame } from "./story-render";
 
 const MESSAGES: Record<string, string> = {
@@ -23,7 +22,8 @@ const MESSAGES: Record<string, string> = {
 
 /**
  * Generate story images (#1909): renders the post's template frames -- Gear
- * Spotlight's three (#1908), an event template's one (#1926) -- uploads them to its media and swaps them in for any set
+ * Spotlight's three (#1908), an event template's one (#1926), a recap post's
+ * one per photo (#1927) -- uploads them to its media and swaps them in for any set
  * generated before, leaving media someone added by hand where it is. Each
  * frame is rendered and uploaded in turn rather than all at once, to keep a
  * function's memory to one 1080x1920 PNG at a time.
@@ -61,7 +61,7 @@ export async function generateSocialPostStoryImagesAction(
     if (error) console.error("Could not remove unused story images", error);
   };
 
-  for (const frame of POST_TEMPLATES[load.source.templateKey].frames) {
+  for (const frame of sourceFrames(load.source)) {
     let bytes: ArrayBuffer;
     try {
       const image = await renderStoryFrame(load.source, frame, requestUrl);

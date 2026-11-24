@@ -39,11 +39,18 @@ function get(frame: string, search = "") {
 }
 
 describe("GET /api/social-posts/[pieceId]/story/[frame]", () => {
-  test("404s a frame other than 1, 2 or 3", async () => {
+  test("404s a frame outside 1 to 20, a carousel's most (#1927)", async () => {
     user = { id: "u" };
-    expect((await get("4")).status).toBe(404);
+    expect((await get("21")).status).toBe(404);
     expect((await get("0")).status).toBe(404);
+    expect((await get("01")).status).toBe(404);
     expect((await get("one")).status).toBe(404);
+  });
+
+  test("404s a frame the post's template doesn't draw", async () => {
+    user = { id: "u" };
+    post = null;
+    expect((await get("4")).status).toBe(404);
   });
 
   test("401s a signed-out request", async () => {

@@ -14,6 +14,7 @@ import { occurrenceNumber, isSeriesCadence } from "./series";
 import { parseImageCrop, type ImageCrop } from "@/lib/image-crop";
 import {
   eventPostFingerprint,
+  eventPostFrames,
   eventPostSource,
   loadEventTemplateRecord,
   type EventPostSource,
@@ -297,7 +298,7 @@ async function loadEventStorySource(
     return { status: "not_found" };
   }
   const [loaded, branding, off] = await Promise.all([
-    loadEventTemplateRecord(admin, post.tenant_id, post.event_id),
+    loadEventTemplateRecord(admin, post.tenant_id, post.event_id, template.key),
     getTenantBranding(supabase),
     loadPostTemplatesOff(admin, post.tenant_id),
   ]);
@@ -328,6 +329,15 @@ async function loadEventStorySource(
       now: new Date(),
     }),
   };
+}
+
+/**
+ * The frames a post's template draws for it: Gear Spotlight's three, an
+ * event template's one, or a recap post's one per photo (#1927).
+ */
+export function sourceFrames(source: StorySource): readonly number[] {
+  if (isEventSource(source)) return eventPostFrames(source);
+  return POST_TEMPLATES[source.templateKey].frames;
 }
 
 /** A stable hash of everything a frame is drawn from (#1909). */

@@ -160,15 +160,15 @@ describe("a post's media from its event", () => {
     expect(data).toEqual([]);
   });
 
-  test("holds at most ten files, references included", async () => {
+  test("holds at most twenty files, references included (#1927)", async () => {
     const post = await createPost(event.id);
     const ids: string[] = [];
-    for (let i = 0; i < 11; i++) ids.push(await eventPhoto(event.id));
+    for (let i = 0; i < 21; i++) ids.push(await eventPhoto(event.id));
     expect(await addSocialPostEventMediaAction(post, ids)).toEqual({
-      error: "A post holds up to 10 photos or videos.",
+      error: "A post holds up to 20 photos or videos.",
     });
-    expect(await addSocialPostEventMediaAction(post, ids.slice(0, 10))).toEqual(
-      { added: 10 },
+    expect(await addSocialPostEventMediaAction(post, ids.slice(0, 20))).toEqual(
+      { added: 20 },
     );
   });
 

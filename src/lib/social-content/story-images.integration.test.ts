@@ -193,13 +193,29 @@ describe("replace_social_post_story_images (#1909)", () => {
     ]);
   });
 
-  test("refuses more than three images", async () => {
+  test("takes a carousel's set past three, up to twenty (#1927)", async () => {
     const post = await storyPost();
+    const paths: string[] = [];
+    for (let i = 0; i < 20; i++) paths.push(await upload(post));
+    const { error } = await adminClient.rpc(
+      "replace_social_post_story_images",
+      { p_post_id: post, p_paths: paths, p_fingerprint: "a" },
+    );
+    expect(error).toBeNull();
+    const rows = await media(post);
+    expect(rows.map((row) => row.generated_frame)).toEqual(
+      Array.from({ length: 20 }, (_, i) => i + 1),
+    );
+  });
+
+  test("refuses more than twenty images, a carousel's most (#1927)", async () => {
+    const post = await storyPost();
+    // The count is checked before any path, so these needn't be uploaded.
     const { error } = await adminClient.rpc(
       "replace_social_post_story_images",
       {
         p_post_id: post,
-        p_paths: [...(await frames(post)), await upload(post)],
+        p_paths: Array.from({ length: 21 }, (_, i) => `x/${i}.png`),
         p_fingerprint: "a",
       },
     );
