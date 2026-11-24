@@ -181,6 +181,24 @@ describe("sendEmail with a key", () => {
     expect(JSON.parse(init.body as string)).not.toHaveProperty("reply_to");
   });
 
+  test("passes custom headers through, and omits an empty set (#1921)", async () => {
+    const fetchMock = mock(() => Promise.resolve(jsonResponse(200, {})));
+    global.fetch = fetchMock as unknown as typeof fetch;
+    const headers = {
+      "List-Unsubscribe": "<https://example.test/u?t=x>",
+      "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+    };
+
+    await sendEmail({ ...MESSAGE, headers });
+    await sendEmail({ ...MESSAGE, headers: {} });
+
+    const bodies = fetchMock.mock.calls.map((call) =>
+      JSON.parse((call as unknown as [string, RequestInit])[1].body as string),
+    );
+    expect(bodies[0].headers).toEqual(headers);
+    expect(bodies[1]).not.toHaveProperty("headers");
+  });
+
   test("sends an attachment base64-encoded, under the provider's own keys", async () => {
     const fetchMock = mock(() => Promise.resolve(jsonResponse(200, {})));
     global.fetch = fetchMock as unknown as typeof fetch;

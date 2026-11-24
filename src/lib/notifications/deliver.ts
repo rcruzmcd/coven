@@ -3,7 +3,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { sendEmail } from "@/lib/email/send";
 import type { MailIdentity } from "@/lib/email/identity";
 import type { RenderedEmail } from "@/lib/notifications/rendered-email";
-import { notificationKindDefault } from "@/lib/notifications/kinds";
+import { unsubscribeHeaders } from "@/lib/email/unsubscribe-token";
+import {
+  isNotificationKind,
+  notificationKindDefault,
+} from "@/lib/notifications/kinds";
 import type { DeliverySkipReason } from "@/lib/notifications/delivery-record";
 
 /**
@@ -146,6 +150,33 @@ async function recordSkip(
   return "skipped";
 }
 
+/**
+ * One-click unsubscribe (#1921), for exactly the mail a person can switch off:
+ * a registry kind addressed to a `people` row. A sign-in code, a staff
+ * member's one-to-one message or the ops report has no switch to flip, and a
+ * header promising one would be a link that cannot keep its word.
+ *
+ * Mailbox providers read this pair as "stop sending me this" and offer it
+ * beside the spam button; without it, the spam button is the only way out, and
+ * every press of it counts against the sending domain.
+ */
+export function listUnsubscribeHeaders(
+  request: Pick<DeliveryRequest, "tenantId" | "personId" | "kind" | "identity">,
+): Record<string, string> | null {
+  if (!request.personId || !isNotificationKind(request.kind)) return null;
+  return unsubscribeHeaders(
+    {
+      tenantId: request.tenantId,
+      personId: request.personId,
+      kind: request.kind,
+    },
+    {
+      origin: request.identity.origin,
+      secret: process.env.EMAIL_UNSUBSCRIBE_SECRET,
+    },
+  );
+}
+
 export async function deliverEmail(
   admin: SupabaseClient,
   request: DeliveryRequest,
@@ -180,6 +211,7 @@ export async function deliverEmail(
 
   const message = request.render();
   const replyTo = request.replyTo ?? request.identity.replyTo;
+  const headers = listUnsubscribeHeaders(request);
   const result = await sendEmail({
     to: request.to,
     from: request.identity.from,
@@ -187,6 +219,7 @@ export async function deliverEmail(
     text: message.text,
     html: message.html,
     ...(replyTo ? { replyTo } : {}),
+    ...(headers ? { headers } : {}),
     // Whatever the renderer chose to attach (#1068). The ledger records that a
     // message went out, not what travelled with it, so nothing else here
     // changes.

@@ -12,6 +12,9 @@ export type DeliveryLogEntry = {
   status: string;
   skip_reason: string | null;
   provider_message_id: string | null;
+  provider_event: string | null;
+  provider_event_at: string | null;
+  provider_event_detail: string | null;
   error: string | null;
   created_at: string;
   sent_at: string | null;
@@ -95,7 +98,7 @@ export async function fetchDeliveryLogEntries(
   let query = supabase
     .from("notification_deliveries")
     .select(
-      "id, kind, dedupe_key, status, skip_reason, provider_message_id, error, created_at, sent_at, person_id",
+      "id, kind, dedupe_key, status, skip_reason, provider_message_id, provider_event, provider_event_at, provider_event_detail, error, created_at, sent_at, person_id",
       { count: "exact" },
     )
     .order(filters.sort, { ascending: filters.dir === "asc" })

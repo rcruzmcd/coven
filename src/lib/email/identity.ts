@@ -91,7 +91,16 @@ export function emailBrandingFromRows(
 }
 
 /** What a message is sent as. `from` is a composed header, `replyTo` a bare address. */
-export type MailIdentity = { from: string; replyTo?: string };
+export type MailIdentity = {
+  from: string;
+  replyTo?: string;
+  /**
+   * The tenant's origin, for links that belong to the message rather than its
+   * body -- today the List-Unsubscribe URL (#1921), which deliverEmail()
+   * composes. Set by tenantMailContext(); absent, no such header is sent.
+   */
+  origin?: string;
+};
 
 export type MailIdentityInput = {
   /** tenants.name -- the display name every recipient sees. */
@@ -424,21 +433,29 @@ export async function tenantMailContext(
     );
   }
 
+  // A failed tenant read leaves the domain null, so the links fall back to the
+  // platform origin rather than to nothing -- the same trade as the identity
+  // below, and for the same reason: a digest with a slightly wrong link is
+  // recoverable, a digest that was never sent is not.
+  const origin = resolveTenantOrigin(
+    tenantCustomDomain,
+    options.fallbackOrigin,
+  );
+
   return {
-    identity: resolveMailIdentity({
-      tenantName: (tenant.data?.name as string) ?? null,
-      tenantCustomDomain,
-      fromAddressSetting,
-      replyToSetting: byKey.get(REPLY_TO_SETTING_KEY),
-      platformFrom,
-      platformReplyTo,
-      verifiedDomains,
-    }),
-    // A failed tenant read leaves this null, so the links fall back to the
-    // platform origin rather than to nothing -- the same trade as the identity
-    // above, and for the same reason: a digest with a slightly wrong link is
-    // recoverable, a digest that was never sent is not.
-    origin: resolveTenantOrigin(tenantCustomDomain, options.fallbackOrigin),
+    identity: {
+      ...resolveMailIdentity({
+        tenantName: (tenant.data?.name as string) ?? null,
+        tenantCustomDomain,
+        fromAddressSetting,
+        replyToSetting: byKey.get(REPLY_TO_SETTING_KEY),
+        platformFrom,
+        platformReplyTo,
+        verifiedDomains,
+      }),
+      origin,
+    },
+    origin,
     displayName: ((tenant.data?.name as string) ?? "").trim() || "the portal",
     // A failed settings read leaves this empty, which is the unbranded shell
     // rather than no email -- the same trade the identity and the origin make

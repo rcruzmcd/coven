@@ -624,6 +624,27 @@ Not supported, and not planned: a tenant supplying its own Resend API key. That
 is a provider secret in the database, and Supabase Vault to hold it safely is
 more machinery than the problem is worth at this size.
 
+### Unsubscribe headers, bounces and complaints
+
+These help keep mail out of spam folders (#1921). Both are platform-wide and
+off until their secret is set in Vercel (Production):
+
+- **`EMAIL_UNSUBSCRIBE_SECRET`**: any long random string. When it's set, every
+  email type a person can switch off (`NOTIFICATION_KINDS`) carries
+  `List-Unsubscribe` and `List-Unsubscribe-Post: List-Unsubscribe=One-Click`
+  headers. They point at `/api/email/unsubscribe` on the tenant's own origin.
+  The mail client's one-click POST writes the same `enabled = false` row the
+  person's own switch would. A GET changes nothing (link scanners prefetch
+  links) and redirects to `/my/notifications` or `/portal/account`. Changing
+  the secret invalidates every unsubscribe link already sent.
+- **`RESEND_WEBHOOK_SECRET`**: the `whsec_...` signing secret from Resend →
+  Webhooks. Point the webhook at `https://<platform host>/api/webhooks/resend`
+  and subscribe it to `email.bounced` and `email.complained`. A permanent
+  bounce or a complaint is recorded on the delivery ledger row and shown in
+  Administration → Delivery log. A complaint also switches that email type off
+  for the person. Resend already suppresses hard-bounced addresses itself.
+  Unset, the route refuses every request.
+
 ## Local development: one tenant
 
 A fresh local database (`bun run db:reset`) has exactly one tenant, and it is
