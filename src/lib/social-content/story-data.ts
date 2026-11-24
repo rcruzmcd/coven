@@ -11,10 +11,17 @@ import { resolveSiteContent } from "@/lib/site-content";
 import { getTenantBranding } from "@/lib/tenant-branding";
 import { lexiconForTenant } from "@/lib/tenant-lexicon";
 import { occurrenceNumber, isSeriesCadence } from "./series";
+import { parseImageCrop, type ImageCrop } from "@/lib/image-crop";
 import {
   GEAR_SPOTLIGHT,
+  NO_PHOTO,
+  POST_TEMPLATES_OFF_SETTING_KEY,
   gearPostDetails,
+  normalizeTemplateText,
+  parsePostTemplatesOff,
+  parseTemplateText,
   type PostTemplateKey,
+  type TemplateText,
 } from "./post-templates";
 import { gearPhotoSource } from "./series-gear-fill";
 import {
@@ -49,19 +56,32 @@ type StoryTypography = ReturnType<typeof resolvedTypography>;
 export type StorySource = {
   /** The template the post is drawn with (#1924); not hashed, as no frame changes with it alone. */
   templateKey: PostTemplateKey;
-  input: Omit<StoryInput, "frame" | "headingTracking" | "photo">;
+  input: Omit<StoryInput, "frame" | "headingTracking" | "photo" | "photoCrop">;
   photoSource: string | null;
+  /** The photo's stored crop (#1925); hashed only when there is one. */
+  photoCrop: ImageCrop | null;
+  /** The item has a photo, whether or not the post shows it. */
+  itemHasPhoto: boolean;
   typography: StoryTypography;
 };
 
 export type StorySourceLoad =
   | { status: "unauthenticated" }
   | { status: "not_found" }
+  /** Preview text over a field's cap (#1925). */
+  | { status: "invalid"; error: string }
   | { status: "ok"; source: StorySource };
+
+/**
+ * What a preview draws in place of the post's saved template text (#1925):
+ * every field as typed, so a field left out is blank. Never saved.
+ */
+export type StoryOverrides = { text: Record<string, unknown> };
 
 export type StoryLoad =
   | { status: "unauthenticated" }
   | { status: "not_found" }
+  | { status: "invalid"; error: string }
   | {
       status: "ok";
       input: Omit<StoryInput, "frame" | "headingTracking">;
@@ -86,6 +106,7 @@ export async function loadStorySource(
   supabase: Client,
   admin: Client,
   postId: string,
+  overrides?: StoryOverrides,
 ): Promise<StorySourceLoad> {
   const {
     data: { user },
@@ -105,6 +126,26 @@ export async function loadStorySource(
   if (post.template_key !== GEAR_SPOTLIGHT.key) return { status: "not_found" };
   const tenantId = post.tenant_id;
 
+  // A preview's text replaces the saved text whole; the old gear columns are
+  // only a fallback for saved posts main wrote.
+  let text: TemplateText;
+  let details;
+  if (overrides) {
+    const normalized = normalizeTemplateText(
+      GEAR_SPOTLIGHT,
+      null,
+      overrides.text,
+    );
+    if ("error" in normalized) {
+      return { status: "invalid", error: normalized.error };
+    }
+    text = normalized.text;
+    details = gearPostDetails({ template_text: text });
+  } else {
+    text = parseTemplateText(post.template_text);
+    details = gearPostDetails(post);
+  }
+
   const { data: item } = await admin
     .from("inventory_items")
     .select(
@@ -115,7 +156,7 @@ export async function loadStorySource(
     .maybeSingle();
   if (!item) return { status: "not_found" };
 
-  const [category, groups, tenant, lexicon, copyRows, branding] =
+  const [category, groups, tenant, lexicon, copyRows, branding, off] =
     await Promise.all([
       item.category_id
         ? admin
@@ -146,7 +187,14 @@ export async function loadStorySource(
         .not("value", "is", null)
         .then(({ data }) => data ?? []),
       getTenantBranding(supabase),
+      loadPostTemplatesOff(admin, tenantId),
     ]);
+  // Switched off for the tenant (#1925): nothing is drawn with it.
+  if (off.includes(GEAR_SPOTLIGHT.key)) return { status: "not_found" };
+
+  // The photo is the item's unless the post chose none (#1925).
+  const shown =
+    item.photo_url && text.photo !== NO_PHOTO ? item.photo_url : null;
 
   const content = resolveSiteContent(copyRows, lexicon);
 
@@ -164,7 +212,9 @@ export async function loadStorySource(
     source: {
       templateKey: GEAR_SPOTLIGHT.key,
       typography: resolvedTypography(branding),
-      photoSource: item.photo_url ? gearPhotoSource(item.photo_url) : null,
+      photoSource: shown ? gearPhotoSource(shown) : null,
+      photoCrop: shown ? parseImageCrop(shown).crop : null,
+      itemHasPhoto: Boolean(item.photo_url),
       input: {
         item: {
           description: item.description,
@@ -175,7 +225,7 @@ export async function loadStorySource(
           in_catalog:
             item.status === "available" && item.intended_use === "gear_library",
         },
-        details: gearPostDetails(post),
+        details,
         categoryStop: category ? categoryStop(category, groups) : null,
         series:
           series && number !== null && isSeriesCadence(series.cadence)
@@ -210,6 +260,9 @@ export function storyFingerprint(source: StorySource): string {
         input: source.input,
         photo: source.photoSource,
         typography: source.typography,
+        // Left out without one, so a story drawn before crops were read
+        // (#1925) isn't "Out of date" for nothing.
+        ...(source.photoCrop ? { crop: source.photoCrop } : {}),
       }),
     )
     .digest("hex")
@@ -235,6 +288,7 @@ export async function inlineStoryImages(
   return {
     ...source.input,
     photo,
+    photoCrop: source.photoCrop,
     // Inlined, so a dead logo link drops the logo rather than the image.
     branding: { ...source.input.branding, logoUrl: logo },
   };
@@ -254,4 +308,22 @@ export async function loadStoryFrame(
     typography: load.source.typography,
     input: await inlineStoryImages(load.source, frame, requestUrl),
   };
+}
+
+/**
+ * The templates a tenant has switched off (#1925). Read with the service
+ * role, filtered by tenant: app_settings is readable only with a manage
+ * permission, and someone who may only view a post still sees it drawn.
+ */
+export async function loadPostTemplatesOff(
+  admin: Client,
+  tenantId: string,
+): Promise<PostTemplateKey[]> {
+  const { data } = await admin
+    .from("app_settings")
+    .select("value")
+    .eq("tenant_id", tenantId)
+    .eq("key", POST_TEMPLATES_OFF_SETTING_KEY)
+    .maybeSingle();
+  return parsePostTemplatesOff(data?.value);
 }

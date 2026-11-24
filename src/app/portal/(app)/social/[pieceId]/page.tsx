@@ -14,7 +14,7 @@ import { getOrgTimeZone } from "@/lib/org-timezone";
 import { loadPostFeaturedGear } from "@/lib/social-content/series-gear-fill";
 import { SocialPostFeaturedGearCard } from "./social-post-featured-gear-card";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { loadStoryImagesState } from "@/lib/social-content/story-images";
+import { loadPostTemplateEditor } from "@/lib/social-content/post-template-editor";
 
 export async function generateMetadata({
   params,
@@ -61,17 +61,12 @@ export default async function SocialPostPage({
   if (!piece) notFound();
 
   const featuresGear = piece.series?.content_source === "random_gear_item";
-  // Story images (#1909) are drawn for a story that features (or featured) a
-  // Gear Library item.
-  const makesStoryImages =
-    piece.post_format === "instagram_story" &&
-    (featuresGear || piece.featured_inventory_item_id !== null);
   const [
     ownersResult,
     { data: leadTimeSetting },
     orgTimeZone,
     featuredGear,
-    storyImages,
+    templateEditor,
   ] = await Promise.all([
     listCalendarOwnersAction(),
     supabase
@@ -81,9 +76,8 @@ export default async function SocialPostPage({
       .maybeSingle(),
     getOrgTimeZone(supabase),
     featuresGear ? loadPostFeaturedGear(supabase, piece) : null,
-    makesStoryImages
-      ? loadStoryImagesState(supabase, createSupabaseAdminClient(), piece.id)
-      : null,
+    // The post's template card (#1925), with its story images (#1909).
+    loadPostTemplateEditor(supabase, createSupabaseAdminClient(), piece),
   ]);
   const owners = "data" in ownersResult ? ownersResult.data : [];
   const defaultLeadTimeDays =
@@ -97,7 +91,7 @@ export default async function SocialPostPage({
         owners={owners}
         defaultLeadTimeDays={defaultLeadTimeDays}
         canManage={canManage}
-        storyImages={storyImages}
+        templateEditor={templateEditor}
       />
       {featuredGear && (
         <div className="mt-4">

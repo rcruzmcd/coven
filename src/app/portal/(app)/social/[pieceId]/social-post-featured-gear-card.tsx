@@ -24,25 +24,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Field,
-  FieldDescription,
-  FieldGroup,
-  FieldLabel,
-} from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { useActionToast } from "@/components/portal/action-toast";
 import {
-  GEAR_DETAIL_LIMITS,
-  GEAR_PLACEHOLDERS,
   gearItemDetails,
   hasGearDetails,
   type GearPostDetails,
 } from "@/lib/social-content/series-gear";
 import {
   swapFeaturedGearAction,
-  updateGearDetailsAction,
   type GearItemOption,
 } from "@/lib/social-content/series-gear-actions";
 
@@ -51,8 +41,9 @@ type PendingSwap = { itemId: string | null };
 
 /**
  * The Gear Library item a post features (#1841), with "Pick another" and
- * "Choose item" until it is published, and what the post says about it:
- * brand, best for and why we love it (#1906).
+ * "Choose item" until it is published. What the post says about it -- brand,
+ * best for and why we love it (#1906) -- is the template card's (#1925); a
+ * swap clears it, so it is asked about here.
  */
 export function SocialPostFeaturedGearCard({
   postId,
@@ -135,16 +126,6 @@ export function SocialPostFeaturedGearCard({
             </AlertDescription>
           </Alert>
         )}
-        {featured &&
-          (canSwap ? (
-            <GearDetailsForm
-              key={`${featured.id}:${details.brand}:${details.best_for}:${details.why}`}
-              postId={postId}
-              details={details}
-            />
-          ) : (
-            <GearDetailsSummary details={details} />
-          ))}
         {canSwap && (
           <div className="flex flex-wrap gap-2">
             <Button
@@ -220,117 +201,6 @@ export function SocialPostFeaturedGearCard({
         </AlertDialogContent>
       </AlertDialog>
     </Card>
-  );
-}
-
-const DETAIL_FIELDS: {
-  key: keyof GearPostDetails;
-  label: string;
-  hint: string;
-}[] = [
-  { key: "brand", label: "Brand", hint: "Shown under the item's name." },
-  {
-    key: "best_for",
-    label: "Best for",
-    hint: "A few words, e.g. \u201cFirst season\u201d or \u201cPark\u201d.",
-  },
-  {
-    key: "why",
-    label: "Why we love it",
-    hint: "One sentence.",
-  },
-];
-
-/** Brand, best for and why we love it, editable until the post is published. */
-function GearDetailsForm({
-  postId,
-  details,
-}: {
-  postId: string;
-  details: GearPostDetails;
-}) {
-  const router = useRouter();
-  const { isPending, run } = useActionToast();
-  const [values, setValues] = useState({
-    brand: details.brand ?? "",
-    best_for: details.best_for ?? "",
-    why: details.why ?? "",
-  });
-  const changed = DETAIL_FIELDS.some(
-    ({ key }) => values[key].trim() !== (details[key] ?? ""),
-  );
-
-  return (
-    <form
-      className="flex flex-col gap-3"
-      onSubmit={(event) => {
-        event.preventDefault();
-        run(() => updateGearDetailsAction(postId, values), {
-          success: "Details saved.",
-          description: (result) =>
-            result.captionUpdated ? "The caption was updated too." : undefined,
-          onSuccess: () => router.refresh(),
-        });
-      }}
-    >
-      <FieldGroup className="gap-3">
-        {DETAIL_FIELDS.map(({ key, label, hint }) => {
-          const id = `gear-detail-${key}`;
-          const limit = GEAR_DETAIL_LIMITS[key];
-          const Control = key === "why" ? Textarea : Input;
-          return (
-            <Field key={key}>
-              <FieldLabel htmlFor={id}>
-                {label}{" "}
-                <span className="app-muted font-normal">(optional)</span>
-              </FieldLabel>
-              <Control
-                id={id}
-                maxLength={limit}
-                {...(key === "why" ? { rows: 2 } : {})}
-                value={values[key]}
-                onChange={(event) =>
-                  setValues((current) => ({
-                    ...current,
-                    [key]: event.target.value,
-                  }))
-                }
-              />
-              <FieldDescription>
-                {hint} The caption can use {GEAR_PLACEHOLDERS[key]}.
-                {key === "why" && ` ${values.why.length}/${limit}`}
-              </FieldDescription>
-            </Field>
-          );
-        })}
-      </FieldGroup>
-      <div>
-        <Button
-          type="submit"
-          size="sm"
-          disabled={isPending || !changed}
-          focusableWhenDisabled
-        >
-          Save details
-        </Button>
-      </div>
-    </form>
-  );
-}
-
-/** The details, read-only, once the post can't change. */
-function GearDetailsSummary({ details }: { details: GearPostDetails }) {
-  const filled = DETAIL_FIELDS.filter(({ key }) => details[key]);
-  if (filled.length === 0) return null;
-  return (
-    <dl className="grid gap-1 text-sm">
-      {filled.map(({ key, label }) => (
-        <div key={key} className="flex flex-col">
-          <dt className="app-muted text-xs">{label}</dt>
-          <dd>{details[key]}</dd>
-        </div>
-      ))}
-    </dl>
   );
 }
 

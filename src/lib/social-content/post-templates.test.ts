@@ -5,9 +5,12 @@ import {
   gearPostDetails,
   isPostTemplateKey,
   normalizeTemplateText,
+  parsePostTemplatesOff,
   parseTemplateText,
   postTemplate,
   templateFieldValue,
+  templateFormat,
+  templatesFor,
   type TemplateField,
 } from "./post-templates";
 import { GEAR_DETAIL_LIMITS } from "./series-gear";
@@ -56,7 +59,11 @@ describe("registry", () => {
 
   test("Gear Spotlight's fields keep the post's caps", () => {
     expect(
-      Object.fromEntries(GEAR_SPOTLIGHT.fields.map((f) => [f.key, f.max])),
+      Object.fromEntries(
+        GEAR_SPOTLIGHT.fields
+          .filter((f) => f.kind !== "photo")
+          .map((f) => [f.key, f.max]),
+      ),
     ).toEqual(GEAR_DETAIL_LIMITS);
   });
 });
@@ -171,5 +178,74 @@ describe("gearPostDetails", () => {
     expect(
       gearPostDetails({ gear_brand: "Burton", gear_best_for: null }),
     ).toEqual({ brand: "Burton", best_for: null, why: null });
+  });
+});
+
+describe("photo choice (#1925)", () => {
+  test("keeps a choice of the record's media and drops the default", () => {
+    expect(
+      normalizeTemplateText(GEAR_SPOTLIGHT, null, { photo: "none" }),
+    ).toEqual({ text: { photo: "none" } });
+    expect(
+      normalizeTemplateText(GEAR_SPOTLIGHT, null, {
+        photo: "event_media:0b6f6a8e-3c1d-4b8e-9a51-2f3c4d5e6f70",
+      }),
+    ).toEqual({
+      text: { photo: "event_media:0b6f6a8e-3c1d-4b8e-9a51-2f3c4d5e6f70" },
+    });
+    expect(normalizeTemplateText(GEAR_SPOTLIGHT, null, { photo: "" })).toEqual({
+      text: {},
+    });
+  });
+
+  test("refuses anything that isn't a media choice", () => {
+    expect(
+      normalizeTemplateText(GEAR_SPOTLIGHT, null, {
+        photo: "https://example.org/x.jpg",
+      }),
+    ).toEqual({ error: "Choose a photo from the list." });
+  });
+});
+
+describe("templatesFor (#1925)", () => {
+  test("offers a template for the post's record and format", () => {
+    expect(
+      templatesFor({
+        recordKinds: ["inventory_item"],
+        postFormat: "instagram_story",
+        off: [],
+      }),
+    ).toEqual(["gear_spotlight"]);
+  });
+
+  test("not for another format, another record, or once switched off", () => {
+    const fits = (patch: Partial<Parameters<typeof templatesFor>[0]>) =>
+      templatesFor({
+        recordKinds: ["inventory_item"],
+        postFormat: "instagram_story",
+        off: [],
+        ...patch,
+      });
+    expect(fits({ postFormat: "instagram_post" })).toEqual([]);
+    expect(fits({ postFormat: "instagram_reel" })).toEqual([]);
+    expect(fits({ postFormat: null })).toEqual([]);
+    expect(fits({ recordKinds: ["event"] })).toEqual([]);
+    expect(fits({ off: ["gear_spotlight"] })).toEqual([]);
+  });
+
+  test("maps post formats to template formats", () => {
+    expect(templateFormat("instagram_story")).toBe("story");
+    expect(templateFormat("instagram_post")).toBe("post");
+    expect(templateFormat("instagram_reel")).toBeNull();
+  });
+});
+
+describe("parsePostTemplatesOff (#1925)", () => {
+  test("keeps known template keys only", () => {
+    expect(parsePostTemplatesOff(["gear_spotlight", "nope", 3])).toEqual([
+      "gear_spotlight",
+    ]);
+    expect(parsePostTemplatesOff(null)).toEqual([]);
+    expect(parsePostTemplatesOff({ gear_spotlight: true })).toEqual([]);
   });
 });

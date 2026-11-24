@@ -117,6 +117,11 @@ describe("storyFingerprint (#1909)", () => {
     typography: { headingTracking: "-0.02em" },
   } as unknown as StorySource;
 
+  test("is unchanged by a post with no crop (#1925)", () => {
+    const withNull = { ...source, photoCrop: null, itemHasPhoto: true };
+    expect(storyFingerprint(withNull)).toBe(storyFingerprint(source));
+  });
+
   test("is stable for the same inputs", () => {
     expect(storyFingerprint(source)).toBe(
       storyFingerprint(structuredClone(source)),
@@ -133,6 +138,9 @@ describe("storyFingerprint (#1909)", () => {
     expect(changed((c) => (c.input.details.why = "Warm"))).not.toBe(base);
     expect(changed((c) => (c.input.item.in_catalog = false))).not.toBe(base);
     expect(changed((c) => (c.photoSource = "items/other.jpg"))).not.toBe(base);
+    expect(
+      changed((c) => (c.photoCrop = { x: 0.1, y: 0.1, w: 0.5, h: 0.5 })),
+    ).not.toBe(base);
     expect(
       changed(
         (c) => (c.input.branding.logoUrl = "https://example.org/new.png"),

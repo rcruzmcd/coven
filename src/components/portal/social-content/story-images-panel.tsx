@@ -32,19 +32,22 @@ export function StoryImagesPanel({
   state,
   published,
   canManage,
+  unsaved = false,
   onGenerated,
 }: {
   postId: string;
   state: StoryImagesState;
   published: boolean;
   canManage: boolean;
+  /** The template card has changes not saved yet (#1925). */
+  unsaved?: boolean;
   onGenerated: () => void;
 }) {
   const headingId = useId();
   const { isPending, run } = useActionToast();
   const [confirming, setConfirming] = useState(false);
   const hasSet = state.generated > 0;
-  const disabled = !state.hasItem || published || isPending;
+  const disabled = !state.hasItem || published || unsaved || isPending;
 
   function generate() {
     run(() => generateSocialPostStoryImagesAction(postId), {
@@ -88,6 +91,12 @@ export function StoryImagesPanel({
       {published && (
         <p className="app-muted text-sm">
           This post is published, so its images stay as they are.
+        </p>
+      )}
+
+      {canManage && unsaved && !published && (
+        <p className="app-muted text-sm">
+          Save the template first: images are drawn from what is saved.
         </p>
       )}
 

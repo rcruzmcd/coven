@@ -285,6 +285,41 @@ describe("random Gear Library item series (#1841)", () => {
     expect(tooLong?.code).toBe("23514");
   });
 
+  test("No template stays until the item changes (#1925)", async () => {
+    await gear(2);
+    const series = await createSeries();
+    await run(series, T0);
+    const [post] = await postsOf(series);
+    const templateKey = async () =>
+      (
+        await service
+          .from("content_opportunities")
+          .select("template_key")
+          .eq("id", post.id)
+          .single()
+      ).data?.template_key;
+
+    await admin
+      .from("content_opportunities")
+      .update({ template_key: null })
+      .eq("id", post.id);
+    expect(await templateKey()).toBeNull();
+
+    // Another edit leaves it off...
+    await admin
+      .from("content_opportunities")
+      .update({ gear_brand: "Burton" })
+      .eq("id", post.id);
+    expect(await templateKey()).toBeNull();
+
+    // ...and a new item, main's swap, gives it Gear Spotlight again.
+    const { error } = await admin.rpc("set_social_post_featured_gear", {
+      p_post_id: post.id,
+    });
+    expect(error).toBeNull();
+    expect(await templateKey()).toBe("gear_spotlight");
+  });
+
   test("swapping needs content_calendar manage", async () => {
     await gear(1);
     const series = await createSeries();

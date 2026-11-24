@@ -8,6 +8,11 @@ import { FiscalYearPanel } from "./fiscal-year-panel";
 import { TimeZonePanel } from "./timezone-panel";
 import { BrandingPanel } from "./branding-panel";
 import { DataPanel } from "./data-panel";
+import { PostTemplatesPanel } from "./post-templates-panel";
+import {
+  POST_TEMPLATES_OFF_SETTING_KEY,
+  parsePostTemplatesOff,
+} from "@/lib/social-content/post-templates";
 import { getFiscalYearStartMonth } from "@/lib/fiscal-year";
 import { getOrgTimeZone } from "@/lib/org-timezone";
 import { SALES_TAX_RATE_SETTING_KEY } from "@/lib/sales-tax";
@@ -65,6 +70,7 @@ export default async function OrganizationSettingsPage() {
     { data: salesTaxSetting },
     { data: opsReportSetting },
     { data: mailIdentitySettings },
+    { data: postTemplatesOffSetting },
   ] = await Promise.all([
     supabase
       .from("app_settings")
@@ -90,6 +96,11 @@ export default async function OrganizationSettingsPage() {
       .from("app_settings")
       .select("key, value")
       .in("key", [REPLY_TO_SETTING_KEY, FROM_ADDRESS_SETTING_KEY]),
+    supabase
+      .from("app_settings")
+      .select("value")
+      .eq("key", POST_TEMPLATES_OFF_SETTING_KEY)
+      .maybeSingle(),
   ]);
 
   const [
@@ -198,6 +209,9 @@ export default async function OrganizationSettingsPage() {
             change is recorded in the audit log.
           </p>
           <BrandingPanel branding={branding} />
+          <PostTemplatesPanel
+            off={parsePostTemplatesOff(postTemplatesOffSetting?.value)}
+          />
         </TabsContent>
 
         {/* The switch, then Sending beside Who receives what (#1484). The

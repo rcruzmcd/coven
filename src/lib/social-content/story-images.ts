@@ -9,7 +9,10 @@ import { POST_TEMPLATES } from "./post-templates";
 export type StoryImagesState = {
   /** The post features an item the frames can be drawn from. */
   hasItem: boolean;
-  /** That item has a photo; frame 1 shows a tinted panel without one. */
+  /**
+   * That item has a photo; frame 1 shows a tinted panel without one. A post
+   * that chose "No photo" (#1925) isn't warned about it.
+   */
   hasPhoto: boolean;
   /** How many generated frames the post holds now. */
   generated: number;
@@ -45,7 +48,7 @@ export async function loadStoryImagesState(
   const current = storyFingerprint(load.source);
   return {
     hasItem: true,
-    hasPhoto: load.source.photoSource !== null,
+    hasPhoto: load.source.itemHasPhoto,
     generated: generated.length,
     stale:
       generated.length > 0 &&

@@ -228,6 +228,8 @@ export type GearDetailsInput = {
   brand: string;
   best_for: string;
   why: string;
+  /** The photo choice (#1925); left out, the saved one stays. */
+  photo?: string;
 };
 
 /**
@@ -287,7 +289,8 @@ export async function updateGearDetailsAction(
     gear_best_for: next.best_for,
     gear_why: next.why,
   };
-  for (const { key } of GEAR_SPOTLIGHT.fields) {
+  for (const { key, kind } of GEAR_SPOTLIGHT.fields) {
+    if (kind === "photo" && input.photo === undefined) continue;
     if (!(key in normalized.text)) delete update.template_text[key];
   }
 
