@@ -33,8 +33,10 @@ export async function switchOffNotificationKind(
   );
 
   if (error) {
+    // The claim stays out of the log line: on the unsubscribe route it arrives
+    // in a request, and the database error already names what failed.
     console.error(
-      `${logPrefix} could not switch off ${claim.kind} for person ${claim.personId}`,
+      `${logPrefix} could not switch off an email preference`,
       error,
     );
     return false;
