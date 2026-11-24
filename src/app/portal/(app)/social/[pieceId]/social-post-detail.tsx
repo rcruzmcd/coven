@@ -134,35 +134,26 @@ export function SocialPostDetail({
       </div>
 
       <PostTabs hasHistory={history !== null}>
-        <TabsContent
-          value="post"
-          className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]"
-        >
-          <div className="flex min-w-0 flex-col gap-4">
-            <PostCard
-              piece={piece}
-              extras={extras}
-              reloadExtras={reloadExtras}
-              canManage={canManage}
-              showMedia={!templateEditor}
-            />
-            {templateEditor && (
-              <PostTemplateCard
-                postId={piece.id}
-                editor={templateEditor}
-                published={piece.content_status === "published"}
+        <TabsContent value="post" className="flex min-w-0 flex-col gap-4">
+          <div className="grid items-start gap-4 lg:grid-cols-3">
+            <div className="min-w-0 lg:col-span-2">
+              <PostCard
+                piece={piece}
+                extras={extras}
+                reloadExtras={reloadExtras}
                 canManage={canManage}
-                onGenerated={() => {
-                  reloadExtras();
-                  router.refresh();
-                }}
               />
-            )}
-            {children}
+            </div>
+            <div className="flex min-w-0 flex-col gap-4">
+              <StatusCard piece={piece} owners={owners} canManage={canManage} />
+              <InternalNotesCard
+                piece={piece}
+                tags={extras?.tags ?? null}
+                canManage={canManage}
+              />
+            </div>
           </div>
-
-          <div className="flex min-w-0 flex-col gap-4">
-            <StatusCard piece={piece} owners={owners} canManage={canManage} />
+          <div className="grid items-start gap-4 md:grid-cols-2 lg:grid-cols-3">
             <ScheduleTeamCard
               piece={piece}
               owners={owners}
@@ -175,12 +166,20 @@ export function SocialPostDetail({
               tags={extras?.tags ?? null}
               canManage={canManage}
             />
-            <InternalNotesCard
-              piece={piece}
-              tags={extras?.tags ?? null}
-              canManage={canManage}
-            />
           </div>
+          {templateEditor && (
+            <PostTemplateCard
+              postId={piece.id}
+              editor={templateEditor}
+              published={piece.content_status === "published"}
+              canManage={canManage}
+              onGenerated={() => {
+                reloadExtras();
+                router.refresh();
+              }}
+            />
+          )}
+          {children}
         </TabsContent>
         <TabsContent value="share">
           <ShareCard piece={piece} extras={extras} />
@@ -355,10 +354,9 @@ const POST_TABS = ["post", "share", "history"] as const;
 type PostTab = (typeof POST_TABS)[number];
 
 /**
- * Three views of the post, in `?tab=`: the post itself with its workflow rail
- * (its template renders its media, so the media shows once), how to share it,
- * and its audit history. Share and History take the full width; the rail is
- * the post's, not theirs.
+ * Three views of the post, in `?tab=`: the post itself with its workflow
+ * cards laid across the width rather than down a rail, how to share it (its
+ * media shows there, in order, and only there), and its audit history.
  */
 function PostTabs({
   hasHistory,
@@ -436,13 +434,11 @@ function PostCard({
   extras,
   reloadExtras,
   canManage,
-  showMedia,
 }: {
   piece: SocialPieceRow;
   extras: SocialPostExtras | null;
   reloadExtras: () => void;
   canManage: boolean;
-  showMedia: boolean;
 }) {
   const card = usePostCardForm(piece, "Post", POST_FIELDS);
   // Null until edited, so the saved tags are what a save sends.
@@ -503,7 +499,7 @@ function PostCard({
             piece={piece}
             extras={extras}
             idPrefix="post"
-            showMedia={showMedia}
+            showMedia={false}
           />
         </FieldGroup>
       )}
