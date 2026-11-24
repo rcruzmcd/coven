@@ -225,20 +225,58 @@ describe("random Gear Library item series (#1841)", () => {
       .eq("id", post.id);
     expect(typed).toBeNull();
 
+    // main's writes to the old columns land in template_text (#1924), and a
+    // post featuring an item is drawn with Gear Spotlight.
+    const { data: synced } = await service
+      .from("content_opportunities")
+      .select("template_key, template_text")
+      .eq("id", post.id)
+      .single();
+    expect(synced).toEqual({
+      template_key: "gear_spotlight",
+      template_text: {
+        brand: "Burton",
+        best_for: "First season",
+        why: "Warm without the bulk.",
+      },
+    });
+
     const { error } = await admin.rpc("set_social_post_featured_gear", {
       p_post_id: post.id,
     });
     expect(error).toBeNull();
     const { data: after } = await service
       .from("content_opportunities")
-      .select("gear_brand, gear_best_for, gear_why")
+      .select("gear_brand, gear_best_for, gear_why, template_text")
       .eq("id", post.id)
       .single();
     expect(after).toEqual({
       gear_brand: null,
       gear_best_for: null,
       gear_why: null,
+      template_text: {},
     });
+
+    // The app writes both; a statement that sets template_text keeps it.
+    await admin
+      .from("content_opportunities")
+      .update({
+        template_text: { brand: "Rossignol" },
+        gear_brand: "Rossignol",
+      })
+      .eq("id", post.id);
+    const { data: both } = await service
+      .from("content_opportunities")
+      .select("template_text")
+      .eq("id", post.id)
+      .single();
+    expect(both?.template_text).toEqual({ brand: "Rossignol" });
+
+    const { error: notObject } = await admin
+      .from("content_opportunities")
+      .update({ template_text: ["Burton"] })
+      .eq("id", post.id);
+    expect(notObject?.code).toBe("23514");
 
     const { error: tooLong } = await admin
       .from("content_opportunities")

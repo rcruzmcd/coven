@@ -61,4 +61,15 @@ describe("GET /api/social-posts/[pieceId]/story/[frame]", () => {
     post = { id: "p", tenant_id: "t", featured_inventory_item_id: null };
     expect((await get("3")).status).toBe(404);
   });
+
+  test("404s a post without a story template", async () => {
+    user = { id: "u" };
+    post = {
+      id: "p",
+      tenant_id: "t",
+      featured_inventory_item_id: "i",
+      template_key: "flyer",
+    };
+    expect((await get("1")).status).toBe(404);
+  });
 });

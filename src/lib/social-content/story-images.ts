@@ -3,7 +3,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 import { loadStorySource, storyFingerprint } from "./story-data";
-import { STORY_FRAMES } from "./story-frames";
+import { POST_TEMPLATES } from "./post-templates";
 
 /** What the post page's Story images panel (#1909) shows. */
 export type StoryImagesState = {
@@ -49,7 +49,8 @@ export async function loadStoryImagesState(
     generated: generated.length,
     stale:
       generated.length > 0 &&
-      (generated.length < STORY_FRAMES.length ||
+      (generated.length <
+        POST_TEMPLATES[load.source.templateKey].frames.length ||
         generated.some((row) => row.generated_fingerprint !== current)),
   };
 }

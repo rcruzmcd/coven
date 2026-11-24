@@ -2007,6 +2007,8 @@ export type Database = {
           skip_reason: string | null;
           status_changed_at: string | null;
           status_changed_by: string | null;
+          template_key: string | null;
+          template_text: Json;
           tenant_id: string;
           title: string;
           updated_at: string;
@@ -2040,6 +2042,8 @@ export type Database = {
           skip_reason?: string | null;
           status_changed_at?: string | null;
           status_changed_by?: string | null;
+          template_key?: string | null;
+          template_text?: Json;
           tenant_id?: string;
           title: string;
           updated_at?: string;
@@ -2073,6 +2077,8 @@ export type Database = {
           skip_reason?: string | null;
           status_changed_at?: string | null;
           status_changed_by?: string | null;
+          template_key?: string | null;
+          template_text?: Json;
           tenant_id?: string;
           title?: string;
           updated_at?: string;

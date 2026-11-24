@@ -1,3 +1,4 @@
+import type { Json } from "@/lib/database.types";
 import { addDays } from "@/lib/time";
 
 export const CONTENT_STATUSES = [
@@ -157,6 +158,9 @@ export type ContentPieceRow = {
   gear_brand?: string | null;
   gear_best_for?: string | null;
   gear_why?: string | null;
+  /** The template it is drawn with and the text typed over on it (#1924). */
+  template_key?: string | null;
+  template_text?: Json;
 };
 
 /** Statuses a piece needs no more work in. */
