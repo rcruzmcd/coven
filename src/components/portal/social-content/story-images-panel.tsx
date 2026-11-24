@@ -160,7 +160,8 @@ export function StoryImagesPanel({
 
 /**
  * The panel's words: Gear Spotlight's three story frames as before, an event
- * template's single image (#1926) in its own.
+ * template's single image (#1926) in its own, and a recap carousel's one
+ * image per photo (#1927).
  */
 function panelCopy(state: StoryImagesState) {
   if (state.record !== "event") {
@@ -175,6 +176,20 @@ function panelCopy(state: StoryImagesState) {
       draws:
         "Draws three story images from this post, its item and your branding, and adds them to the post's media.",
       replaced: "The three images made here before are replaced with new ones.",
+    };
+  }
+  const frames = state.frames ?? 1;
+  if (frames > 1) {
+    return {
+      heading: "Template images",
+      noun: "images",
+      missing:
+        "This post isn't related to an event, so there is nothing to draw the images from.",
+      stale:
+        "The post, its event, its photos or your branding changed after these images were made. Regenerate them to match.",
+      made: `The carousel's ${frames} images, drawn from this post and its event, are first in the post's media.`,
+      draws: `Draws the carousel's ${frames} images from this post, its event's photos and your branding, and adds them to the post's media.`,
+      replaced: "The images made here before are replaced with new ones.",
     };
   }
   return {

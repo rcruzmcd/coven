@@ -8,6 +8,9 @@ import {
   frameBox,
   relativeDay,
   type EventPostInput,
+  type FlyerLayout,
+  type RecapLayout,
+  type SponsorsLayout,
 } from "./event-post-frames";
 import { STORY_TEXT_CONTRAST } from "./story-frames";
 
@@ -87,6 +90,8 @@ function input(overrides: Partial<EventPostInput> = {}): EventPostInput {
       cta: null,
       details: false,
       logo: true,
+      attendance: false,
+      sponsorLogos: false,
     },
     flyer: { src: "flyer", width: 810, height: 1013, color: "#f2f1ec" },
     photo: null,
@@ -132,8 +137,8 @@ describe("buildEventPostFrame: with a flyer", () => {
     const on = buildEventPostFrame(
       input({ text: { ...input().text, details: true } }),
     );
-    expect(off.frame.details).toEqual([]);
-    expect(on.frame.details).toEqual([
+    expect((off.frame as FlyerLayout).details).toEqual([]);
+    expect((on.frame as FlyerLayout).details).toEqual([
       "Sat, Dec 12 · 10:00 AM EST",
       "Big Snow American Dream, Rooftop Parking Deck A",
     ]);
@@ -143,7 +148,7 @@ describe("buildEventPostFrame: with a flyer", () => {
     const model = buildEventPostFrame(
       input({ text: { ...input().text, logo: false } }),
     );
-    expect(model.frame.logoUrl).toBeNull();
+    expect((model.frame as FlyerLayout).logoUrl).toBeNull();
   });
 
   test("an announcement has no day, and carries its call to action", () => {
@@ -162,7 +167,14 @@ describe("buildEventPostFrame: with a flyer", () => {
     const bare = buildEventPostFrame(
       input({
         format: "post",
-        text: { line: "", cta: null, details: false, logo: false },
+        text: {
+          line: "",
+          cta: null,
+          details: false,
+          logo: false,
+          attendance: false,
+          sponsorLogos: false,
+        },
       }),
     );
     const full = buildEventPostFrame(
@@ -174,6 +186,8 @@ describe("buildEventPostFrame: with a flyer", () => {
           cta: "Register at chattersnow.org today please",
           details: true,
           logo: true,
+          attendance: false,
+          sponsorLogos: false,
         },
       }),
     );
@@ -196,6 +210,8 @@ describe("buildEventPostFrame: without a flyer", () => {
           cta: null,
           details: true,
           logo: true,
+          attendance: false,
+          sponsorLogos: false,
         },
       }),
     );
@@ -218,6 +234,8 @@ describe("buildEventPostFrame: without a flyer", () => {
           cta: "More at chattersnow.org",
           details: true,
           logo: true,
+          attendance: false,
+          sponsorLogos: false,
         },
       }),
     );
@@ -225,5 +243,105 @@ describe("buildEventPostFrame: without a flyer", () => {
     expect(model.frame.eyebrow).toBe("Coming up");
     expect(model.frame.line?.text).toBe("Gear drive, yoga and riding");
     expect(model.frame.photo).toBeNull();
+  });
+});
+
+describe("buildEventPostFrame: recap (#1927)", () => {
+  const photo = (n: number) => ({ src: `p${n}`, width: 1600, height: 1067 });
+  const recap = (overrides: Partial<EventPostInput> = {}) =>
+    input({
+      kind: "recap",
+      flyer: null,
+      event: { ...input().event, attended: 42 },
+      text: { ...input().text, line: "Thank you!", attendance: true },
+      photos: [photo(1), photo(2), photo(3), photo(4), photo(5)],
+      ...overrides,
+    });
+
+  test("the cover: the event, the line, the head count, up to four photos", () => {
+    const frame = buildEventPostFrame(recap()).frame as RecapLayout;
+    expect(frame.layout).toBe("recap");
+    expect(frame.title.text).toBe("Meet us at Big Snow");
+    expect(frame.line?.text).toBe("Thank you!");
+    expect(frame.attendance).toBe("42 people came");
+    expect(frame.eyebrow).toBe("Recap · December 12, 2026");
+    expect(frame.photos.map((p) => p.src)).toEqual(["p1", "p2", "p3", "p4"]);
+  });
+
+  test("the head count only when switched on and someone came", () => {
+    const off = recap({ text: { ...recap().text, attendance: false } });
+    expect((buildEventPostFrame(off).frame as RecapLayout).attendance).toBe(
+      null,
+    );
+    const nobody = recap({ event: { ...recap().event, attended: 0 } });
+    expect((buildEventPostFrame(nobody).frame as RecapLayout).attendance).toBe(
+      null,
+    );
+    const one = recap({ event: { ...recap().event, attended: 1 } });
+    expect((buildEventPostFrame(one).frame as RecapLayout).attendance).toBe(
+      "1 person came",
+    );
+  });
+
+  test("a carousel's later frame is its one photo, edge to edge", () => {
+    const model = buildEventPostFrame(
+      recap({ format: "post", frame: 3, photos: [photo(3)] }),
+    );
+    expect(model.frame).toEqual({ layout: "slide", photo: photo(3) });
+    expect(model.box.height).toBe(1350);
+  });
+});
+
+describe("buildEventPostFrame: sponsor thank-you (#1927)", () => {
+  const sponsors = (n: number, logo: string | null = "data:image/png;x") =>
+    Array.from({ length: n }, (_, i) => ({ name: `Sponsor ${i + 1}`, logo }));
+  const build = (n: number, overrides: Partial<EventPostInput> = {}) =>
+    buildEventPostFrame(
+      input({
+        kind: "sponsors",
+        flyer: null,
+        text: {
+          ...input().text,
+          line: "Thank you to our sponsors",
+          sponsorLogos: true,
+        },
+        sponsors: sponsors(n),
+        ...overrides,
+      }),
+    ).frame as SponsorsLayout;
+
+  test("a tile a sponsor, in columns by how many", () => {
+    expect(build(1).columns).toBe(1);
+    expect(build(4).columns).toBe(2);
+    expect(build(9).columns).toBe(3);
+    expect(build(3).tiles.map((t) => t.name.text)).toEqual([
+      "Sponsor 1",
+      "Sponsor 2",
+      "Sponsor 3",
+    ]);
+  });
+
+  test("past twelve, the rest are 'and N more'", () => {
+    const frame = build(15);
+    expect(frame.tiles).toHaveLength(12);
+    expect(frame.more).toBe(3);
+  });
+
+  test("logos switched off show names", () => {
+    const frame = build(2, {
+      text: { ...input().text, line: "Thanks", sponsorLogos: false },
+    });
+    expect(frame.tiles.every((tile) => tile.logo === null)).toBe(true);
+  });
+
+  test("tiles fit the frame, story and post", () => {
+    for (const format of ["story", "post"] as const) {
+      const frame = build(12, { format });
+      const rows = Math.ceil(frame.tiles.length / frame.columns);
+      expect(rows * frame.tileHeight).toBeLessThan(
+        format === "story" ? 1100 : 700,
+      );
+      expect(frame.columns * frame.tileWidth).toBeLessThanOrEqual(1080 - 144);
+    }
   });
 });

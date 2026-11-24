@@ -2,8 +2,12 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
-import { isEventSource, loadStorySource, storyFingerprint } from "./story-data";
-import { POST_TEMPLATES } from "./post-templates";
+import {
+  isEventSource,
+  loadStorySource,
+  sourceFrames,
+  storyFingerprint,
+} from "./story-data";
 
 /** What the post page's Story images panel (#1909) shows. */
 export type StoryImagesState = {
@@ -14,7 +18,7 @@ export type StoryImagesState = {
   hasItem: boolean;
   /** What the template is drawn from; absent, a featured item. */
   record?: "inventory_item" | "event";
-  /** Images a set holds; absent, Gear Spotlight's three. */
+  /** Images a set holds; absent, Gear Spotlight's three. A recap post's follows its photos (#1927). */
   frames?: number;
   /**
    * That item has a photo; frame 1 shows a tinted panel without one. A post
@@ -53,7 +57,7 @@ export async function loadStoryImagesState(
     };
   }
   const current = storyFingerprint(load.source);
-  const frames = POST_TEMPLATES[load.source.templateKey].frames.length;
+  const frames = sourceFrames(load.source).length;
   const source = load.source;
   const event = isEventSource(source);
   return {

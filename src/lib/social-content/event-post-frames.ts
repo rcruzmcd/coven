@@ -1,4 +1,5 @@
 import type { Branding } from "@/lib/branding";
+import type { EventTemplateValues } from "./post-templates";
 import {
   fitText,
   readableOn,
@@ -12,8 +13,8 @@ import {
 } from "./story-frames";
 
 /**
- * The event announcement and reminder templates (#1926): what their one frame
- * shows, in a story or a 4:5 post. Pure, like `story-frames.ts`;
+ * The event templates (#1926, #1927) -- announcement, reminder, recap and
+ * sponsor thank-you: what a frame shows, in a story or a 4:5 post. Pure, like `story-frames.ts`;
  * `event-post-view.tsx` draws the result and decides nothing.
  *
  * Flyer first. An event's flyer is designer-made and different every time, so
@@ -25,7 +26,7 @@ import {
 export const POST_WIDTH = 1080;
 export const POST_HEIGHT = 1350;
 
-export type EventPostKind = "announcement" | "reminder";
+export type EventPostKind = "announcement" | "reminder" | "recap" | "sponsors";
 export type EventPostFormat = "story" | "post";
 
 /** Where a format's frame may put anything, and how much room it has. */
@@ -145,7 +146,19 @@ export type EventPostRecord = {
   has_flyer: boolean;
   /** The tenant's public host, e.g. "chattersnow.org". */
   host: string;
+  /**
+   * How many people were checked in, party sizes counted (#1927). Read for a
+   * recap only, so no other template goes out of date as people check in.
+   */
+  attended?: number;
+  /**
+   * The sponsors credited publicly on the event, by name (#1927). Read for a
+   * sponsor thank-you only. Sponsors, never donors.
+   */
+  sponsors?: EventSponsor[];
 };
+
+export type EventSponsor = { name: string; logo_url: string | null };
 
 /** A photo fetched for drawing: a data URL and its size in pixels. */
 export type DrawnImage = {
@@ -159,7 +172,16 @@ export type EventPostInput = {
   format: EventPostFormat;
   event: EventPostRecord;
   /** The template's words and options, after the post's typed text. */
-  text: { line: string; cta: string | null; details: boolean; logo: boolean };
+  text: EventTemplateValues;
+  /** Which frame: a recap post's carousel has one per photo (#1927). */
+  frame?: number;
+  /**
+   * A recap's photos for this frame (#1927): the cover's, or the one photo
+   * a carousel slide shows.
+   */
+  photos?: DrawnImage[];
+  /** A sponsor thank-you's sponsors, their logos inlined or null (#1927). */
+  sponsors?: { name: string; logo: string | null }[];
   /**
    * The flyer, when the post shows it, with its dominant colour; or null for
    * the brand layout.
@@ -209,9 +231,51 @@ export type BrandLayout = {
   cta: FittedText | null;
 };
 
+/** A recap's cover (#1927): the words over a collage of its photos. */
+export type RecapLayout = {
+  layout: "recap";
+  theme: StoryTheme;
+  logoUrl: string | null;
+  orgName: string;
+  /** "Recap" and the event's date. */
+  eyebrow: string;
+  title: FittedText;
+  line: FittedText | null;
+  /** "120 people came", when switched on and anyone was checked in. */
+  attendance: string | null;
+  /** One to four, laid out by the view by how many. */
+  photos: DrawnImage[];
+  photosHeight: number;
+};
+
+/** A recap carousel's later slide: one photo, filling the frame. */
+export type SlideLayout = { layout: "slide"; photo: DrawnImage };
+
+export type SponsorTile = {
+  /** Shown when there is no logo, or logos are switched off. */
+  name: FittedText;
+  logo: string | null;
+};
+
+/** A sponsor thank-you (#1927): the line, the event, and a tile each. */
+export type SponsorsLayout = {
+  layout: "sponsors";
+  theme: StoryTheme;
+  logoUrl: string | null;
+  orgName: string;
+  eyebrow: string;
+  title: FittedText;
+  tiles: SponsorTile[];
+  columns: number;
+  tileWidth: number;
+  tileHeight: number;
+  /** Sponsors past the tiles the frame holds: "and N more". */
+  more: number;
+};
+
 export type EventPostModel = {
   box: FrameBox;
-  frame: FlyerLayout | BrandLayout;
+  frame: FlyerLayout | BrandLayout | RecapLayout | SlideLayout | SponsorsLayout;
 };
 
 /* ------------------------------------------------------------------------ */
@@ -376,9 +440,122 @@ function brandFrame(input: EventPostInput, box: FrameBox): BrandLayout {
   };
 }
 
-/** What an event template's one frame shows. */
+/** "120 people came", or null with no one checked in. */
+export function attendanceLine(attended: number | undefined): string | null {
+  if (!attended || attended < 1) return null;
+  return attended === 1
+    ? "1 person came"
+    : `${attended.toLocaleString("en-US")} people came`;
+}
+
+/** "Saturday, December 6", in the event's zone. */
+function eventDate(startsAt: string, timeZone: string): string {
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: safeZone(timeZone),
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  }).format(new Date(startsAt));
+}
+
+function recapFrame(input: EventPostInput, box: FrameBox): RecapLayout {
+  const width = box.width - 2 * box.side;
+  const story = box.height > POST_HEIGHT;
+  const photos = (input.photos ?? []).slice(0, 4);
+  const name = input.event.name.trim().replace(/\s+/g, " ");
+  const lineText = input.text.line.trim();
+  return {
+    layout: "recap",
+    theme: storyTheme(input.branding, null, input.headingTracking),
+    logoUrl: input.text.logo ? input.branding.logoUrl : null,
+    orgName: input.orgName,
+    eyebrow: `Recap · ${eventDate(input.event.starts_at, input.event.timezone)}`,
+    title: fitText(name, {
+      width,
+      maxSize: (story ? 88 : 72) + (photos.length ? 0 : 24),
+      minSize: 48,
+      maxLines: 3,
+    }),
+    line: lineText
+      ? fitText(lineText, { width, maxSize: 44, minSize: 32, maxLines: 2 })
+      : null,
+    attendance: input.text.attendance
+      ? attendanceLine(input.event.attended)
+      : null,
+    photos,
+    // A story's collage is most of the frame; a post's cover leaves the
+    // words their room.
+    photosHeight: story ? 900 : 560,
+  };
+}
+
+/** Columns for `n` sponsor tiles: one, two up to four, three beyond. */
+export function sponsorColumns(n: number): number {
+  if (n <= 1) return 1;
+  return n <= 4 ? 2 : 3;
+}
+
+export const SPONSOR_TILE_GAP = 24;
+/** Sponsor tiles a frame holds; past it, "and N more". */
+export const SPONSOR_TILE_LIMIT = 12;
+
+function sponsorsFrame(input: EventPostInput, box: FrameBox): SponsorsLayout {
+  const width = box.width - 2 * box.side;
+  const story = box.height > POST_HEIGHT;
+  const all = input.sponsors ?? [];
+  const shown = all.slice(0, SPONSOR_TILE_LIMIT);
+  const columns = sponsorColumns(shown.length);
+  const rows = Math.max(1, Math.ceil(shown.length / columns));
+  const tileWidth = Math.floor(
+    (width - (columns - 1) * SPONSOR_TILE_GAP) / columns,
+  );
+  // The room under the header and the line, split between the rows.
+  const area = story ? 1000 : 640;
+  const tileHeight = Math.min(
+    columns === 1 ? 320 : 240,
+    Math.floor((area - (rows - 1) * SPONSOR_TILE_GAP) / rows),
+  );
+  return {
+    layout: "sponsors",
+    theme: storyTheme(input.branding, null, input.headingTracking),
+    logoUrl: input.text.logo ? input.branding.logoUrl : null,
+    orgName: input.orgName,
+    eyebrow: input.event.name.trim().replace(/\s+/g, " "),
+    title: fitText(input.text.line.trim() || "Thank you", {
+      width,
+      maxSize: story ? 88 : 72,
+      minSize: 48,
+      maxLines: 2,
+    }),
+    tiles: shown.map((sponsor) => ({
+      name: fitText(sponsor.name.trim().replace(/\s+/g, " "), {
+        width: tileWidth - 40,
+        maxSize: columns === 1 ? 56 : 40,
+        minSize: 22,
+        maxLines: 2,
+      }),
+      logo: input.text.sponsorLogos ? sponsor.logo : null,
+    })),
+    columns,
+    tileWidth,
+    tileHeight,
+    more: all.length - shown.length,
+  };
+}
+
+/** What an event template's frame shows. */
 export function buildEventPostFrame(input: EventPostInput): EventPostModel {
   const box = frameBox(input.format);
+  if (input.kind === "recap") {
+    const slide = (input.frame ?? 1) > 1 ? input.photos?.[0] : undefined;
+    return {
+      box,
+      frame: slide ? { layout: "slide", photo: slide } : recapFrame(input, box),
+    };
+  }
+  if (input.kind === "sponsors") {
+    return { box, frame: sponsorsFrame(input, box) };
+  }
   return {
     box,
     frame: input.flyer

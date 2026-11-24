@@ -1,15 +1,16 @@
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { loadStorySource } from "@/lib/social-content/story-data";
+import { MAX_POST_MEDIA } from "@/lib/social-content/pieces";
+import { loadStorySource, sourceFrames } from "@/lib/social-content/story-data";
 import { renderStoryFrame } from "@/lib/social-content/story-render";
-import { parseStoryFrame } from "@/lib/social-content/story-frames";
-import { POST_TEMPLATES } from "@/lib/social-content/post-templates";
 
 /**
  * One frame of a post's template as a PNG (#1908), drawn by the post's
  * template (#1924). Gear Spotlight's three 1080x1920 frames: 1 the item, 2
  * its details, 3 how to get it. The event announcement and reminder (#1926)
- * have one frame, a 1080x1920 story or a 1080x1350 post by the post's format.
+ * have one frame, a 1080x1920 story or a 1080x1350 post by the post's format,
+ * as do the recap and sponsor thank-you (#1927) -- but a recap post is a
+ * carousel, a frame per photo, up to the {@link MAX_POST_MEDIA} a post holds.
  *
  * Under `/api/` so the portal host's proxy passes it through rather than
  * rewriting it into `/portal/*`, like `/api/app-icon/[size]`. Nothing here is
@@ -27,7 +28,7 @@ export async function GET(
   context: { params: Promise<{ pieceId: string; frame: string }> },
 ) {
   const { pieceId, frame: rawFrame } = await context.params;
-  const frame = parseStoryFrame(rawFrame);
+  const frame = parseFrame(rawFrame);
   if (!frame) return new Response("Not found", { status: 404 });
 
   const params = new URL(request.url).searchParams;
@@ -54,9 +55,7 @@ export async function GET(
   }
 
   // A frame the post's template doesn't have is a miss like any other.
-  const frames: readonly number[] =
-    POST_TEMPLATES[load.source.templateKey].frames;
-  if (!frames.includes(frame)) {
+  if (!sourceFrames(load.source).includes(frame)) {
     return new Response("Not found", { status: 404 });
   }
 
@@ -69,6 +68,13 @@ export async function GET(
       `attachment; filename="${load.source.templateKey.replace(/_/g, "-")}-${frame}.png"`;
   }
   return renderStoryFrame(load.source, frame, request.url, headers);
+}
+
+/** A frame number, 1 up to the most a post holds; anything else is a miss. */
+function parseFrame(raw: string): number | null {
+  if (!/^[1-9][0-9]?$/.test(raw)) return null;
+  const frame = Number(raw);
+  return frame <= MAX_POST_MEDIA ? frame : null;
 }
 
 /** Preview text is a few short fields; anything longer isn't one. */

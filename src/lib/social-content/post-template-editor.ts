@@ -5,12 +5,21 @@ import type { Database } from "@/lib/database.types";
 import { resolveImageUrl } from "@/lib/inventory";
 import { parseImageCrop, type ImageCrop } from "@/lib/image-crop";
 import { EVENT_MEDIA_BUCKET } from "@/lib/storage/event-media-files";
-import { eventPhotoChoice, loadEventTemplateRecord } from "./event-post-data";
+import {
+  chosenRecapPhotos,
+  eventPhotoChoice,
+  loadEventTemplateRecord,
+  recapPhotoOptions,
+  type EventTemplateRecord,
+} from "./event-post-data";
 import {
   GEAR_SPOTLIGHT,
   ITEM_PHOTO,
+  EVENT_RECAP,
   NO_PHOTO,
   POST_TEMPLATES,
+  RECAP_PHOTO_LIMITS,
+  SPONSOR_THANK_YOU,
   TOGGLE_ON,
   gearPostDetails,
   isEventTemplateKey,
@@ -67,6 +76,24 @@ export type TemplatePhotoField = {
   value: string;
 };
 
+/**
+ * Several photos picked in order (#1927): a recap's. The first is its cover;
+ * on a carousel, each further one is a slide of its own.
+ */
+export type TemplatePhotosField = {
+  key: string;
+  label: string;
+  /** The event's public gallery; never "No photo", which is none ticked. */
+  options: TemplatePhotoOption[];
+  /** Ticked until someone chooses: what Reset goes back to. */
+  start: string[];
+  value: string[];
+  /** The most the format holds: 4 in a story's collage, 20 in a carousel. */
+  limit: number;
+  /** One frame per photo (a post), rather than one collage (a story). */
+  carousel: boolean;
+};
+
 /** What the post page's template card shows. */
 export type PostTemplateEditor = {
   /** The template the post is drawn with, or null. */
@@ -83,6 +110,9 @@ export type PostTemplateEditor = {
   fields: TemplateTextField[];
   toggles: TemplateToggleField[];
   photo: TemplatePhotoField | null;
+  photos: TemplatePhotosField | null;
+  /** Something the record lacks or asks of whoever posts (#1927). */
+  notice: string | null;
   storyImages: StoryImagesState | null;
 };
 
@@ -145,6 +175,8 @@ export async function loadPostTemplateEditor(
       fields: [],
       toggles: [],
       photo: null,
+      photos: null,
+      notice: null,
       storyImages: null,
     };
   }
@@ -163,6 +195,7 @@ export async function loadPostTemplateEditor(
       post.event_id,
       template.key,
       parseTemplateText(post.template_text),
+      format,
     );
     if (!event) return null;
     return {
@@ -237,6 +270,8 @@ export async function loadPostTemplateEditor(
     fields,
     toggles: [],
     photo,
+    photos: null,
+    notice: null,
     storyImages,
   };
 }
@@ -256,8 +291,12 @@ async function loadEventEditor(
   eventId: string,
   key: EventTemplateKey,
   saved: TemplateText,
-): Promise<Pick<PostTemplateEditor, "fields" | "toggles" | "photo"> | null> {
-  const loaded = await loadEventTemplateRecord(admin, tenantId, eventId);
+  format: TemplateFormat | null,
+): Promise<Pick<
+  PostTemplateEditor,
+  "fields" | "toggles" | "photo" | "photos" | "notice"
+> | null> {
+  const loaded = await loadEventTemplateRecord(admin, tenantId, eventId, key);
   if (!loaded) return null;
   const template = POST_TEMPLATES[key];
   const { record } = loaded;
@@ -273,7 +312,10 @@ async function loadEventEditor(
         start,
         value: saved[field.key] ? saved[field.key] === TOGGLE_ON : start,
       });
-    } else if (field.kind !== "photo" && field.max !== null) {
+    } else if (
+      (field.kind === "line" || field.kind === "paragraph") &&
+      field.max !== null
+    ) {
       const start = field.start(record) ?? "";
       fields.push({
         key: field.key,
@@ -315,6 +357,8 @@ async function loadEventEditor(
   return {
     fields,
     toggles,
+    photos: recapPhotosField(loaded, saved, format, urls),
+    notice: eventNotice(key, loaded),
     photo: photoField
       ? {
           key: photoField.key,
@@ -327,4 +371,62 @@ async function loadEventEditor(
         }
       : null,
   };
+}
+
+/**
+ * A recap's photos (#1927): the event's public gallery, never its flyer --
+ * the photos the event photo agreement covers, as in Choose from event.
+ */
+function recapPhotosField(
+  loaded: EventTemplateRecord,
+  saved: TemplateText,
+  format: TemplateFormat | null,
+  urls: ReadonlyMap<string, string>,
+): TemplatePhotosField | null {
+  const field = EVENT_RECAP.fields.find((f) => f.kind === "photos");
+  if (!field || !format) return null;
+  const options = recapPhotoOptions(loaded.photos).map((photo, i) => ({
+    id: eventPhotoChoice(photo),
+    label: `Event photo ${i + 1}`,
+    src: urls.get(photo.path) ?? null,
+    crop: null,
+  }));
+  if (options.length === 0) return null;
+  const ids = (choice: string | undefined) =>
+    chosenRecapPhotos(loaded.photos, choice, format).map(eventPhotoChoice);
+  return {
+    key: field.key,
+    label: field.label,
+    options,
+    start: ids(undefined),
+    value: ids(saved[field.key]),
+    limit: RECAP_PHOTO_LIMITS[format],
+    carousel: format === "post",
+  };
+}
+
+/** What a recap or sponsor thank-you should say before it is posted. */
+function eventNotice(
+  key: EventTemplateKey,
+  loaded: EventTemplateRecord,
+): string | null {
+  if (key === EVENT_RECAP.key) {
+    const notes: string[] = [];
+    if (recapPhotoOptions(loaded.photos).length === 0) {
+      notes.push(
+        "This event has no photos in its public gallery yet, so the recap is words only. Show photos in the event's Media card to offer them here.",
+      );
+    }
+    const objections = loaded.photoObjections ?? 0;
+    if (objections > 0) {
+      notes.push(
+        `${objections} ${objections === 1 ? "registrant" : "registrants"} asked not to be photographed. Only photos shown in the public gallery are offered; check each before posting.`,
+      );
+    }
+    return notes.length > 0 ? notes.join(" ") : null;
+  }
+  if (key === SPONSOR_THANK_YOU.key && !loaded.record.sponsors?.length) {
+    return "No sponsors are credited publicly on this event yet. Add them, or mark them public, in the event's Sponsors card.";
+  }
+  return null;
 }

@@ -7,16 +7,17 @@ import { StoryFrameView } from "@/app/api/social-posts/[pieceId]/story/[frame]/s
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { loadStoryFonts } from "./story-fonts";
 import type { EventPostSource } from "./event-post-data";
-import { buildEventPostFrame } from "./event-post-frames";
+import {
+  buildEventPostFrame,
+  SPONSOR_TILE_LIMIT,
+  type DrawnImage,
+} from "./event-post-frames";
 import { readEventMediaImage } from "./event-media-image";
+import { resolveImageUrl } from "@/lib/inventory";
 import type { StorySource } from "./story-data";
 import { inlineStoryImages, isEventSource } from "./story-data";
 import { GEAR_SPOTLIGHT } from "./post-templates";
-import {
-  STORY_HEIGHT,
-  STORY_WIDTH,
-  type StoryFrameNumber,
-} from "./story-frames";
+import { STORY_HEIGHT, STORY_WIDTH, parseStoryFrame } from "./story-frames";
 
 /**
  * One frame of a post's template as a PNG response (#1908), built by the
@@ -26,17 +27,19 @@ import {
  */
 export async function renderStoryFrame(
   source: StorySource,
-  frame: StoryFrameNumber,
+  frame: number,
   requestUrl: string,
   headers?: HeadersInit,
 ): Promise<ImageResponse> {
   if (isEventSource(source)) {
-    return renderEventPost(source, requestUrl, headers);
+    return renderEventPost(source, frame, requestUrl, headers);
   }
-  const input = await inlineStoryImages(source, frame, requestUrl);
+  const gearFrame = parseStoryFrame(String(frame));
+  if (!gearFrame) throw new Error(`Gear Spotlight has no frame ${frame}`);
+  const input = await inlineStoryImages(source, gearFrame, requestUrl);
   const model = GEAR_SPOTLIGHT.build({
     ...input,
-    frame,
+    frame: gearFrame,
     headingTracking: source.typography.headingTracking,
   });
   const fonts = await loadStoryFonts(source.typography);
@@ -55,13 +58,15 @@ export async function renderStoryFrame(
  */
 async function renderEventPost(
   source: EventPostSource,
+  frame: number,
   requestUrl: string,
   headers?: HeadersInit,
 ): Promise<ImageResponse> {
-  const [image, logo, fonts] = await Promise.all([
-    source.photo
-      ? readEventMediaImage(createSupabaseAdminClient(), source.photo.path)
-      : null,
+  const admin = createSupabaseAdminClient();
+  const [image, photos, sponsors, logo, fonts] = await Promise.all([
+    source.photo ? readEventMediaImage(admin, source.photo.path) : null,
+    recapImages(source, frame),
+    sponsorImages(source, requestUrl),
     loadRemoteIcon(source.branding.logoUrl, requestUrl),
     loadStoryFonts(source.typography),
   ]);
@@ -71,6 +76,9 @@ async function renderEventPost(
     format: source.format,
     event: source.event,
     text: source.values,
+    frame,
+    photos,
+    sponsors,
     flyer:
       image && isFlyer
         ? { ...image, color: source.photo?.color ?? image.color }
@@ -87,4 +95,46 @@ async function renderEventPost(
     fonts,
     headers,
   });
+}
+
+/**
+ * A recap's photos for one frame (#1927): a story's collage of up to four,
+ * a post's cover photo, or the one photo a later carousel slide shows. A
+ * photo that can't be read is left out rather than fail the image.
+ */
+async function recapImages(
+  source: EventPostSource,
+  frame: number,
+): Promise<DrawnImage[]> {
+  if (source.kind !== "recap") return [];
+  const wanted =
+    frame > 1
+      ? source.photos.slice(frame - 1, frame)
+      : source.photos.slice(0, source.format === "story" ? 4 : 1);
+  const admin = createSupabaseAdminClient();
+  const images = await Promise.all(
+    wanted.map((photo) => readEventMediaImage(admin, photo.path)),
+  );
+  return images.flatMap((image) => (image ? [image] : []));
+}
+
+/**
+ * A sponsor thank-you's sponsors (#1927), with the logos the frame shows
+ * inlined. A dead logo link draws the sponsor's name instead.
+ */
+async function sponsorImages(
+  source: EventPostSource,
+  requestUrl: string,
+): Promise<{ name: string; logo: string | null }[]> {
+  if (source.kind !== "sponsors") return [];
+  const sponsors = source.event.sponsors ?? [];
+  return Promise.all(
+    sponsors.map(async (sponsor, i) => ({
+      name: sponsor.name,
+      logo:
+        source.values.sponsorLogos && i < SPONSOR_TILE_LIMIT
+          ? await loadRemoteIcon(resolveImageUrl(sponsor.logo_url), requestUrl)
+          : null,
+    })),
+  );
 }
