@@ -527,7 +527,7 @@ export const PERMISSION_DOCS: Record<string, PermissionDoc> = {
   content_calendar: {
     view: "Open the Calendar and read its items, categories and the events shown beside them. Also open Social content and read every social post, whether related to an event, a community date or nothing, and see an event's Social content section (with `events: view`).",
     manage:
-      "Create and edit calendar items, run recurrence and the importer, and manage categories. Add, edit, delete and move the status of social posts, from Social content or wherever they are shown.",
+      "Create and edit calendar items, run recurrence and the importer, and manage categories. Add, edit, delete and move the status of social posts, from Social content or wherever they are shown, including a post's template: which one it is drawn with, its text and photo, and generating its images.",
     excludes: [{ key: "events", covers: "the events the calendar displays" }],
   },
 
@@ -571,7 +571,7 @@ export const PERMISSION_DOCS: Record<string, PermissionDoc> = {
   system_settings: {
     view: null,
     manage:
-      "Edit org-wide configuration -- the expense approval threshold, organization identity, branding (including uploading its logo and app icon to the site's photos), notification settings, automatic replies -- and the Website section's own settings: layout, page visibility and legal documents.",
+      "Edit org-wide configuration -- the expense approval threshold, organization identity, branding (including uploading its logo and app icon to the site's photos), notification settings, automatic replies, which post templates are switched on -- and the Website section's own settings: layout, page visibility and legal documents.",
     excludes: [
       { key: "administration", covers: "users, roles and the audit log" },
       { key: "site_content", covers: "the copy on the public website" },

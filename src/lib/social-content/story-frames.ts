@@ -8,6 +8,7 @@ import {
 } from "@/lib/inventory-category-colors";
 import type { GearPostDetails } from "./series-gear";
 import type { SeriesCadence } from "./series";
+import type { ImageCrop } from "@/lib/image-crop";
 import { SPOTLIGHT_ITEM_PLACEHOLDER } from "@/lib/site-content";
 
 /**
@@ -89,6 +90,8 @@ export type SpotlightFrame = {
   script: string;
   /** A data URL, or null for the tinted panel naming the category. */
   photo: string | null;
+  /** The photo's stored crop (#1925), or null to cover from the centre. */
+  photoCrop: ImageCrop | null;
   categoryLabel: string | null;
   title: FittedText;
   brand: FittedText | null;
@@ -99,6 +102,7 @@ export type DetailsFrame = {
   heading: string;
   /** A data URL, or null to leave the photo out: the tiles need no panel. */
   photo: string | null;
+  photoCrop: ImageCrop | null;
   tiles: DetailTile[];
   categoryLabel: string | null;
   script: string | null;
@@ -150,6 +154,8 @@ export type StoryInput = {
   /** The category's stop index (#1907), or null for an uncategorized item. */
   categoryStop: number | null;
   photo: string | null;
+  /** The photo's stored `#crop=` (#1925); absent or null, none. */
+  photoCrop?: ImageCrop | null;
   series: { cadence: SeriesCadence; number: number } | null;
   branding: Branding;
   headingTracking: string;
@@ -366,6 +372,7 @@ function spotlightFrame(input: StoryInput): SpotlightFrame {
     frame: 1,
     script: "this week's find",
     photo: input.photo,
+    photoCrop: input.photo ? (input.photoCrop ?? null) : null,
     categoryLabel: clean(input.item.category_label) || null,
     title: fitText(input.item.description, {
       width: STORY_CONTENT_WIDTH,
@@ -391,6 +398,7 @@ function detailsFrame(input: StoryInput): DetailsFrame {
     frame: 2,
     heading: "The details",
     photo: input.photo,
+    photoCrop: input.photo ? (input.photoCrop ?? null) : null,
     tiles: detailTiles(input.item, input.details),
     categoryLabel: clean(input.item.category_label) || null,
     script: why ? "why we love it" : null,

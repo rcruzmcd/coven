@@ -47,6 +47,15 @@ export type Template<Record, Input, Model> = {
   build: (input: Input) => Model;
 };
 
+/**
+ * A photo field's value names one of the record's media: `none` for no
+ * photo, `item` for an inventory item's photo, or `<kind>:<uuid>` for a
+ * record's media row (an event's, later). Left unset, the record's default.
+ */
+export const NO_PHOTO = "none";
+export const ITEM_PHOTO = "item";
+const PHOTO_CHOICE = /^(?:none|item|[a-z_]{1,32}:[0-9a-f-]{36})$/;
+
 /** The fields someone typed over, by field key. */
 export type TemplateText = Record<string, string>;
 
@@ -85,6 +94,14 @@ export const GEAR_SPOTLIGHT = {
       max: GEAR_DETAIL_LIMITS.why,
       start: typedOnly,
     },
+    {
+      key: "photo",
+      label: "Photo",
+      kind: "photo",
+      max: null,
+      // Left unset, the item's own photo (#1925).
+      start: typedOnly,
+    },
   ],
   build: buildStoryFrame,
 } as const satisfies Template<StoryItem, StoryInput, StoryModel>;
@@ -105,6 +122,56 @@ export function isPostTemplateKey(value: unknown): value is PostTemplateKey {
 
 export function postTemplate(key: unknown) {
   return isPostTemplateKey(key) ? POST_TEMPLATES[key] : null;
+}
+
+/** The template format a post format is drawn in; a reel has none. */
+export function templateFormat(
+  postFormat: string | null,
+): TemplateFormat | null {
+  if (postFormat === "instagram_story") return "story";
+  if (postFormat === "instagram_post") return "post";
+  return null;
+}
+
+/**
+ * The templates a post may be drawn with (#1925): those for one of the records
+ * it has, in its format, that the tenant hasn't switched off.
+ */
+export function templatesFor({
+  recordKinds,
+  postFormat,
+  off,
+}: {
+  recordKinds: readonly TemplateRecordKind[];
+  postFormat: string | null;
+  off: readonly string[];
+}): PostTemplateKey[] {
+  const format = templateFormat(postFormat);
+  if (!format) return [];
+  return Object.values(POST_TEMPLATES)
+    .filter(
+      (template) =>
+        recordKinds.includes(template.recordKind) &&
+        (template.formats as readonly TemplateFormat[]).includes(format) &&
+        !off.includes(template.key),
+    )
+    .map((template) => template.key);
+}
+
+/* ------------------------------------------------------------------------ */
+/* Switching templates off (#1925)                                           */
+/* ------------------------------------------------------------------------ */
+
+/**
+ * The templates a tenant has switched off, as an array of keys. A setting,
+ * not removal: a post already drawn with one keeps its images, but it can't
+ * be drawn again or chosen until it is back on.
+ */
+export const POST_TEMPLATES_OFF_SETTING_KEY = "content.post_templates_off";
+
+export function parsePostTemplatesOff(value: Json | null | undefined) {
+  if (!Array.isArray(value)) return [];
+  return value.filter(isPostTemplateKey);
 }
 
 /* ------------------------------------------------------------------------ */
@@ -148,8 +215,17 @@ export function normalizeTemplateText<R>(
 ): { text: TemplateText } | { error: string } {
   const text: TemplateText = {};
   for (const field of template.fields) {
-    if (field.kind === "photo") continue;
     const value = clean(input[field.key]);
+    if (field.kind === "photo") {
+      if (!value) continue;
+      if (!PHOTO_CHOICE.test(value)) {
+        return {
+          error: `Choose a ${field.label.toLowerCase()} from the list.`,
+        };
+      }
+      text[field.key] = value;
+      continue;
+    }
     if (field.max !== null && value.length > field.max) {
       return {
         error: `${field.label} can be at most ${field.max} characters.`,
