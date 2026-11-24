@@ -2,14 +2,24 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
-import { loadStorySource, storyFingerprint } from "./story-data";
-import { STORY_FRAMES } from "./story-frames";
+import { isEventSource, loadStorySource, storyFingerprint } from "./story-data";
+import { POST_TEMPLATES } from "./post-templates";
 
 /** What the post page's Story images panel (#1909) shows. */
 export type StoryImagesState = {
-  /** The post features an item the frames can be drawn from. */
+  /**
+   * The post has the record its template draws from: a featured item, or for
+   * an event template (#1926) its event.
+   */
   hasItem: boolean;
-  /** That item has a photo; frame 1 shows a tinted panel without one. */
+  /** What the template is drawn from; absent, a featured item. */
+  record?: "inventory_item" | "event";
+  /** Images a set holds; absent, Gear Spotlight's three. */
+  frames?: number;
+  /**
+   * That item has a photo; frame 1 shows a tinted panel without one. A post
+   * that chose "No photo" (#1925) isn't warned about it.
+   */
   hasPhoto: boolean;
   /** How many generated frames the post holds now. */
   generated: number;
@@ -43,13 +53,19 @@ export async function loadStoryImagesState(
     };
   }
   const current = storyFingerprint(load.source);
+  const frames = POST_TEMPLATES[load.source.templateKey].frames.length;
+  const source = load.source;
+  const event = isEventSource(source);
   return {
     hasItem: true,
-    hasPhoto: load.source.photoSource !== null,
+    record: event ? "event" : "inventory_item",
+    frames,
+    // An event without a photo draws a brand layout, which needs none.
+    hasPhoto: isEventSource(source) || source.itemHasPhoto,
     generated: generated.length,
     stale:
       generated.length > 0 &&
-      (generated.length < STORY_FRAMES.length ||
+      (generated.length !== frames ||
         generated.some((row) => row.generated_fingerprint !== current)),
   };
 }

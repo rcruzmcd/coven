@@ -23,8 +23,8 @@ import {
   usePostExtras,
 } from "@/components/portal/social-content/post-content-fields";
 import { ShareToInstagram } from "@/components/portal/social-content/share-to-instagram";
-import { StoryImagesPanel } from "@/components/portal/social-content/story-images-panel";
-import type { StoryImagesState } from "@/lib/social-content/story-images";
+import { PostTemplateCard } from "@/components/portal/social-content/post-template-card";
+import type { PostTemplateEditor } from "@/lib/social-content/post-template-editor";
 import {
   SocialPostSheet,
   type SocialPostSheetSession,
@@ -47,14 +47,14 @@ export function SocialPostDetail({
   owners,
   defaultLeadTimeDays,
   canManage,
-  storyImages = null,
+  templateEditor = null,
 }: {
   piece: SocialPieceRow;
   owners: CalendarOwner[];
   defaultLeadTimeDays: number;
   canManage: boolean;
-  /** A featured-gear story's generated images (#1909); null on other posts. */
-  storyImages?: StoryImagesState | null;
+  /** The post's template card (#1925); null when no template fits it. */
+  templateEditor?: PostTemplateEditor | null;
 }) {
   const router = useRouter();
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -142,18 +142,6 @@ export function SocialPostDetail({
                 extras={extras}
                 idPrefix="post"
               />
-              {storyImages && (
-                <StoryImagesPanel
-                  postId={piece.id}
-                  state={storyImages}
-                  published={piece.content_status === "published"}
-                  canManage={canManage}
-                  onGenerated={() => {
-                    reloadExtras();
-                    router.refresh();
-                  }}
-                />
-              )}
               <ShareToInstagram piece={piece} extras={extras} />
             </FieldGroup>
           </CardContent>
@@ -192,6 +180,21 @@ export function SocialPostDetail({
           </CardContent>
         </Card>
       </div>
+
+      {templateEditor && (
+        <div className="mt-4">
+          <PostTemplateCard
+            postId={piece.id}
+            editor={templateEditor}
+            published={piece.content_status === "published"}
+            canManage={canManage}
+            onGenerated={() => {
+              reloadExtras();
+              router.refresh();
+            }}
+          />
+        </div>
+      )}
 
       {canManage && (
         <SocialPostSheet

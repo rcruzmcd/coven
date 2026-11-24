@@ -11,19 +11,11 @@ const swapMock = mock<
     replace: boolean,
   ) => Promise<{ success: true; photoCopied: boolean }>
 >(async () => ({ success: true, photoCopied: true }));
-const saveMock = mock<
-  (
-    postId: string,
-    input: { brand: string; best_for: string; why: string },
-  ) => Promise<{ success: true; captionUpdated: boolean }>
->(async () => ({ success: true, captionUpdated: true }));
-
 mock.module("next/navigation", () => ({
   useRouter: () => ({ refresh: () => {} }),
 }));
 mock.module("@/lib/social-content/series-gear-actions", () => ({
   swapFeaturedGearAction: swapMock,
-  updateGearDetailsAction: saveMock,
 }));
 
 const { SocialPostFeaturedGearCard } =
@@ -61,48 +53,10 @@ function renderCard(
 
 beforeEach(() => {
   swapMock.mockClear();
-  saveMock.mockClear();
 });
 
-describe("SocialPostFeaturedGearCard details", () => {
-  test("shows the three fields when the post features an item", () => {
-    renderCard();
-    expect(screen.getByLabelText(/^Brand/)).toBeInTheDocument();
-    expect(screen.getByLabelText(/^Best for/)).toBeInTheDocument();
-    expect(screen.getByLabelText(/^Why we love it/)).toBeInTheDocument();
-  });
-
-  test("hides them when the post features nothing", () => {
-    renderCard({ featured: null });
-    expect(screen.queryByLabelText(/^Brand/)).not.toBeInTheDocument();
-  });
-
-  test("shows the saved values read-only once published", () => {
-    renderCard({
-      published: true,
-      details: { brand: "Burton", best_for: null, why: null },
-    });
-    expect(screen.queryByLabelText(/^Brand/)).not.toBeInTheDocument();
-    expect(screen.getByText("Burton")).toBeInTheDocument();
-    expect(screen.queryByText("Best for")).not.toBeInTheDocument();
-  });
-
-  test("saves what was typed", async () => {
-    const user = userEvent.setup();
-    renderCard();
-    const save = screen.getByRole("button", { name: "Save details" });
-    expect(save).toHaveAttribute("aria-disabled", "true");
-
-    await user.type(screen.getByLabelText(/^Brand/), "Burton");
-    await user.click(save);
-
-    await waitFor(() => expect(saveMock).toHaveBeenCalledTimes(1));
-    expect(saveMock.mock.calls[0]).toEqual([
-      "post-1",
-      { brand: "Burton", best_for: "", why: "" },
-    ]);
-  });
-});
+// Brand, Best for and Why are edited on the template card (#1925):
+// post-template-card.dom.test.tsx.
 
 describe("SocialPostFeaturedGearCard swap", () => {
   test("swaps straight away when nothing was typed", async () => {

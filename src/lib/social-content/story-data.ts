@@ -11,7 +11,28 @@ import { resolveSiteContent } from "@/lib/site-content";
 import { getTenantBranding } from "@/lib/tenant-branding";
 import { lexiconForTenant } from "@/lib/tenant-lexicon";
 import { occurrenceNumber, isSeriesCadence } from "./series";
-import { gearPhotoSource, gearPostDetails } from "./series-gear-fill";
+import { parseImageCrop, type ImageCrop } from "@/lib/image-crop";
+import {
+  eventPostFingerprint,
+  eventPostSource,
+  loadEventTemplateRecord,
+  type EventPostSource,
+} from "./event-post-data";
+import {
+  GEAR_SPOTLIGHT,
+  NO_PHOTO,
+  POST_TEMPLATES,
+  isEventTemplateKey,
+  templateFormat,
+  POST_TEMPLATES_OFF_SETTING_KEY,
+  gearPostDetails,
+  normalizeTemplateText,
+  parsePostTemplatesOff,
+  parseTemplateText,
+  type PostTemplateKey,
+  type TemplateText,
+} from "./post-templates";
+import { gearPhotoSource } from "./series-gear-fill";
 import {
   displayHost,
   type StoryFrameNumber,
@@ -41,20 +62,42 @@ type StoryTypography = ReturnType<typeof resolvedTypography>;
  * still its URL and the photo its storage source. Hashed for the post page's
  * "out of date" check (#1909), so it changes exactly when a frame would.
  */
-export type StorySource = {
-  input: Omit<StoryInput, "frame" | "headingTracking" | "photo">;
+export type GearStorySource = {
+  /** The template the post is drawn with (#1924); not hashed, as no frame changes with it alone. */
+  templateKey: typeof GEAR_SPOTLIGHT.key;
+  input: Omit<StoryInput, "frame" | "headingTracking" | "photo" | "photoCrop">;
   photoSource: string | null;
+  /** The photo's stored crop (#1925); hashed only when there is one. */
+  photoCrop: ImageCrop | null;
+  /** The item has a photo, whether or not the post shows it. */
+  itemHasPhoto: boolean;
   typography: StoryTypography;
 };
+
+/** What any template's frames are drawn from: Gear Spotlight's, or an event's (#1926). */
+export type StorySource = GearStorySource | EventPostSource;
+
+export function isEventSource(source: StorySource): source is EventPostSource {
+  return isEventTemplateKey(source.templateKey);
+}
 
 export type StorySourceLoad =
   | { status: "unauthenticated" }
   | { status: "not_found" }
+  /** Preview text over a field's cap (#1925). */
+  | { status: "invalid"; error: string }
   | { status: "ok"; source: StorySource };
+
+/**
+ * What a preview draws in place of the post's saved template text (#1925):
+ * every field as typed, so a field left out is blank. Never saved.
+ */
+export type StoryOverrides = { text: Record<string, unknown> };
 
 export type StoryLoad =
   | { status: "unauthenticated" }
   | { status: "not_found" }
+  | { status: "invalid"; error: string }
   | {
       status: "ok";
       input: Omit<StoryInput, "frame" | "headingTracking">;
@@ -79,6 +122,7 @@ export async function loadStorySource(
   supabase: Client,
   admin: Client,
   postId: string,
+  overrides?: StoryOverrides,
 ): Promise<StorySourceLoad> {
   const {
     data: { user },
@@ -88,13 +132,39 @@ export async function loadStorySource(
   const { data: post } = await supabase
     .from("content_opportunities")
     .select(
-      "id, tenant_id, featured_inventory_item_id, gear_brand, gear_best_for, gear_why, occurrence_date, series:social_post_series!content_opportunities_series_id_fkey(cadence, anchor_date)",
+      "id, tenant_id, event_id, post_format, featured_inventory_item_id, template_key, gear_brand, gear_best_for, gear_why, template_text, occurrence_date, series:social_post_series!content_opportunities_series_id_fkey(cadence, anchor_date)",
     )
     .eq("id", postId)
     .maybeSingle();
   // A malformed id is a cast error, which is a 404 like any other miss.
-  if (!post?.featured_inventory_item_id) return { status: "not_found" };
+  if (!post) return { status: "not_found" };
+  if (isEventTemplateKey(post.template_key)) {
+    return loadEventStorySource(supabase, admin, post, overrides);
+  }
+  if (!post.featured_inventory_item_id) return { status: "not_found" };
+  // Gear Spotlight is the only story template that reads an item so far.
+  if (post.template_key !== GEAR_SPOTLIGHT.key) return { status: "not_found" };
   const tenantId = post.tenant_id;
+
+  // A preview's text replaces the saved text whole; the old gear columns are
+  // only a fallback for saved posts main wrote.
+  let text: TemplateText;
+  let details;
+  if (overrides) {
+    const normalized = normalizeTemplateText(
+      GEAR_SPOTLIGHT,
+      null,
+      overrides.text,
+    );
+    if ("error" in normalized) {
+      return { status: "invalid", error: normalized.error };
+    }
+    text = normalized.text;
+    details = gearPostDetails({ template_text: text });
+  } else {
+    text = parseTemplateText(post.template_text);
+    details = gearPostDetails(post);
+  }
 
   const { data: item } = await admin
     .from("inventory_items")
@@ -106,7 +176,7 @@ export async function loadStorySource(
     .maybeSingle();
   if (!item) return { status: "not_found" };
 
-  const [category, groups, tenant, lexicon, copyRows, branding] =
+  const [category, groups, tenant, lexicon, copyRows, branding, off] =
     await Promise.all([
       item.category_id
         ? admin
@@ -137,7 +207,14 @@ export async function loadStorySource(
         .not("value", "is", null)
         .then(({ data }) => data ?? []),
       getTenantBranding(supabase),
+      loadPostTemplatesOff(admin, tenantId),
     ]);
+  // Switched off for the tenant (#1925): nothing is drawn with it.
+  if (off.includes(GEAR_SPOTLIGHT.key)) return { status: "not_found" };
+
+  // The photo is the item's unless the post chose none (#1925).
+  const shown =
+    item.photo_url && text.photo !== NO_PHOTO ? item.photo_url : null;
 
   const content = resolveSiteContent(copyRows, lexicon);
 
@@ -153,8 +230,11 @@ export async function loadStorySource(
   return {
     status: "ok",
     source: {
+      templateKey: GEAR_SPOTLIGHT.key,
       typography: resolvedTypography(branding),
-      photoSource: item.photo_url ? gearPhotoSource(item.photo_url) : null,
+      photoSource: shown ? gearPhotoSource(shown) : null,
+      photoCrop: shown ? parseImageCrop(shown).crop : null,
+      itemHasPhoto: Boolean(item.photo_url),
       input: {
         item: {
           description: item.description,
@@ -165,7 +245,7 @@ export async function loadStorySource(
           in_catalog:
             item.status === "available" && item.intended_use === "gear_library",
         },
-        details: gearPostDetails(post),
+        details,
         categoryStop: category ? categoryStop(category, groups) : null,
         series:
           series && number !== null && isSeriesCadence(series.cadence)
@@ -192,14 +272,76 @@ export async function loadStorySource(
   };
 }
 
+/**
+ * An event template's source (#1926): the post's event, its flyer and public
+ * photos, and the words typed -- or, for a preview, the words as typed now.
+ */
+async function loadEventStorySource(
+  supabase: Client,
+  admin: Client,
+  post: {
+    tenant_id: string;
+    event_id: string | null;
+    post_format: string | null;
+    template_key: string | null;
+    template_text: Database["public"]["Tables"]["content_opportunities"]["Row"]["template_text"];
+  },
+  overrides?: StoryOverrides,
+): Promise<StorySourceLoad> {
+  if (!isEventTemplateKey(post.template_key) || !post.event_id) {
+    return { status: "not_found" };
+  }
+  const template = POST_TEMPLATES[post.template_key];
+  const format = templateFormat(post.post_format);
+  if (!format || !(template.formats as readonly string[]).includes(format)) {
+    return { status: "not_found" };
+  }
+  const [loaded, branding, off] = await Promise.all([
+    loadEventTemplateRecord(admin, post.tenant_id, post.event_id),
+    getTenantBranding(supabase),
+    loadPostTemplatesOff(admin, post.tenant_id),
+  ]);
+  if (!loaded || off.includes(template.key)) return { status: "not_found" };
+
+  let text: TemplateText;
+  if (overrides) {
+    const normalized = normalizeTemplateText(
+      template,
+      loaded.record,
+      overrides.text,
+    );
+    if ("error" in normalized) {
+      return { status: "invalid", error: normalized.error };
+    }
+    text = normalized.text;
+  } else {
+    text = parseTemplateText(post.template_text);
+  }
+  return {
+    status: "ok",
+    source: eventPostSource({
+      templateKey: template.key,
+      format,
+      loaded,
+      text,
+      branding,
+      now: new Date(),
+    }),
+  };
+}
+
 /** A stable hash of everything a frame is drawn from (#1909). */
 export function storyFingerprint(source: StorySource): string {
+  if (isEventSource(source)) return eventPostFingerprint(source);
   return createHash("sha256")
     .update(
       JSON.stringify({
         input: source.input,
         photo: source.photoSource,
         typography: source.typography,
+        // Left out without one, so a story drawn before crops were read
+        // (#1925) isn't "Out of date" for nothing.
+        ...(source.photoCrop ? { crop: source.photoCrop } : {}),
       }),
     )
     .digest("hex")
@@ -211,7 +353,7 @@ export function storyFingerprint(source: StorySource): string {
  * frames that show it (1 and 2), the logo on every frame.
  */
 export async function inlineStoryImages(
-  source: StorySource,
+  source: GearStorySource,
   frame: StoryFrameNumber,
   requestUrl: string,
 ): Promise<Omit<StoryInput, "frame" | "headingTracking">> {
@@ -225,6 +367,7 @@ export async function inlineStoryImages(
   return {
     ...source.input,
     photo,
+    photoCrop: source.photoCrop,
     // Inlined, so a dead logo link drops the logo rather than the image.
     branding: { ...source.input.branding, logoUrl: logo },
   };
@@ -239,9 +382,28 @@ export async function loadStoryFrame(
 ): Promise<StoryLoad> {
   const load = await loadStorySource(supabase, admin, postId);
   if (load.status !== "ok") return load;
+  if (isEventSource(load.source)) return { status: "not_found" };
   return {
     status: "ok",
     typography: load.source.typography,
     input: await inlineStoryImages(load.source, frame, requestUrl),
   };
+}
+
+/**
+ * The templates a tenant has switched off (#1925). Read with the service
+ * role, filtered by tenant: app_settings is readable only with a manage
+ * permission, and someone who may only view a post still sees it drawn.
+ */
+export async function loadPostTemplatesOff(
+  admin: Client,
+  tenantId: string,
+): Promise<PostTemplateKey[]> {
+  const { data } = await admin
+    .from("app_settings")
+    .select("value")
+    .eq("tenant_id", tenantId)
+    .eq("key", POST_TEMPLATES_OFF_SETTING_KEY)
+    .maybeSingle();
+  return parsePostTemplatesOff(data?.value);
 }

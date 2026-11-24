@@ -17,6 +17,11 @@ import {
   type StoryTheme,
 } from "@/lib/social-content/story-frames";
 import { STORY_FONT } from "@/lib/social-content/story-fonts";
+import {
+  cropBoxStyle,
+  cropObjectPosition,
+  type ImageCrop,
+} from "@/lib/image-crop";
 
 /**
  * One Gear Spotlight frame as Satori markup (#1908), after the reference
@@ -303,20 +308,47 @@ function PhotoPanel({
 /** The details frame's photo: square, about as tall as eyebrow and heading. */
 const DETAILS_PHOTO = 210;
 
+/**
+ * The photo, covering its panel. A stored crop (#1925) is laid out the way
+ * the site's `SiteImage` does it: the image in a box scaled and offset so the
+ * crop rect fills the panel.
+ */
 function Photo({
   src,
+  crop,
   width = STORY_CONTENT_WIDTH,
 }: {
   src: string;
+  crop: ImageCrop | null;
   width?: number;
 }) {
+  const cover: CSSProperties = {
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
+  };
+  if (!crop) return <img src={src} alt="" width={width} style={cover} />;
   return (
-    <img
-      src={src}
-      alt=""
-      width={width}
-      style={{ width: "100%", height: "100%", objectFit: "cover" }}
-    />
+    <div
+      style={{
+        display: "flex",
+        position: "relative",
+        width: "100%",
+        height: "100%",
+        overflow: "hidden",
+      }}
+    >
+      <div
+        style={{ display: "flex", position: "absolute", ...cropBoxStyle(crop) }}
+      >
+        <img
+          src={src}
+          alt=""
+          width={Math.round(width / crop.w)}
+          style={{ ...cover, objectPosition: cropObjectPosition(crop) }}
+        />
+      </div>
+    </div>
   );
 }
 
@@ -337,7 +369,7 @@ function Spotlight({
         <Script text={frame.script} size={50} theme={theme} />
         <PhotoPanel theme={theme}>
           {frame.photo ? (
-            <Photo src={frame.photo} />
+            <Photo src={frame.photo} crop={frame.photoCrop} />
           ) : (
             // No photo: the panel names the category instead.
             <div
@@ -418,7 +450,11 @@ function Details({
                 backgroundColor: theme.panel,
               }}
             >
-              <Photo src={frame.photo} width={DETAILS_PHOTO} />
+              <Photo
+                src={frame.photo}
+                crop={frame.photoCrop}
+                width={DETAILS_PHOTO}
+              />
             </div>
           )}
         </div>

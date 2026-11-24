@@ -225,26 +225,99 @@ describe("random Gear Library item series (#1841)", () => {
       .eq("id", post.id);
     expect(typed).toBeNull();
 
+    // main's writes to the old columns land in template_text (#1924), and a
+    // post featuring an item is drawn with Gear Spotlight.
+    const { data: synced } = await service
+      .from("content_opportunities")
+      .select("template_key, template_text")
+      .eq("id", post.id)
+      .single();
+    expect(synced).toEqual({
+      template_key: "gear_spotlight",
+      template_text: {
+        brand: "Burton",
+        best_for: "First season",
+        why: "Warm without the bulk.",
+      },
+    });
+
     const { error } = await admin.rpc("set_social_post_featured_gear", {
       p_post_id: post.id,
     });
     expect(error).toBeNull();
     const { data: after } = await service
       .from("content_opportunities")
-      .select("gear_brand, gear_best_for, gear_why")
+      .select("gear_brand, gear_best_for, gear_why, template_text")
       .eq("id", post.id)
       .single();
     expect(after).toEqual({
       gear_brand: null,
       gear_best_for: null,
       gear_why: null,
+      template_text: {},
     });
+
+    // The app writes both; a statement that sets template_text keeps it.
+    await admin
+      .from("content_opportunities")
+      .update({
+        template_text: { brand: "Rossignol" },
+        gear_brand: "Rossignol",
+      })
+      .eq("id", post.id);
+    const { data: both } = await service
+      .from("content_opportunities")
+      .select("template_text")
+      .eq("id", post.id)
+      .single();
+    expect(both?.template_text).toEqual({ brand: "Rossignol" });
+
+    const { error: notObject } = await admin
+      .from("content_opportunities")
+      .update({ template_text: ["Burton"] })
+      .eq("id", post.id);
+    expect(notObject?.code).toBe("23514");
 
     const { error: tooLong } = await admin
       .from("content_opportunities")
       .update({ gear_why: "x".repeat(161) })
       .eq("id", post.id);
     expect(tooLong?.code).toBe("23514");
+  });
+
+  test("No template stays until the item changes (#1925)", async () => {
+    await gear(2);
+    const series = await createSeries();
+    await run(series, T0);
+    const [post] = await postsOf(series);
+    const templateKey = async () =>
+      (
+        await service
+          .from("content_opportunities")
+          .select("template_key")
+          .eq("id", post.id)
+          .single()
+      ).data?.template_key;
+
+    await admin
+      .from("content_opportunities")
+      .update({ template_key: null })
+      .eq("id", post.id);
+    expect(await templateKey()).toBeNull();
+
+    // Another edit leaves it off...
+    await admin
+      .from("content_opportunities")
+      .update({ gear_brand: "Burton" })
+      .eq("id", post.id);
+    expect(await templateKey()).toBeNull();
+
+    // ...and a new item, main's swap, gives it Gear Spotlight again.
+    const { error } = await admin.rpc("set_social_post_featured_gear", {
+      p_post_id: post.id,
+    });
+    expect(error).toBeNull();
+    expect(await templateKey()).toBe("gear_spotlight");
   });
 
   test("swapping needs content_calendar manage", async () => {

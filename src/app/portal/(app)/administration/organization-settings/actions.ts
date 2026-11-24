@@ -28,6 +28,10 @@ import {
 } from "@/lib/sales-tax";
 import { ORG_TIMEZONE_SETTING_KEY, isOrgTimeZone } from "@/lib/org-timezone";
 import {
+  POST_TEMPLATES_OFF_SETTING_KEY,
+  isPostTemplateKey,
+} from "@/lib/social-content/post-templates";
+import {
   LEXICON_TERMS,
   MAX_LEXICON_TERM_LENGTH,
   lexiconSettingKey,
@@ -71,6 +75,20 @@ export async function updateAppSettingAction(
   value: Json,
 ): Promise<SettingActionResult> {
   return writeAppSetting(key, value, [SETTINGS_PATH]);
+}
+
+/**
+ * The post templates switched off for this organization (#1925). Off is a
+ * setting, not removal: posts already drawn keep their images.
+ */
+export async function updatePostTemplatesOffAction(
+  off: string[],
+): Promise<SettingActionResult> {
+  if (!Array.isArray(off)) return { error: "Choose templates from the list." };
+  return updateAppSettingAction(
+    POST_TEMPLATES_OFF_SETTING_KEY,
+    [...new Set(off.filter(isPostTemplateKey))].sort(),
+  );
 }
 
 export async function updateExpenseApprovalThresholdAction(

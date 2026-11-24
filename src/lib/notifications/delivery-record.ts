@@ -56,6 +56,24 @@ export function deliverySkipReasonLabel(reason: string | null): string | null {
 }
 
 /**
+ * What the provider reported after accepting a message (#1921), as stored in
+ * `provider_event`. Both mean the address should not be mailed this way again;
+ * a complaint has also switched this kind off for the recipient.
+ */
+export const DELIVERY_PROVIDER_EVENT_LABELS: Record<string, string> = {
+  bounced: "Bounced: the recipient's mail server refused it permanently",
+  complained:
+    "Marked as spam by the recipient, so this kind of email is now off for them",
+};
+
+export function deliveryProviderEventLabel(
+  event: string | null,
+): string | null {
+  if (!event) return null;
+  return DELIVERY_PROVIDER_EVENT_LABELS[event] ?? event;
+}
+
+/**
  * How long a claimed row may sit at 'pending' before it should be read as
  * stuck rather than as in flight.
  *

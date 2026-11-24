@@ -2007,6 +2007,8 @@ export type Database = {
           skip_reason: string | null;
           status_changed_at: string | null;
           status_changed_by: string | null;
+          template_key: string | null;
+          template_text: Json;
           tenant_id: string;
           title: string;
           updated_at: string;
@@ -2040,6 +2042,8 @@ export type Database = {
           skip_reason?: string | null;
           status_changed_at?: string | null;
           status_changed_by?: string | null;
+          template_key?: string | null;
+          template_text?: Json;
           tenant_id?: string;
           title: string;
           updated_at?: string;
@@ -2073,6 +2077,8 @@ export type Database = {
           skip_reason?: string | null;
           status_changed_at?: string | null;
           status_changed_by?: string | null;
+          template_key?: string | null;
+          template_text?: Json;
           tenant_id?: string;
           title?: string;
           updated_at?: string;
@@ -3445,6 +3451,7 @@ export type Database = {
         Row: {
           caption: string | null;
           content_type: string;
+          dominant_color: string | null;
           event_id: string;
           id: string;
           is_public: boolean;
@@ -3466,6 +3473,7 @@ export type Database = {
         Insert: {
           caption?: string | null;
           content_type: string;
+          dominant_color?: string | null;
           event_id: string;
           id?: string;
           is_public: boolean;
@@ -3485,6 +3493,7 @@ export type Database = {
         Update: {
           caption?: string | null;
           content_type?: string;
+          dominant_color?: string | null;
           event_id?: string;
           id?: string;
           is_public?: boolean;
@@ -7371,6 +7380,9 @@ export type Database = {
           id: string;
           kind: string;
           person_id: string | null;
+          provider_event: string | null;
+          provider_event_at: string | null;
+          provider_event_detail: string | null;
           provider_message_id: string | null;
           sent_at: string | null;
           skip_reason: string | null;
@@ -7384,6 +7396,9 @@ export type Database = {
           id?: string;
           kind: string;
           person_id?: string | null;
+          provider_event?: string | null;
+          provider_event_at?: string | null;
+          provider_event_detail?: string | null;
           provider_message_id?: string | null;
           sent_at?: string | null;
           skip_reason?: string | null;
@@ -7397,6 +7412,9 @@ export type Database = {
           id?: string;
           kind?: string;
           person_id?: string | null;
+          provider_event?: string | null;
+          provider_event_at?: string | null;
+          provider_event_detail?: string | null;
           provider_message_id?: string | null;
           sent_at?: string | null;
           skip_reason?: string | null;
@@ -13831,6 +13849,7 @@ export type Database = {
         Returns: {
           caption: string | null;
           content_type: string;
+          dominant_color: string | null;
           event_id: string;
           id: string;
           is_public: boolean;

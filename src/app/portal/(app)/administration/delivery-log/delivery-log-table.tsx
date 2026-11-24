@@ -12,6 +12,7 @@ import {
 import { SortHeaderLink } from "@/components/portal/sort-header-link";
 import { formatDateTime, personDisplayName } from "@/lib/format";
 import {
+  deliveryProviderEventLabel,
   deliverySkipReasonLabel,
   formatDeliveryAge,
   isDeliveryStuck,
@@ -62,6 +63,11 @@ function toRow(entry: DeliveryLogEntry, now: Date): DeliveryLogRow {
     createdAtLabel: formatDateTime(entry.created_at),
     sentAtLabel: entry.sent_at ? formatDateTime(entry.sent_at) : null,
     providerMessageId: entry.provider_message_id,
+    providerEventLabel: deliveryProviderEventLabel(entry.provider_event),
+    providerEventDetail: entry.provider_event_detail,
+    providerEventAtLabel: entry.provider_event_at
+      ? formatDateTime(entry.provider_event_at)
+      : null,
     error: entry.error,
     dedupeKey: entry.dedupe_key,
   };

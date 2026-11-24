@@ -40,6 +40,10 @@ export type DeliveryLogRow = {
   createdAtLabel: string;
   sentAtLabel: string | null;
   providerMessageId: string | null;
+  /** A bounce or spam complaint the provider reported afterwards (#1921). */
+  providerEventLabel: string | null;
+  providerEventDetail: string | null;
+  providerEventAtLabel: string | null;
   error: string | null;
   dedupeKey: string;
 };
@@ -120,6 +124,20 @@ export function DeliveryLogDetailSheet({ row }: { row: DeliveryLogRow }) {
           {row.status === "failed" && row.error ? (
             <Field label="What the provider said">
               <span className="text-destructive">{row.error}</span>
+            </Field>
+          ) : null}
+
+          {row.providerEventLabel ? (
+            <Field label="After sending">
+              <span className="text-destructive">{row.providerEventLabel}</span>
+              {row.providerEventAtLabel
+                ? ` · ${row.providerEventAtLabel}`
+                : null}
+              {row.providerEventDetail ? (
+                <div className="app-muted mt-0.5 text-xs">
+                  {row.providerEventDetail}
+                </div>
+              ) : null}
             </Field>
           ) : null}
 
