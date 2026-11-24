@@ -134,39 +134,41 @@ export function SocialPostDetail({
       </div>
 
       <PostTabs hasHistory={history !== null}>
-        <TabsContent value="post" className="flex min-w-0 flex-col gap-4">
-          <div className="grid items-start gap-4 lg:grid-cols-3">
-            <div className="min-w-0 lg:col-span-2">
-              <PostCard
-                piece={piece}
-                extras={extras}
-                reloadExtras={reloadExtras}
-                canManage={canManage}
-              />
-            </div>
-            <div className="flex min-w-0 flex-col gap-4">
-              <StatusCard piece={piece} owners={owners} canManage={canManage} />
-              <InternalNotesCard
-                piece={piece}
-                tags={extras?.tags ?? null}
-                canManage={canManage}
-              />
-            </div>
+        <TabsContent
+          value="post"
+          className="grid items-start gap-4 lg:grid-cols-3"
+        >
+          <div className="flex min-w-0 flex-col gap-4 lg:col-span-2">
+            <PostCard
+              piece={piece}
+              extras={extras}
+              reloadExtras={reloadExtras}
+              canManage={canManage}
+            />
+            {repeats}
           </div>
-          <div className="grid items-start gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="flex min-w-0 flex-col gap-4">
+            <StatusCard piece={piece} owners={owners} canManage={canManage} />
             <ScheduleTeamCard
               piece={piece}
               owners={owners}
               tags={extras?.tags ?? null}
               canManage={canManage}
             />
-            {repeats}
             <RelatedToCard
               piece={piece}
               tags={extras?.tags ?? null}
               canManage={canManage}
             />
+            <InternalNotesCard
+              piece={piece}
+              tags={extras?.tags ?? null}
+              canManage={canManage}
+            />
           </div>
+        </TabsContent>
+        <TabsContent value="share" className="flex min-w-0 flex-col gap-4">
+          {children}
           {templateEditor && (
             <PostTemplateCard
               postId={piece.id}
@@ -179,10 +181,11 @@ export function SocialPostDetail({
               }}
             />
           )}
-          {children}
-        </TabsContent>
-        <TabsContent value="share">
-          <ShareCard piece={piece} extras={extras} />
+          <ShareCard
+            piece={piece}
+            extras={extras}
+            showMedia={!templateEditor}
+          />
         </TabsContent>
         {history !== null && (
           <TabsContent value="history">{history}</TabsContent>
@@ -354,9 +357,11 @@ const POST_TABS = ["post", "share", "history"] as const;
 type PostTab = (typeof POST_TABS)[number];
 
 /**
- * Three views of the post, in `?tab=`: the post itself with its workflow
- * cards laid across the width rather than down a rail, how to share it (its
- * media shows there, in order, and only there), and its audit history.
+ * Three views of the post, in `?tab=`: the post and its workflow (Repeats
+ * beside the post, where its settings have room), what goes out and how to
+ * share it (featured gear, the template that renders the media, the share
+ * sheet), and its audit history. Each column of the Post tab stacks on its
+ * own, so a tall card on one side leaves no gap on the other.
  */
 function PostTabs({
   hasHistory,
@@ -395,9 +400,12 @@ function PostTabs({
 function ShareCard({
   piece,
   extras,
+  showMedia,
 }: {
   piece: SocialPieceRow;
   extras: SocialPostExtras | null;
+  /** False when the template card above already previews the media. */
+  showMedia: boolean;
 }) {
   const skipped = piece.content_status === "skipped";
   return (
@@ -406,15 +414,17 @@ function ShareCard({
         <CardTitle className="app-muted text-sm font-semibold">Share</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
-        <ReadOnlyField label="Media" htmlFor="share-media">
-          {!extras ? (
-            <Spinner />
-          ) : extras.media.length > 0 ? (
-            <PostMediaGrid media={extras.media} />
-          ) : (
-            "—"
-          )}
-        </ReadOnlyField>
+        {showMedia && (
+          <ReadOnlyField label="Media" htmlFor="share-media">
+            {!extras ? (
+              <Spinner />
+            ) : extras.media.length > 0 ? (
+              <PostMediaGrid media={extras.media} />
+            ) : (
+              "—"
+            )}
+          </ReadOnlyField>
+        )}
         {skipped ? (
           <Alert>
             <AlertDescription>
