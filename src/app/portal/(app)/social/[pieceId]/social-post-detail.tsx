@@ -133,9 +133,12 @@ export function SocialPostDetail({
         {canManage && <DeletePostButton piece={piece} />}
       </div>
 
-      <div className="mt-4 grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
-        <PostTabs hasHistory={history !== null}>
-          <TabsContent value="post" className="flex min-w-0 flex-col gap-4">
+      <PostTabs hasHistory={history !== null}>
+        <TabsContent
+          value="post"
+          className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]"
+        >
+          <div className="flex min-w-0 flex-col gap-4">
             <PostCard
               piece={piece}
               extras={extras}
@@ -156,36 +159,36 @@ export function SocialPostDetail({
               />
             )}
             {children}
-          </TabsContent>
-          <TabsContent value="share">
-            <ShareCard piece={piece} extras={extras} />
-          </TabsContent>
-          {history !== null && (
-            <TabsContent value="history">{history}</TabsContent>
-          )}
-        </PostTabs>
+          </div>
 
-        <div className="flex min-w-0 flex-col gap-4">
-          <StatusCard piece={piece} owners={owners} canManage={canManage} />
-          <ScheduleTeamCard
-            piece={piece}
-            owners={owners}
-            tags={extras?.tags ?? null}
-            canManage={canManage}
-          />
-          {repeats}
-          <RelatedToCard
-            piece={piece}
-            tags={extras?.tags ?? null}
-            canManage={canManage}
-          />
-          <InternalNotesCard
-            piece={piece}
-            tags={extras?.tags ?? null}
-            canManage={canManage}
-          />
-        </div>
-      </div>
+          <div className="flex min-w-0 flex-col gap-4">
+            <StatusCard piece={piece} owners={owners} canManage={canManage} />
+            <ScheduleTeamCard
+              piece={piece}
+              owners={owners}
+              tags={extras?.tags ?? null}
+              canManage={canManage}
+            />
+            {repeats}
+            <RelatedToCard
+              piece={piece}
+              tags={extras?.tags ?? null}
+              canManage={canManage}
+            />
+            <InternalNotesCard
+              piece={piece}
+              tags={extras?.tags ?? null}
+              canManage={canManage}
+            />
+          </div>
+        </TabsContent>
+        <TabsContent value="share">
+          <ShareCard piece={piece} extras={extras} />
+        </TabsContent>
+        {history !== null && (
+          <TabsContent value="history">{history}</TabsContent>
+        )}
+      </PostTabs>
     </>
   );
 }
@@ -352,9 +355,10 @@ const POST_TABS = ["post", "share", "history"] as const;
 type PostTab = (typeof POST_TABS)[number];
 
 /**
- * Three views of the post, in `?tab=`: what it says (and its template, which
- * renders its media, so the media shows once), how to share it, and its audit
- * history. The workflow rail beside them stays put on every tab.
+ * Three views of the post, in `?tab=`: the post itself with its workflow rail
+ * (its template renders its media, so the media shows once), how to share it,
+ * and its audit history. Share and History take the full width; the rail is
+ * the post's, not theirs.
  */
 function PostTabs({
   hasHistory,
@@ -374,7 +378,7 @@ function PostTabs({
     <Tabs
       value={tab}
       onValueChange={(value) => setTab(value as PostTab)}
-      className="flex min-w-0 flex-col gap-4"
+      className="mt-4 flex min-w-0 flex-col gap-4"
     >
       <TabsList variant="line" aria-label="Post views">
         <TabsTrigger value="post">Post</TabsTrigger>
