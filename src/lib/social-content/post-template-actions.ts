@@ -106,6 +106,7 @@ export async function savePostTemplateTextAction(
           createSupabaseAdminClient(),
           post.tenant_id,
           post.event_id,
+          template.key,
         )
       : null;
     if (!loaded) return { error: MESSAGES.NO_TEMPLATE };

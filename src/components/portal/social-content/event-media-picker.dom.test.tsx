@@ -142,7 +142,7 @@ describe("EventMediaPicker (#1827)", () => {
     const b = item("b.jpg");
     const c = item("c.jpg");
     state = stateWith({ items: [a, b, c] });
-    renderPicker({ held: 9, referencedIds: new Set([a.id]) });
+    renderPicker({ held: 19, referencedIds: new Set([a.id]) });
     const dialog = await open();
 
     expect(

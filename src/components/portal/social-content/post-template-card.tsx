@@ -42,6 +42,7 @@ import {
 import type {
   PostTemplateEditor,
   TemplatePhotoField,
+  TemplatePhotosField,
 } from "@/lib/social-content/post-template-editor";
 
 /** How long typing must pause before the preview is redrawn (#1925). */
@@ -75,6 +76,7 @@ export function PostTemplateCard({
     editor.fields.map((field) => field.value),
     editor.toggles.map((toggle) => toggle.value),
     editor.photo?.value,
+    editor.photos?.value,
   ]);
 
   return (
@@ -97,6 +99,11 @@ export function PostTemplateCard({
         )}
         {editor.templateKey && editor.description && (
           <p className="app-muted text-sm">{editor.description}</p>
+        )}
+        {editor.templateKey && editor.notice && (
+          <Alert>
+            <AlertDescription>{editor.notice}</AlertDescription>
+          </Alert>
         )}
         {editor.templateKey ? (
           <TemplateForm
@@ -189,6 +196,9 @@ function TemplateForm({
     Object.fromEntries(editor.fields.map((field) => [field.key, field.value])),
   );
   const [photo, setPhoto] = useState(editor.photo?.value ?? "");
+  const [photos, setPhotos] = useState<string[]>(
+    () => editor.photos?.value ?? [],
+  );
   const [toggles, setToggles] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(
       editor.toggles.map((toggle) => [toggle.key, toggle.value]),
@@ -198,7 +208,8 @@ function TemplateForm({
   const dirty =
     editor.fields.some((field) => values[field.key] !== field.value) ||
     editor.toggles.some((toggle) => toggles[toggle.key] !== toggle.value) ||
-    (editor.photo !== null && photo !== editor.photo.value);
+    (editor.photo !== null && photo !== editor.photo.value) ||
+    (editor.photos !== null && !sameList(photos, editor.photos.value));
 
   // What is sent: every field as typed, and the photo only when it isn't the
   // record's default, so the default follows the record.
@@ -211,8 +222,29 @@ function TemplateForm({
     if (editor.photo) {
       out[editor.photo.key] = photo === editor.photo.start ? "" : photo;
     }
+    // Several photos (#1927): unset at the default, "none" for none ticked.
+    if (editor.photos) {
+      out[editor.photos.key] = sameList(photos, editor.photos.start)
+        ? ""
+        : photos.length === 0
+          ? "none"
+          : photos.join(",");
+    }
     return out;
-  }, [values, toggles, photo, editor.toggles, editor.photo]);
+  }, [
+    values,
+    toggles,
+    photo,
+    photos,
+    editor.toggles,
+    editor.photo,
+    editor.photos,
+  ]);
+
+  // A carousel has a frame per photo; anything else the template's own.
+  const frames = editor.photos?.carousel
+    ? Array.from({ length: Math.max(1, photos.length) }, (_, i) => i + 1)
+    : editor.frames;
 
   function save() {
     run(() => savePostTemplateTextAction(postId, typed), {
@@ -307,6 +339,14 @@ function TemplateForm({
               onChange={setPhoto}
             />
           )}
+          {editor.photos && (
+            <PhotosChoice
+              field={editor.photos}
+              value={photos}
+              disabled={!canEdit}
+              onChange={setPhotos}
+            />
+          )}
         </FieldGroup>
         {canEdit && (
           <div>
@@ -338,7 +378,7 @@ function TemplateForm({
       </form>
       <TemplatePreview
         postId={postId}
-        frames={editor.frames}
+        frames={frames}
         format={editor.format}
         typed={typed}
       />
@@ -423,6 +463,117 @@ function PhotoChoice({
   );
 }
 
+function sameList(a: readonly string[], b: readonly string[]) {
+  return a.length === b.length && a.every((item, i) => item === b[i]);
+}
+
+/**
+ * Several photos, ticked in order (#1927): the first is the cover, and on a
+ * carousel each further one a slide. Past the format's limit the rest can't
+ * be ticked.
+ */
+function PhotosChoice({
+  field,
+  value,
+  disabled,
+  onChange,
+}: {
+  field: TemplatePhotosField;
+  value: string[];
+  disabled: boolean;
+  onChange: (value: string[]) => void;
+}) {
+  const full = value.length >= field.limit;
+  const countId = useId();
+  return (
+    <FieldSet>
+      <div className="flex items-center justify-between gap-2">
+        <FieldLegend variant="label">{field.label}</FieldLegend>
+        {!disabled && (
+          <Button
+            type="button"
+            size="xs"
+            variant="ghost"
+            disabled={sameList(value, field.start)}
+            focusableWhenDisabled
+            aria-label={`Reset ${field.label}`}
+            onClick={() => onChange(field.start)}
+          >
+            <RotateCcw aria-hidden /> Reset
+          </Button>
+        )}
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {field.options.map((option) => {
+          const order = value.indexOf(option.id);
+          const checked = order !== -1;
+          const blocked = disabled || (!checked && full);
+          return (
+            <label
+              key={option.id}
+              className={cn(
+                "relative flex w-28 cursor-pointer flex-col gap-1 rounded-lg border p-1.5 text-xs has-checked:border-primary has-checked:ring-2 has-checked:ring-primary/40 has-focus-visible:ring-3 has-focus-visible:ring-ring/50",
+                blocked && "cursor-not-allowed opacity-70",
+              )}
+            >
+              <input
+                type="checkbox"
+                value={option.id}
+                checked={checked}
+                disabled={blocked}
+                aria-label={
+                  checked
+                    ? `${option.label}, ${order === 0 ? "cover" : `number ${order + 1}`}`
+                    : option.label
+                }
+                aria-describedby={countId}
+                onChange={() =>
+                  onChange(
+                    checked
+                      ? value.filter((id) => id !== option.id)
+                      : [...value, option.id],
+                  )
+                }
+                className="sr-only"
+              />
+              {option.src ? (
+                // eslint-disable-next-line @next/next/no-img-element -- a tenant photo signed for an hour, not an optimisable asset
+                <img
+                  src={option.src}
+                  alt=""
+                  className="aspect-square w-full rounded-md object-cover"
+                />
+              ) : (
+                <span
+                  aria-hidden
+                  className="app-muted flex aspect-square w-full items-center justify-center rounded-md bg-muted"
+                >
+                  No preview
+                </span>
+              )}
+              {checked && (
+                <span
+                  aria-hidden
+                  className="absolute top-2.5 left-2.5 flex size-6 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground"
+                >
+                  {order + 1}
+                </span>
+              )}
+              <span aria-hidden>{option.label}</span>
+            </label>
+          );
+        })}
+      </div>
+      <FieldDescription id={countId} aria-live="polite">
+        {value.length} of {field.limit} chosen.{" "}
+        {field.carousel
+          ? "The first is the cover; each other photo is a slide of its own, in the order ticked."
+          : "Shown together in one collage, in the order ticked."}
+      </FieldDescription>
+    </FieldSet>
+  );
+}
+
 type PreviewImage = { src: string; url: string } | null;
 
 /**
@@ -441,8 +592,10 @@ function TemplatePreview({
   format: PostTemplateEditor["format"];
   typed: Record<string, string>;
 }) {
-  const [index, setIndex] = useState(0);
-  const frame = frames[index] ?? frames[0] ?? 1;
+  const [wantedIndex, setIndex] = useState(0);
+  // A carousel shrinks as photos are unticked (#1927); stay on its last.
+  const index = Math.min(wantedIndex, Math.max(0, frames.length - 1));
+  const frame = frames[index] ?? 1;
   const base = `/api/social-posts/${postId}/story/${frame}`;
   const url = `${base}?text=${encodeURIComponent(JSON.stringify(typed))}`;
   const wanted = useDebounced(url, PREVIEW_DELAY_MS);
@@ -531,7 +684,7 @@ function TemplatePreview({
             variant="ghost"
             aria-label="Previous frame"
             disabled={index === 0}
-            onClick={() => setIndex((i) => Math.max(0, i - 1))}
+            onClick={() => setIndex(Math.max(0, index - 1))}
           >
             <ChevronLeft />
           </Button>
@@ -544,7 +697,7 @@ function TemplatePreview({
             variant="ghost"
             aria-label="Next frame"
             disabled={index === frames.length - 1}
-            onClick={() => setIndex((i) => Math.min(frames.length - 1, i + 1))}
+            onClick={() => setIndex(Math.min(frames.length - 1, index + 1))}
           >
             <ChevronRight />
           </Button>

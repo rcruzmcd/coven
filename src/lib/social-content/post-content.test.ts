@@ -159,24 +159,24 @@ describe("mediaFormatIssue", () => {
     ).toMatch(/one photo or video/);
   });
 
-  test("a post takes up to ten", () => {
+  test("a post takes up to twenty, Instagram's carousel limit (#1927)", () => {
     expect(
-      mediaFormatIssue("instagram_post", Array(10).fill(photo)),
+      mediaFormatIssue("instagram_post", Array(20).fill(photo)),
     ).toBeNull();
-    expect(mediaFormatIssue("instagram_post", Array(11).fill(photo))).toMatch(
-      /up to 10/,
+    expect(mediaFormatIssue("instagram_post", Array(21).fill(photo))).toMatch(
+      /up to 20/,
     );
   });
 });
 
 describe("mediaRoom (#1827)", () => {
-  test("a post or carousel fills to ten", () => {
+  test("a post or carousel fills to twenty (#1927)", () => {
     expect(mediaRoom("instagram_post", 0)).toEqual({
-      count: 10,
+      count: 20,
       videoOnly: false,
     });
-    expect(mediaRoom(null, 7)).toEqual({ count: 3, videoOnly: false });
-    expect(mediaRoom("instagram_post", 12)).toEqual({
+    expect(mediaRoom(null, 17)).toEqual({ count: 3, videoOnly: false });
+    expect(mediaRoom("instagram_post", 22)).toEqual({
       count: 0,
       videoOnly: false,
     });
@@ -204,7 +204,7 @@ describe("mediaRoom (#1827)", () => {
     });
     // Generated media elsewhere changes nothing: the rule is the story's.
     expect(mediaRoom("instagram_post", 3, 3)).toEqual({
-      count: 7,
+      count: 17,
       videoOnly: false,
     });
   });

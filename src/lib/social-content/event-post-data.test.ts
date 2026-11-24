@@ -6,6 +6,8 @@ mock.module("server-only", () => ({}));
 
 const {
   chosenEventPhoto,
+  chosenRecapPhotos,
+  eventPostFrames,
   eventPhotoChoice,
   eventPostFingerprint,
   eventPostSource,
@@ -152,5 +154,79 @@ describe("prepareImage (#1926)", () => {
 
   test("colorHex", () => {
     expect(colorHex({ r: 255, g: 0, b: 16 })).toBe("#ff0010");
+  });
+});
+
+describe("recap photos (#1927)", () => {
+  const gallery: EventPhoto[] = Array.from({ length: 24 }, (_, i) => ({
+    id: `${String(i).padStart(8, "0")}-2222-4222-8222-222222222222`,
+    path: `t/e/${i}.jpg`,
+    isFlyer: false,
+    color: null,
+  }));
+  const photos = [flyer, ...gallery];
+
+  test("unset, the gallery's first four; never the flyer", () => {
+    expect(chosenRecapPhotos(photos, undefined, "post")).toEqual(
+      gallery.slice(0, 4),
+    );
+    expect(chosenRecapPhotos([flyer], undefined, "story")).toEqual([]);
+  });
+
+  test("the picks in order, dropping any no longer offered or the flyer", () => {
+    const choice = [gallery[5], flyer, gallery[1]]
+      .map(eventPhotoChoice)
+      .concat("event_media:99999999-9999-4999-8999-999999999999")
+      .join(",");
+    expect(chosenRecapPhotos(photos, choice, "post")).toEqual([
+      gallery[5],
+      gallery[1],
+    ]);
+    expect(chosenRecapPhotos(photos, "none", "post")).toEqual([]);
+  });
+
+  test("a story holds four, a post's carousel twenty", () => {
+    const all = gallery.map(eventPhotoChoice).join(",");
+    expect(chosenRecapPhotos(photos, all, "story")).toHaveLength(4);
+    expect(chosenRecapPhotos(photos, all, "post")).toHaveLength(20);
+  });
+
+  const loaded: EventTemplateRecord = {
+    record: {
+      name: "Season opener",
+      starts_at: "2026-12-12T15:00:00Z",
+      timezone: "America/New_York",
+      location: null,
+      registration_enabled: false,
+      has_flyer: true,
+      host: "example.org",
+      attended: 30,
+    },
+    orgName: "Example",
+    photos,
+  };
+  const recap = (format: "story" | "post", photosChoice?: string) =>
+    eventPostSource({
+      templateKey: "event_recap",
+      format,
+      loaded,
+      text: photosChoice ? { photos: photosChoice } : {},
+      branding: EMPTY_BRANDING,
+      now: new Date("2026-12-13T12:00:00Z"),
+    });
+
+  test("a post is a frame a photo; a story one collage", () => {
+    const six = gallery.slice(0, 6).map(eventPhotoChoice).join(",");
+    expect(eventPostFrames(recap("post", six))).toEqual([1, 2, 3, 4, 5, 6]);
+    expect(eventPostFrames(recap("story", six))).toEqual([1]);
+    expect(eventPostFrames(recap("post", "none"))).toEqual([1]);
+  });
+
+  test("goes out of date when the photos or their order change", () => {
+    const ab = [gallery[0], gallery[1]].map(eventPhotoChoice).join(",");
+    const ba = [gallery[1], gallery[0]].map(eventPhotoChoice).join(",");
+    expect(eventPostFingerprint(recap("post", ab))).not.toBe(
+      eventPostFingerprint(recap("post", ba)),
+    );
   });
 });

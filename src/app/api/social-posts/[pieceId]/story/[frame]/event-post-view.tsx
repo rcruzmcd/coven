@@ -5,16 +5,21 @@ import {
   BRAND_LOGO_HEIGHT,
   FLYER_GAP,
   FLYER_LOGO_HEIGHT,
+  SPONSOR_TILE_GAP,
   type BrandLayout,
+  type DrawnImage,
   type EventPostModel,
   type FlyerLayout,
   type FrameBox,
+  type RecapLayout,
+  type SlideLayout,
+  type SponsorsLayout,
 } from "@/lib/social-content/event-post-frames";
 import type { FittedText } from "@/lib/social-content/story-frames";
 import { STORY_FONT } from "@/lib/social-content/story-fonts";
 
 /**
- * An event announcement or reminder (#1926) as Satori markup. It draws what
+ * An event template's frame (#1926, #1927) as Satori markup. It draws what
  * `buildEventPostFrame` decided and decides nothing itself. Satori is flexbox
  * only: every element with children sets `display: flex`.
  */
@@ -251,21 +256,11 @@ function Brand({ box, frame }: { box: FrameBox; frame: BrandLayout }) {
         }}
       >
         <Column gap={28}>
-          {frame.logoUrl ? (
-            <Logo src={frame.logoUrl} height={BRAND_LOGO_HEIGHT} />
-          ) : (
-            <div
-              style={{
-                display: "flex",
-                fontFamily: STORY_FONT.heading,
-                fontWeight: 700,
-                fontSize: 40,
-                color: theme.text,
-              }}
-            >
-              {frame.orgName}
-            </div>
-          )}
+          <Masthead
+            logoUrl={frame.logoUrl}
+            orgName={frame.orgName}
+            color={theme.text}
+          />
           <div style={{ ...EYEBROW, display: "flex", color: theme.accent }}>
             {frame.eyebrow}
           </div>
@@ -306,10 +301,292 @@ function Brand({ box, frame }: { box: FrameBox; frame: BrandLayout }) {
   );
 }
 
-export function EventPostView({ model }: { model: EventPostModel }) {
-  return model.frame.layout === "flyer" ? (
-    <Flyer box={model.box} frame={model.frame} />
+/** The logo, or the organization's name where there is none. */
+function Masthead({
+  logoUrl,
+  orgName,
+  color,
+}: {
+  logoUrl: string | null;
+  orgName: string;
+  color: string;
+}) {
+  return logoUrl ? (
+    <Logo src={logoUrl} height={BRAND_LOGO_HEIGHT} />
   ) : (
-    <Brand box={model.box} frame={model.frame} />
+    <div
+      style={{
+        display: "flex",
+        fontFamily: STORY_FONT.heading,
+        fontWeight: 700,
+        fontSize: 40,
+        color,
+      }}
+    >
+      {orgName}
+    </div>
   );
+}
+
+function Photo({
+  image,
+  width,
+  height,
+  radius = 24,
+}: {
+  image: DrawnImage;
+  width: number;
+  height: number;
+  radius?: number;
+}) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        width,
+        height,
+        borderRadius: radius,
+        overflow: "hidden",
+      }}
+    >
+      <img
+        src={image.src}
+        alt=""
+        width={width}
+        height={height}
+        style={{ width, height, objectFit: "cover" }}
+      />
+    </div>
+  );
+}
+
+const COLLAGE_GAP = 16;
+
+/**
+ * One to four photos in `width` x `height`: one whole, two side by side,
+ * three as one tall beside two stacked, four in a grid.
+ */
+function Collage({
+  photos,
+  width,
+  height,
+}: {
+  photos: DrawnImage[];
+  width: number;
+  height: number;
+}) {
+  const half = (n: number) => Math.floor((n - COLLAGE_GAP) / 2);
+  const [a, b, c, d] = photos;
+  const row = (children: ReactNode, h: number) => (
+    <div style={{ display: "flex", gap: COLLAGE_GAP, height: h }}>
+      {children}
+    </div>
+  );
+  if (photos.length === 1)
+    return <Photo image={a} width={width} height={height} />;
+  if (photos.length === 2) {
+    return row(
+      <>
+        <Photo image={a} width={half(width)} height={height} />
+        <Photo image={b} width={half(width)} height={height} />
+      </>,
+      height,
+    );
+  }
+  if (photos.length === 3) {
+    return row(
+      <>
+        <Photo image={a} width={half(width)} height={height} />
+        <div
+          style={{ display: "flex", flexDirection: "column", gap: COLLAGE_GAP }}
+        >
+          <Photo image={b} width={half(width)} height={half(height)} />
+          <Photo image={c} width={half(width)} height={half(height)} />
+        </div>
+      </>,
+      height,
+    );
+  }
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: COLLAGE_GAP }}>
+      {row(
+        <>
+          <Photo image={a} width={half(width)} height={half(height)} />
+          <Photo image={b} width={half(width)} height={half(height)} />
+        </>,
+        half(height),
+      )}
+      {row(
+        <>
+          <Photo image={c} width={half(width)} height={half(height)} />
+          <Photo image={d} width={half(width)} height={half(height)} />
+        </>,
+        half(height),
+      )}
+    </div>
+  );
+}
+
+/** A recap's cover (#1927): the words, over a collage of its photos. */
+function Recap({ box, frame }: { box: FrameBox; frame: RecapLayout }) {
+  const { theme } = frame;
+  return (
+    <Root box={box} background={theme.page} color={theme.text}>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "space-between",
+          flexGrow: 1,
+          gap: 32,
+        }}
+      >
+        <Column gap={28}>
+          <Masthead
+            logoUrl={frame.logoUrl}
+            orgName={frame.orgName}
+            color={theme.text}
+          />
+          <div style={{ ...EYEBROW, display: "flex", color: theme.accent }}>
+            {frame.eyebrow}
+          </div>
+        </Column>
+        {frame.photos.length > 0 && (
+          <Collage
+            photos={frame.photos}
+            width={box.width - 2 * box.side}
+            height={frame.photosHeight}
+          />
+        )}
+        <Column gap={20}>
+          <Heading
+            value={frame.title}
+            color={theme.text}
+            tracking={theme.headingTracking}
+          />
+          {frame.line && <Body value={frame.line} color={theme.text} />}
+          {frame.attendance && (
+            <DetailLines lines={[frame.attendance]} color={theme.accent} />
+          )}
+        </Column>
+      </div>
+    </Root>
+  );
+}
+
+/** A recap carousel's later slide: the photo, edge to edge. */
+function Slide({ box, frame }: { box: FrameBox; frame: SlideLayout }) {
+  return (
+    <div style={{ display: "flex", width: box.width, height: box.height }}>
+      <Photo
+        image={frame.photo}
+        width={box.width}
+        height={box.height}
+        radius={0}
+      />
+    </div>
+  );
+}
+
+/** A sponsor thank-you (#1927): the line, the event, and a tile a sponsor. */
+function Sponsors({ box, frame }: { box: FrameBox; frame: SponsorsLayout }) {
+  const { theme } = frame;
+  return (
+    <Root box={box} background={theme.page} color={theme.text}>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "space-between",
+          flexGrow: 1,
+          gap: 40,
+        }}
+      >
+        <Column gap={28}>
+          <Masthead
+            logoUrl={frame.logoUrl}
+            orgName={frame.orgName}
+            color={theme.text}
+          />
+          <div style={{ ...EYEBROW, display: "flex", color: theme.accent }}>
+            {frame.eyebrow}
+          </div>
+          <Heading
+            value={frame.title}
+            color={theme.text}
+            tracking={theme.headingTracking}
+          />
+        </Column>
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: SPONSOR_TILE_GAP,
+            justifyContent: "center",
+          }}
+        >
+          {frame.tiles.map((tile, i) => (
+            <div
+              key={i}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: frame.tileWidth,
+                height: frame.tileHeight,
+                padding: 20,
+                borderRadius: 28,
+                backgroundColor: theme.panel,
+              }}
+            >
+              {tile.logo ? (
+                <img
+                  src={tile.logo}
+                  alt=""
+                  width={frame.tileWidth - 40}
+                  height={frame.tileHeight - 40}
+                  style={{
+                    width: frame.tileWidth - 40,
+                    height: frame.tileHeight - 40,
+                    objectFit: "contain",
+                  }}
+                />
+              ) : (
+                <Body
+                  value={tile.name}
+                  color={theme.panelText}
+                  weight={700}
+                  center
+                />
+              )}
+            </div>
+          ))}
+        </div>
+        <div style={{ display: "flex", minHeight: 40 }}>
+          {frame.more > 0 && (
+            <DetailLines
+              lines={[`and ${frame.more} more`]}
+              color={theme.accent}
+            />
+          )}
+        </div>
+      </div>
+    </Root>
+  );
+}
+
+export function EventPostView({ model }: { model: EventPostModel }) {
+  const { box, frame } = model;
+  switch (frame.layout) {
+    case "flyer":
+      return <Flyer box={box} frame={frame} />;
+    case "brand":
+      return <Brand box={box} frame={frame} />;
+    case "recap":
+      return <Recap box={box} frame={frame} />;
+    case "slide":
+      return <Slide box={box} frame={frame} />;
+    case "sponsors":
+      return <Sponsors box={box} frame={frame} />;
+  }
 }

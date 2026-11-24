@@ -257,18 +257,18 @@ describe("social post content (integration)", () => {
     expect(none ?? []).toEqual([]);
   });
 
-  test("a post holds at most ten files", async () => {
+  test("a post holds at most twenty files (#1927)", async () => {
     const post = await createPost();
     currentSupabase = adminClient;
     expect(
       await createSocialPostMediaSlotsAction(
         post.id,
-        Array.from({ length: 11 }, (_, index) => ({
+        Array.from({ length: 21 }, (_, index) => ({
           name: `${index}.png`,
           type: "image/png",
           size: 10,
         })),
       ),
-    ).toEqual({ error: "This post has room for 10 more files." });
+    ).toEqual({ error: "This post has room for 20 more files." });
   });
 });

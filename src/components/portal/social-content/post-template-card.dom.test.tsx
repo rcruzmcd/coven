@@ -66,6 +66,8 @@ const editor: PostTemplateEditor = {
       { id: "none", label: "No photo", src: null, crop: null },
     ],
   },
+  photos: null,
+  notice: null,
   storyImages: { hasItem: true, hasPhoto: true, generated: 0, stale: false },
 };
 
@@ -229,5 +231,81 @@ describe("PostTemplateCard picker", () => {
     });
     expect(screen.getByText(/switched off/)).toBeInTheDocument();
     expect(screen.queryByLabelText("Brand")).not.toBeInTheDocument();
+  });
+});
+
+describe("PostTemplateCard recap photos (#1927)", () => {
+  const ids = ["a", "b", "c", "d", "e"].map(
+    (c) => `event_media:${c.repeat(8)}-1111-4111-8111-111111111111`,
+  );
+  const recap = (carousel: boolean, limit: number): PostTemplateEditor => ({
+    ...editor,
+    templateKey: "event_recap",
+    choices: [{ key: "event_recap", label: "Event recap" }],
+    format: carousel ? "post" : "story",
+    frames: [1],
+    fields: [],
+    photo: null,
+    notice: "2 registrants asked not to be photographed.",
+    photos: {
+      key: "photos",
+      label: "Photos",
+      options: ids.map((id, i) => ({
+        id,
+        label: `Event photo ${i + 1}`,
+        src: null,
+        crop: null,
+      })),
+      start: ids.slice(0, 2),
+      value: ids.slice(0, 2),
+      limit,
+      carousel,
+    },
+    storyImages: null,
+  });
+
+  test("ticks in order, and a carousel has a frame per photo", async () => {
+    const user = userEvent.setup();
+    renderCard({ editor: recap(true, 20) });
+    expect(
+      screen.getByText("2 registrants asked not to be photographed."),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/2 of 20 chosen/)).toBeInTheDocument();
+    expect(screen.getByText("Frame 1 of 2")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("checkbox", { name: /Event photo 4/ }));
+    expect(screen.getByText(/3 of 20 chosen/)).toBeInTheDocument();
+    expect(screen.getByText("Frame 1 of 3")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Save template" }));
+    await waitFor(() => expect(saveMock).toHaveBeenCalledTimes(1));
+    expect(saveMock.mock.calls[0][1].photos).toBe(
+      [ids[0], ids[1], ids[3]].join(","),
+    );
+  });
+
+  test("none ticked is sent as none; the default as unset", async () => {
+    const user = userEvent.setup();
+    renderCard({ editor: recap(true, 20) });
+    await user.click(screen.getByRole("checkbox", { name: /Event photo 1/ }));
+    await user.click(screen.getByRole("checkbox", { name: /Event photo 2/ }));
+    await user.click(screen.getByRole("button", { name: "Save template" }));
+    await waitFor(() => expect(saveMock).toHaveBeenCalledTimes(1));
+    expect(saveMock.mock.calls[0][1].photos).toBe("none");
+
+    // The default is drawn as unset, so it follows the gallery.
+    await waitFor(() => expect(fetchCalls.length).toBeGreaterThan(0));
+    expect(previewText(fetchCalls[0]).photos).toBe("");
+  });
+
+  test("a story's collage stops at its limit, in one frame", async () => {
+    const user = userEvent.setup();
+    renderCard({ editor: recap(false, 3) });
+    await user.click(screen.getByRole("checkbox", { name: /Event photo 3/ }));
+    expect(screen.getByText(/3 of 3 chosen/)).toBeInTheDocument();
+    expect(
+      screen.getByRole("checkbox", { name: /Event photo 5/ }),
+    ).toBeDisabled();
+    expect(screen.queryByText(/Frame 1 of/)).toBeNull();
   });
 });

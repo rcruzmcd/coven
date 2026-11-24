@@ -42,8 +42,11 @@ export const CAPTION_MAX_LENGTH = 2200;
 /** Instagram's collaborator limit, on posts and reels only. */
 export const MAX_COLLABORATORS = 3;
 
-/** What one post may hold, Instagram's carousel limit; the database agrees. */
-export const MAX_POST_MEDIA = 10;
+/**
+ * What one post may hold, Instagram's carousel limit (20 since 2024; it was
+ * 10 until #1927); the database agrees.
+ */
+export const MAX_POST_MEDIA = 20;
 
 /** Stories take no caption and no collaborators. */
 export function formatTakesCaption(format: PostFormat | null) {

@@ -2,7 +2,10 @@ import { describe, expect, test } from "bun:test";
 import { EMPTY_BRANDING } from "@/lib/branding";
 import {
   EVENT_ANNOUNCEMENT,
+  EVENT_RECAP,
   EVENT_REMINDER,
+  SPONSOR_THANK_YOU,
+  parsePhotoList,
   EVENT_TEXT_LIMITS,
   GEAR_SPOTLIGHT,
   eventTemplateValues,
@@ -19,7 +22,12 @@ import {
 } from "./post-templates";
 import { GEAR_DETAIL_LIMITS } from "./series-gear";
 import type { DetailsFrame, SpotlightFrame, StoryInput } from "./story-frames";
-import { buildEventPostFrame, type EventPostRecord } from "./event-post-frames";
+import {
+  buildEventPostFrame,
+  type BrandLayout,
+  type EventPostRecord,
+  type FlyerLayout,
+} from "./event-post-frames";
 
 // Real extremes at each cap, in real words (GEAR_DETAIL_LIMITS).
 const BRAND_AT_CAP =
@@ -270,13 +278,18 @@ describe("event announcement and reminder (#1926)", () => {
     for (const postFormat of ["instagram_story", "instagram_post"]) {
       expect(
         templatesFor({ recordKinds: ["event"], postFormat, off: [] }),
-      ).toEqual(["event_announcement", "event_reminder"]);
+      ).toEqual([
+        "event_announcement",
+        "event_reminder",
+        "event_recap",
+        "sponsor_thank_you",
+      ]);
     }
     expect(
       templatesFor({
         recordKinds: ["event"],
         postFormat: "instagram_post",
-        off: ["event_reminder"],
+        off: ["event_reminder", "event_recap", "sponsor_thank_you"],
       }),
     ).toEqual(["event_announcement"]);
     expect(isPostTemplateKey("event_reminder")).toBe(true);
@@ -288,6 +301,8 @@ describe("event announcement and reminder (#1926)", () => {
       cta: null,
       details: false,
       logo: true,
+      attendance: false,
+      sponsorLogos: false,
     });
   });
 
@@ -344,7 +359,14 @@ describe("event announcement and reminder (#1926)", () => {
           kind: "announcement",
           format,
           event,
-          text: { line, cta, details: true, logo: true },
+          text: {
+            line,
+            cta,
+            details: true,
+            logo: true,
+            attendance: false,
+            sponsorLogos: false,
+          },
           flyer,
           photo: null,
           now: new Date("2026-12-11T17:00:00Z"),
@@ -352,9 +374,78 @@ describe("event announcement and reminder (#1926)", () => {
           headingTracking: "0",
           orgName: "Chatter Snow",
         });
-        expect(model.frame.line?.text).toBe(line);
-        expect(model.frame.cta?.text).toBe(cta);
+        const frame = model.frame as FlyerLayout | BrandLayout;
+        expect(frame.line?.text).toBe(line);
+        expect(frame.cta?.text).toBe(cta);
       }
     }
+  });
+});
+
+describe("event recap and sponsor thank-you (#1927)", () => {
+  const event: EventPostRecord = {
+    name: "Season opener",
+    starts_at: "2026-12-12T15:00:00Z",
+    timezone: "America/New_York",
+    location: null,
+    registration_enabled: true,
+    has_flyer: false,
+    host: "example.org",
+  };
+  const a = "event_media:11111111-1111-4111-8111-111111111111";
+  const b = "event_media:22222222-2222-4222-8222-222222222222";
+
+  test("the head count starts on once anyone was checked in", () => {
+    expect(eventTemplateValues(EVENT_RECAP, event, {}).attendance).toBe(false);
+    expect(
+      eventTemplateValues(EVENT_RECAP, { ...event, attended: 12 }, {})
+        .attendance,
+    ).toBe(true);
+  });
+
+  test("sponsors' logos start on when any sponsor has one", () => {
+    const values = (sponsors: EventPostRecord["sponsors"]) =>
+      eventTemplateValues(SPONSOR_THANK_YOU, { ...event, sponsors }, {})
+        .sponsorLogos;
+    expect(values([{ name: "Acme", logo_url: null }])).toBe(false);
+    expect(
+      values([
+        { name: "Acme", logo_url: null },
+        { name: "Globex", logo_url: "https://example.org/g.png" },
+      ]),
+    ).toBe(true);
+  });
+
+  test("keeps the photos picked, in order, without repeats", () => {
+    expect(
+      normalizeTemplateText(EVENT_RECAP, event, {
+        photos: `${b}, ${a},${b}`,
+      }),
+    ).toEqual({ text: { photos: `${b},${a}` } });
+    expect(parsePhotoList(`${b},${a}`)).toEqual([b, a]);
+  });
+
+  test("none picked is stored; unset follows the gallery", () => {
+    expect(
+      normalizeTemplateText(EVENT_RECAP, event, { photos: "none" }),
+    ).toEqual({ text: { photos: "none" } });
+    expect(normalizeTemplateText(EVENT_RECAP, event, { photos: "" })).toEqual({
+      text: {},
+    });
+    expect(parsePhotoList("none")).toEqual([]);
+  });
+
+  test("refuses anything that isn't an event photo, and past twenty", () => {
+    expect(
+      normalizeTemplateText(EVENT_RECAP, event, { photos: `${a},item` }),
+    ).toHaveProperty("error");
+    const many = Array.from(
+      { length: 21 },
+      (_, i) =>
+        `event_media:${String(i).padStart(8, "0")}-1111-4111-8111-111111111111`,
+    ).join(",");
+    expect(normalizeTemplateText(EVENT_RECAP, event, { photos: many })).toEqual(
+      { error: "Choose at most 20 photos." },
+    );
   });
 });
