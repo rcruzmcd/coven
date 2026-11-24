@@ -7,10 +7,11 @@ import { runPublicationPurge } from "@/lib/storage/publication-purge";
 import { runDocumentPurge } from "@/lib/storage/documents-purge";
 import { runSitePhotoPurge } from "@/lib/storage/site-photo-purge";
 import { runEventMediaPurge } from "@/lib/storage/event-media-purge";
+import { runSocialPostMediaPurge } from "@/lib/storage/social-post-media-purge";
 
 /**
- * The daily orphan sweep over six Storage buckets, on a Vercel Cron (#781,
- * #870, #1472, #1489, #1492, #1608). Named for the gear-photo sweep until it
+ * The daily orphan sweep over seven Storage buckets, on a Vercel Cron (#781,
+ * #870, #1472, #1489, #1492, #1608, #1922). Named for the gear-photo sweep until it
  * took on the fifth bucket.
  *
  * Structurally identical to /api/cron/ops-report and /api/cron/task-reminders:
@@ -32,7 +33,7 @@ import { runEventMediaPurge } from "@/lib/storage/event-media-purge";
  * sweep (#1489) run third and fourth on the same terms, the site-photos
  * sweep (#1492) fifth, and the event-media sweep (#1608) sixth -- the one
  * sweep that also deletes referenced files, once a tenant's retention period
- * has passed.
+ * has passed. The social-post-media sweep (#1922) runs seventh.
  */
 export async function GET(request: Request) {
   if (
@@ -53,6 +54,7 @@ export async function GET(request: Request) {
   const documents = await runDocumentPurge(admin);
   const sitePhotos = await runSitePhotoPurge(admin);
   const eventMedia = await runEventMediaPurge(admin);
+  const socialPostMedia = await runSocialPostMediaPurge(admin);
   return NextResponse.json({
     gearPhotos,
     artwork,
@@ -60,5 +62,6 @@ export async function GET(request: Request) {
     documents,
     sitePhotos,
     eventMedia,
+    socialPostMedia,
   });
 }
