@@ -66,7 +66,10 @@ import { TabLoadingSkeleton } from "@/components/portal/tab-loading-skeleton";
 import { RequiredFieldsNote } from "@/components/required-fields-note";
 import { formatDateTime } from "@/lib/format";
 import { countProgramPiecesAction } from "@/lib/social-content/piece-actions";
-import { programSocialHref } from "@/lib/social-content/social-filters";
+import {
+  newSocialPostHref,
+  programSocialHref,
+} from "@/lib/social-content/social-filters";
 
 /** What this reader may do with social posts (`content_calendar`), #1838. */
 export type ProgramSocialAccess = { canView: boolean; canManage: boolean };
@@ -396,11 +399,7 @@ export function ProgramDetailsDialog({
                           variant="secondary"
                           size="sm"
                           nativeButton={false}
-                          render={
-                            <Link
-                              href={`${programSocialHref(program.id)}&new=1`}
-                            />
-                          }
+                          render={<Link href={newSocialPostHref(program.id)} />}
                         >
                           <Plus /> New post
                         </Button>

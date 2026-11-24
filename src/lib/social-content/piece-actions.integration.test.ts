@@ -85,14 +85,15 @@ describe("social post actions (integration)", () => {
 
     // Two pieces on the one item: what the dropped unique constraint used to
     // refuse, and the whole point of #1231.
-    expect(await createContentPieceAction(itemForm(item.id))).toEqual({
+    expect(await createContentPieceAction(itemForm(item.id))).toMatchObject({
       success: true,
+      id: expect.any(String),
     });
     expect(
       await createContentPieceAction(
         itemForm(item.id, { title: "Email to past participants" }),
       ),
-    ).toEqual({ success: true });
+    ).toMatchObject({ success: true, id: expect.any(String) });
 
     const { data: created } = await adminClient
       .from("content_opportunities")
@@ -141,7 +142,7 @@ describe("social post actions (integration)", () => {
       await createContentPieceAction(
         pieceForm({ title, calendarItemId: item.id, eventId: event.id }),
       ),
-    ).toEqual({ success: true });
+    ).toMatchObject({ success: true, id: expect.any(String) });
     const { data: created } = await adminClient
       .from("content_opportunities")
       .select("id, calendar_item_id, event_id")
@@ -190,7 +191,7 @@ describe("social post actions (integration)", () => {
     // As the section submits it: related to the event it is on.
     expect(
       await createContentPieceAction(pieceForm({ title, eventId: event.id })),
-    ).toEqual({ success: true });
+    ).toMatchObject({ success: true, id: expect.any(String) });
 
     const forEvent = await listEventPieces(currentSupabase, event.id);
     expect(forEvent.error).toBe(false);
@@ -225,7 +226,7 @@ describe("social post actions (integration)", () => {
       await createContentPieceAction(
         pieceForm({ title, programId: program.id, eventId: event.id }),
       ),
-    ).toEqual({ success: true });
+    ).toMatchObject({ success: true, id: expect.any(String) });
     const { data: created } = await adminClient
       .from("content_opportunities")
       .select("id, program_id, event_id")
@@ -283,7 +284,7 @@ describe("social post actions (integration)", () => {
       await createContentPieceAction(
         pieceForm({ eventId: event.id, internalNotes: "keep me" }),
       ),
-    ).toEqual({ success: true });
+    ).toMatchObject({ success: true, id: expect.any(String) });
     const { data: created } = await adminClient
       .from("content_opportunities")
       .select("id")
@@ -363,8 +364,9 @@ describe("social post actions (integration)", () => {
     const item = await createCalendarItem();
     currentSupabase = await signInAs(SEEDED_USERS.coordinator);
 
-    expect(await createContentPieceAction(itemForm(item.id))).toEqual({
+    expect(await createContentPieceAction(itemForm(item.id))).toMatchObject({
       success: true,
+      id: expect.any(String),
     });
 
     await item.cleanup();

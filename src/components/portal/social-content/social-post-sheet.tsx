@@ -1,51 +1,36 @@
 "use client";
 
-import { FormEvent, useEffect, useState, useTransition } from "react";
+import { type ComponentProps, FormEvent, useState, useTransition } from "react";
+import { cn } from "@/lib/utils";
+import {
+  INTERNAL_NOTES_POLICY,
+  PostContentFields,
+  PostInternalNotesField,
+  PostMediaEditor,
+  PostRelatedToFields,
+  PostScheduleFields,
+  PostStatusFields,
+  PostTeamFields,
+  PostTitleField,
+  buildPostFormData,
+  linkedLabel,
+  postFormStateFor,
+  useLinkOptions,
+  type PostFormState,
+  type SocialPostDefaults,
+} from "./post-form";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Pencil } from "lucide-react";
 import {
   createContentPieceAction,
   deleteContentPieceAction,
-  listSocialContentLinkOptionsAction,
   updateContentPieceAction,
-  type SocialContentLinkOption,
-  type SocialContentLinkOptions,
 } from "@/lib/social-content/piece-actions";
-import {
-  CAPTION_MAX_LENGTH,
-  CONTENT_STATUSES,
-  MAX_COLLABORATORS,
-  POST_FORMATS,
-  formatTakesCaption,
-  formatTakesCollaborators,
-  isPostFormat,
-  leadTimeSchedule,
-  mediaFormatIssue,
-  postFormatLabel,
-  type ContentPieceRow,
-  type PostFormat,
-} from "@/lib/social-content/pieces";
-import {
-  createSocialPostMediaSlotsAction,
-  deleteSocialPostMediaAction,
-  recordSocialPostMediaAction,
-  reorderSocialPostMediaAction,
-  type SocialPostMedia,
-  type SocialPostTag,
-} from "@/lib/social-content/post-content-actions";
-import { MediaUploader } from "@/components/event-media/media-uploader";
-import { EventMediaPicker } from "./event-media-picker";
-import { createVideoUpload, uploadEventPhoto } from "@/lib/storage/event-media";
-import type { EventMediaQueueDeps } from "@/lib/storage/event-media-queue";
+import type { ContentPieceRow } from "@/lib/social-content/pieces";
+import type { SocialPostTag } from "@/lib/social-content/post-content-actions";
 import { ContentStatusBadge } from "./content-status-badge";
 import { ShareToInstagram } from "./share-to-instagram";
-import {
-  HandleListInput,
-  PostContentSummary,
-  PostMediaGrid,
-  TagPeopleInput,
-  usePostExtras,
-} from "./post-content-fields";
+import { PostContentSummary, usePostExtras } from "./post-content-fields";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -58,22 +43,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import {
-  Field,
-  FieldDescription,
-  FieldGroup,
-  FieldLabel,
-} from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { Field, FieldDescription, FieldGroup } from "@/components/ui/field";
 import { ReadOnlyField } from "@/components/ui/read-only-field";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   Sheet,
   SheetContent,
@@ -90,33 +61,14 @@ import {
 import {
   calendarActorName,
   ownerName,
-  ownerOptions,
   type CalendarOwner,
 } from "@/app/portal/(app)/calendar/calendar-shared";
-import { PersonSelect } from "@/app/portal/(app)/people/person-select";
 import { Spinner } from "@/components/ui/spinner";
-import { formatDateTime, formatInstantDate } from "@/lib/format";
-import { utcIsoToDatetimeLocalInBrowser } from "@/lib/time";
+import { formatDateTime } from "@/lib/format";
 import { runAction } from "@/components/portal/action-toast";
 import { RequiredFieldsNote } from "@/components/required-fields-note";
 
-const INTERNAL_NOTES_POLICY =
-  "Staff-only working notes. Never record specific personal, medical, legal, or confidential case details here.";
-
-const NONE = "none";
-
-/**
- * What a new post starts out with when it is added from somewhere: the item,
- * event or program it is added from is its Related to link, and a publish date to
- * suggest (the item's or event's start). All optional -- a post added from
- * `/portal/social` starts related to nothing and unscheduled.
- */
-export type SocialPostDefaults = {
-  calendarItemId?: string | null;
-  eventId?: string | null;
-  programId?: string | null;
-  publishDueAt?: string | null;
-};
+export type { SocialPostDefaults } from "./post-form";
 
 /** One opening of the sheet: the post shown, or `null` for a new one. */
 export type SocialPostSheetSession = {
@@ -124,212 +76,6 @@ export type SocialPostSheetSession = {
   piece: ContentPieceRow | null;
   mode: "view" | "edit";
 };
-
-function formStateFor(
-  piece: ContentPieceRow | null,
-  defaultLeadTimeDays: number,
-  defaults: SocialPostDefaults,
-) {
-  return {
-    title: piece?.title ?? "",
-    content: piece?.content ?? "",
-    postFormat: (piece?.post_format ?? "") as PostFormat | "",
-    collaborators: piece?.collaborator_handles ?? [],
-    contentStatus: piece?.content_status ?? "not_planned",
-    skipReason: piece?.skip_reason ?? "",
-    internalNotes: piece?.internal_notes ?? "",
-    ownerId: piece?.owner_id ?? "",
-    reviewerId: piece?.reviewer_id ?? "",
-    leadTimeDays: String(piece?.lead_time_days ?? defaultLeadTimeDays),
-    publishDueAt: utcIsoToDatetimeLocalInBrowser(
-      piece ? piece.publish_due_at : (defaults.publishDueAt ?? null),
-    ),
-    reviewDueAt: utcIsoToDatetimeLocalInBrowser(piece?.review_due_at ?? null),
-    draftDueAt: utcIsoToDatetimeLocalInBrowser(piece?.draft_due_at ?? null),
-    calendarItemId: piece
-      ? (piece.calendar_item_id ?? "")
-      : (defaults.calendarItemId ?? ""),
-    eventId: piece ? (piece.event_id ?? "") : (defaults.eventId ?? ""),
-    programId: piece ? (piece.program_id ?? "") : (defaults.programId ?? ""),
-  };
-}
-
-type FormState = ReturnType<typeof formStateFor>;
-
-function optionLabel(option: SocialContentLinkOption) {
-  return option.starts_at
-    ? `${option.label} · ${formatInstantDate(option.starts_at)}`
-    : option.label;
-}
-
-/** Loads what the Related to picker offers, once per opening of the sheet. */
-function useLinkOptions() {
-  const [options, setOptions] = useState<SocialContentLinkOptions | null>(null);
-  useEffect(() => {
-    let cancelled = false;
-    listSocialContentLinkOptionsAction().then((next) => {
-      if (!cancelled) setOptions(next);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-  return options;
-}
-
-/**
- * The media part of the Content section: upload, choose from the related
- * event (#1827), reorder, remove. Files save as they go rather than with the
- * form, so a post must exist first.
- */
-function PostMediaEditor({
-  postId,
-  eventId,
-  media,
-  format,
-  onChanged,
-  onError,
-}: {
-  postId: string;
-  /** The saved post's event, whose media it can choose from. */
-  eventId: string | null;
-  media: SocialPostMedia[];
-  format: PostFormat | null;
-  onChanged: () => void;
-  onError: (message: string) => void;
-}) {
-  const [busy, startTransition] = useTransition();
-  const [deps] = useState<EventMediaQueueDeps>(() => ({
-    mintSlots: (files) => createSocialPostMediaSlotsAction(postId, files),
-    uploadPhoto: uploadEventPhoto,
-    createVideoUpload,
-    record: (slot, name) => recordSocialPostMediaAction(slot.path, name),
-  }));
-  const issue = mediaFormatIssue(format, media);
-
-  function move(index: number, direction: -1 | 1) {
-    const ids = media.map((item) => item.id);
-    const [moved] = ids.splice(index, 1);
-    ids.splice(index + direction, 0, moved);
-    startTransition(async () => {
-      const result = await reorderSocialPostMediaAction(postId, ids);
-      if ("error" in result) onError(result.error);
-      onChanged();
-    });
-  }
-
-  function remove(item: SocialPostMedia) {
-    startTransition(async () => {
-      await runAction(() => deleteSocialPostMediaAction(item.id), {
-        success: `Removed ${item.original_filename}.`,
-        onError,
-        onSuccess: onChanged,
-      });
-    });
-  }
-
-  return (
-    <div className="flex flex-col gap-3">
-      {media.length > 0 && (
-        <PostMediaGrid
-          media={media}
-          busy={busy}
-          onMove={move}
-          onRemove={remove}
-        />
-      )}
-      {issue && (
-        <Alert>
-          <AlertDescription>{issue}</AlertDescription>
-        </Alert>
-      )}
-      {eventId && (
-        <EventMediaPicker
-          postId={postId}
-          eventId={eventId}
-          format={format}
-          held={media.length}
-          heldGenerated={media.filter((item) => item.generated).length}
-          referencedIds={
-            new Set(media.flatMap((item) => item.event_media_id ?? []))
-          }
-          onAdded={onChanged}
-          onError={onError}
-        />
-      )}
-      <MediaUploader
-        deps={deps}
-        onUploaded={onChanged}
-        hint="In the order they'll appear. Photos are resized before upload. Files save as soon as they upload."
-      />
-    </div>
-  );
-}
-
-/**
- * How a linked record reads. A link to a record this reader cannot see (an
- * event, for someone without events access) is still a link: it is kept on
- * save and named generically rather than dropped.
- */
-function linkedLabel(
-  options: SocialContentLinkOption[] | undefined,
-  id: string | null,
-  fallback: string,
-) {
-  if (!id) return null;
-  const option = options?.find((candidate) => candidate.id === id);
-  return option ? optionLabel(option) : fallback;
-}
-
-function RelatedToSelect({
-  id,
-  label,
-  noneLabel,
-  unknownLabel,
-  options,
-  value,
-  onChange,
-}: {
-  id: string;
-  label: string;
-  noneLabel: string;
-  unknownLabel: string;
-  options: SocialContentLinkOption[] | undefined;
-  value: string;
-  onChange: (next: string) => void;
-}) {
-  return (
-    <Field>
-      <FieldLabel htmlFor={id}>{label}</FieldLabel>
-      <Select
-        value={value || NONE}
-        onValueChange={(next) => onChange(!next || next === NONE ? "" : next)}
-      >
-        <SelectTrigger id={id} className="w-full min-w-0">
-          {/* A long event name plus its date truncates rather than widening
-              the trigger past the sheet (#1825); the open list shows it whole. */}
-          <SelectValue placeholder={noneLabel} className="min-w-0">
-            {(selected: string) => (
-              <span className="truncate">
-                {selected === NONE
-                  ? noneLabel
-                  : linkedLabel(options, selected, unknownLabel)}
-              </span>
-            )}
-          </SelectValue>
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value={NONE}>{noneLabel}</SelectItem>
-          {options?.map((option) => (
-            <SelectItem key={option.id} value={option.id}>
-              {optionLabel(option)}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </Field>
-  );
-}
 
 /**
  * The sheet behind one social post (#1231, shared since #1793): read it, edit
@@ -384,10 +130,45 @@ export function SocialPostSheet({
   );
 }
 
+/**
+ * The new-post form as a page of its own (`/portal/social/new`), the form the
+ * sheet shows for a new post. Cancel goes back to `cancelHref`; adding the post
+ * opens it, where its media can be added.
+ */
+export function NewSocialPostForm({
+  owners,
+  defaultLeadTimeDays,
+  defaults = {},
+  cancelHref,
+}: {
+  owners: CalendarOwner[];
+  defaultLeadTimeDays: number;
+  defaults?: SocialPostDefaults;
+  cancelHref: string;
+}) {
+  const router = useRouter();
+  return (
+    <SocialPostSheetBody
+      layout="page"
+      piece={null}
+      initialMode="edit"
+      onClose={() => router.push(cancelHref)}
+      onCreated={(id) => router.push(`/portal/social/${id}`)}
+      owners={owners}
+      defaultLeadTimeDays={defaultLeadTimeDays}
+      canManage
+      defaults={defaults}
+      newPostDescription=""
+    />
+  );
+}
+
 function SocialPostSheetBody({
+  layout = "sheet",
   piece,
   initialMode,
   onClose,
+  onCreated,
   owners,
   defaultLeadTimeDays,
   canManage,
@@ -395,9 +176,13 @@ function SocialPostSheetBody({
   newPostDescription,
   onDeleted,
 }: {
+  /** `page` drops the sheet's header and lets the form flow with the page. */
+  layout?: "sheet" | "page";
   piece: ContentPieceRow | null;
   initialMode: "view" | "edit";
   onClose: () => void;
+  /** Called instead of closing once a new post is added. */
+  onCreated?: (id: string) => void;
   owners: CalendarOwner[];
   defaultLeadTimeDays: number;
   canManage: boolean;
@@ -405,6 +190,7 @@ function SocialPostSheetBody({
   newPostDescription: string;
   onDeleted?: () => void;
 }) {
+  const isPage = layout === "page";
   const router = useRouter();
   const linkOptions = useLinkOptions();
   const { extras, reload: reloadExtras } = usePostExtras(
@@ -416,65 +202,29 @@ function SocialPostSheetBody({
   const [editedTags, setTags] = useState<SocialPostTag[] | null>(null);
   const tags = editedTags ?? extras?.tags ?? null;
   const [mode, setMode] = useState(initialMode);
-  const [form, setForm] = useState<FormState>(() =>
-    formStateFor(piece, defaultLeadTimeDays, defaults),
+  const [form, setForm] = useState<PostFormState>(() =>
+    postFormStateFor(piece, defaultLeadTimeDays, defaults),
   );
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [isPending, startTransition] = useTransition();
   const formId = "social-post-form";
 
-  function update<K extends keyof FormState>(key: K, value: FormState[K]) {
+  function update<K extends keyof PostFormState>(
+    key: K,
+    value: PostFormState[K],
+  ) {
     setForm((prev) => ({ ...prev, [key]: value }));
-  }
-
-  function applyLeadTimeDefaults() {
-    if (!form.publishDueAt) return;
-    const leadTimeDays = Number(form.leadTimeDays);
-    if (!Number.isInteger(leadTimeDays) || leadTimeDays <= 0) {
-      setError("Set a valid lead time before applying defaults.");
-      return;
-    }
-    const { draftDueAt, reviewDueAt } = leadTimeSchedule(
-      new Date(form.publishDueAt),
-      leadTimeDays,
-    );
-    setError(null);
-    setForm((prev) => ({
-      ...prev,
-      draftDueAt: utcIsoToDatetimeLocalInBrowser(draftDueAt.toISOString()),
-      reviewDueAt: utcIsoToDatetimeLocalInBrowser(reviewDueAt.toISOString()),
-    }));
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
-
-    const formData = new FormData();
-    formData.set("title", form.title);
     if (tags === null) {
       setError("Still loading this post's tags. Try again in a moment.");
       return;
     }
-    formData.set("content", form.content);
-    formData.set("postFormat", form.postFormat);
-    formData.set("collaborators", JSON.stringify(form.collaborators));
-    formData.set("tags", JSON.stringify(tags));
-    formData.set("contentStatus", form.contentStatus);
-    formData.set("skipReason", form.skipReason);
-    formData.set("internalNotes", form.internalNotes);
-    formData.set("ownerId", form.ownerId);
-    formData.set("reviewerId", form.reviewerId);
-    formData.set("leadTimeDays", form.leadTimeDays);
-    formData.set("calendarItemId", form.calendarItemId);
-    formData.set("eventId", form.eventId);
-    formData.set("programId", form.programId);
-    // Converted here, in the browser, so each due instant is fixed using the
-    // user's own timezone rather than the server's.
-    for (const key of ["publishDueAt", "reviewDueAt", "draftDueAt"] as const) {
-      formData.set(key, form[key] ? new Date(form[key]).toISOString() : "");
-    }
+    const formData = buildPostFormData(form, tags);
 
     startTransition(async () => {
       await runAction(
@@ -486,7 +236,11 @@ function SocialPostSheetBody({
           success: piece ? "Social post saved." : "Social post added.",
           description: (result) => result.warning,
           onError: setError,
-          onSuccess: () => {
+          onSuccess: (result) => {
+            if (!piece && onCreated && result.id) {
+              onCreated(result.id);
+              return;
+            }
             onClose();
             router.refresh();
           },
@@ -514,6 +268,8 @@ function SocialPostSheetBody({
     });
   }
 
+  const Footer = isPage ? PageFooter : SheetFooter;
+
   const relatedEvent = linkedLabel(
     linkOptions?.events,
     piece?.event_id ?? null,
@@ -532,36 +288,8 @@ function SocialPostSheetBody({
 
   return (
     <>
-      <SheetHeader className="flex-row items-start gap-2 space-y-0">
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                aria-label="Close"
-                onClick={onClose}
-              />
-            }
-          >
-            <ArrowLeft />
-          </TooltipTrigger>
-          <TooltipContent>Close</TooltipContent>
-        </Tooltip>
-        <div className="flex flex-1 flex-col gap-0.5">
-          <SheetTitle>
-            {piece
-              ? mode === "edit"
-                ? "Edit social post"
-                : "Social post"
-              : "Add social post"}
-          </SheetTitle>
-          <SheetDescription>
-            {piece?.title ?? newPostDescription}
-          </SheetDescription>
-        </div>
-        {piece && mode === "view" && canManage && (
+      {!isPage && (
+        <SheetHeader className="flex-row items-start gap-2 space-y-0">
           <Tooltip>
             <TooltipTrigger
               render={
@@ -569,17 +297,47 @@ function SocialPostSheetBody({
                   type="button"
                   variant="ghost"
                   size="icon-sm"
-                  aria-label="Edit social post"
-                  onClick={() => setMode("edit")}
+                  aria-label="Close"
+                  onClick={onClose}
                 />
               }
             >
-              <Pencil />
+              <ArrowLeft />
             </TooltipTrigger>
-            <TooltipContent>Edit</TooltipContent>
+            <TooltipContent>Close</TooltipContent>
           </Tooltip>
-        )}
-      </SheetHeader>
+          <div className="flex flex-1 flex-col gap-0.5">
+            <SheetTitle>
+              {piece
+                ? mode === "edit"
+                  ? "Edit social post"
+                  : "Social post"
+                : "Add social post"}
+            </SheetTitle>
+            <SheetDescription>
+              {piece?.title ?? newPostDescription}
+            </SheetDescription>
+          </div>
+          {piece && mode === "view" && canManage && (
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label="Edit social post"
+                    onClick={() => setMode("edit")}
+                  />
+                }
+              >
+                <Pencil />
+              </TooltipTrigger>
+              <TooltipContent>Edit</TooltipContent>
+            </Tooltip>
+          )}
+        </SheetHeader>
+      )}
 
       {mode === "view" && piece ? (
         <div className="flex-1 overflow-y-auto px-4 pb-4">
@@ -658,9 +416,11 @@ function SocialPostSheetBody({
         <form
           id={formId}
           onSubmit={handleSubmit}
-          className="flex min-h-0 flex-1 flex-col"
+          className={isPage ? "flex flex-col" : "flex min-h-0 flex-1 flex-col"}
         >
-          <div className="flex-1 overflow-y-auto px-4 pb-4">
+          <div
+            className={isPage ? undefined : "flex-1 overflow-y-auto px-4 pb-4"}
+          >
             <FieldGroup>
               <RequiredFieldsNote />
               {error && (
@@ -669,344 +429,58 @@ function SocialPostSheetBody({
                 </Alert>
               )}
 
-              <Field>
-                <FieldLabel htmlFor="piece-title" required>
-                  Title
-                </FieldLabel>
-                <Input
-                  id="piece-title"
-                  required
-                  placeholder="e.g. Instagram carousel: how the gear swap works"
-                  value={form.title}
-                  onChange={(event) => update("title", event.target.value)}
-                />
-              </Field>
-
-              <fieldset className="flex min-w-0 flex-col gap-2">
-                <legend className="mb-2 text-sm font-medium">Related to</legend>
-                <RelatedToSelect
-                  id="piece-eventId"
-                  label="Event"
-                  noneLabel="No event"
-                  unknownLabel="An event"
-                  options={linkOptions?.events}
-                  value={form.eventId}
-                  onChange={(next) => update("eventId", next)}
-                />
-                <RelatedToSelect
-                  id="piece-calendarItemId"
-                  label="Community date"
-                  noneLabel="No community date"
-                  unknownLabel="A community date"
-                  options={linkOptions?.calendarItems}
-                  value={form.calendarItemId}
-                  onChange={(next) => update("calendarItemId", next)}
-                />
-                <RelatedToSelect
-                  id="piece-programId"
-                  label="Program"
-                  noneLabel="No program"
-                  unknownLabel="A program"
-                  options={linkOptions?.programs}
-                  value={form.programId}
-                  onChange={(next) => update("programId", next)}
-                />
-                <FieldDescription>Any of these, or none.</FieldDescription>
-              </fieldset>
-
+              <PostTitleField form={form} update={update} />
+              <PostRelatedToFields
+                form={form}
+                update={update}
+                linkOptions={linkOptions}
+              />
               <fieldset className="flex min-w-0 flex-col gap-4">
                 <legend className="mb-2 text-sm font-medium">Content</legend>
-                <Field>
-                  <FieldLabel htmlFor="piece-postFormat">Format</FieldLabel>
-                  <Select
-                    value={form.postFormat || NONE}
-                    onValueChange={(next) =>
-                      update("postFormat", isPostFormat(next) ? next : "")
-                    }
-                  >
-                    <SelectTrigger id="piece-postFormat" className="w-full">
-                      <SelectValue placeholder="Not chosen">
-                        {(value: string) =>
-                          postFormatLabel(value) ?? "Not chosen"
-                        }
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={NONE}>Not chosen</SelectItem>
-                      {POST_FORMATS.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
-
-                <Field>
-                  <FieldLabel htmlFor="piece-content">
-                    {formatTakesCaption(form.postFormat || null)
-                      ? "Caption"
-                      : "Story text"}
-                  </FieldLabel>
-                  <Textarea
-                    id="piece-content"
-                    className="min-h-40"
-                    aria-describedby="piece-content-count"
-                    value={form.content}
-                    onChange={(event) => update("content", event.target.value)}
-                  />
-                  <FieldDescription id="piece-content-count">
-                    {formatTakesCaption(form.postFormat || null) ? (
-                      <span
-                        className={
-                          form.content.length > CAPTION_MAX_LENGTH
-                            ? "text-destructive"
-                            : undefined
-                        }
-                      >
-                        {form.content.length.toLocaleString()} of{" "}
-                        {CAPTION_MAX_LENGTH.toLocaleString()} characters
-                        Instagram allows.
-                      </span>
+                <PostContentFields
+                  form={form}
+                  update={update}
+                  tags={tags}
+                  onTagsChange={setTags}
+                  extras={extras}
+                  media={
+                    !piece ? (
+                      <FieldDescription id="piece-media">
+                        Add the post first, then open it to add photos and
+                        videos.
+                      </FieldDescription>
+                    ) : extras ? (
+                      <div id="piece-media">
+                        <PostMediaEditor
+                          postId={piece.id}
+                          eventId={piece.event_id}
+                          media={extras.media}
+                          format={form.postFormat || null}
+                          onChanged={reloadExtras}
+                          onError={setError}
+                        />
+                      </div>
                     ) : (
-                      "Stories have no caption. This is the text to put on the story itself."
-                    )}
-                  </FieldDescription>
-                </Field>
-
-                {formatTakesCollaborators(form.postFormat || null) && (
-                  <Field>
-                    <FieldLabel htmlFor="piece-collaborators">
-                      Collaborators
-                    </FieldLabel>
-                    <HandleListInput
-                      id="piece-collaborators"
-                      values={form.collaborators}
-                      onChange={(next) => update("collaborators", next)}
-                      max={MAX_COLLABORATORS}
-                      describedBy="piece-collaborators-hint"
-                    />
-                    <FieldDescription id="piece-collaborators-hint">
-                      Accounts to invite as co-authors, up to{" "}
-                      {MAX_COLLABORATORS}.
-                    </FieldDescription>
-                  </Field>
-                )}
-
-                <Field>
-                  <FieldLabel htmlFor="piece-tags">People to tag</FieldLabel>
-                  {extras && tags !== null ? (
-                    <TagPeopleInput
-                      id="piece-tags"
-                      tags={tags}
-                      people={extras.people}
-                      onChange={setTags}
-                      describedBy="piece-tags-hint"
-                    />
-                  ) : (
-                    <Spinner />
-                  )}
-                  <FieldDescription id="piece-tags-hint">
-                    Pick someone on record to use their handle, or type any
-                    handle.
-                  </FieldDescription>
-                </Field>
-
-                <Field>
-                  <FieldLabel htmlFor="piece-media">Media</FieldLabel>
-                  {!piece ? (
-                    <FieldDescription id="piece-media">
-                      Add the post first, then open it to add photos and videos.
-                    </FieldDescription>
-                  ) : extras ? (
-                    <div id="piece-media">
-                      <PostMediaEditor
-                        postId={piece.id}
-                        eventId={piece.event_id}
-                        media={extras.media}
-                        format={form.postFormat || null}
-                        onChanged={reloadExtras}
-                        onError={setError}
-                      />
-                    </div>
-                  ) : (
-                    <Spinner />
-                  )}
-                </Field>
-              </fieldset>
-
-              <Field orientation="responsive">
-                <Field>
-                  <FieldLabel htmlFor="piece-contentStatus">Status</FieldLabel>
-                  <Select
-                    value={form.contentStatus}
-                    onValueChange={(value) =>
-                      update("contentStatus", value ?? "not_planned")
-                    }
-                  >
-                    <SelectTrigger id="piece-contentStatus" className="w-full">
-                      <SelectValue placeholder="Select status">
-                        {(value: string) =>
-                          CONTENT_STATUSES.find(
-                            (option) => option.value === value,
-                          )?.label
-                        }
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {CONTENT_STATUSES.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
-                <Field>
-                  <FieldLabel htmlFor="piece-skipReason">
-                    Skip reason
-                  </FieldLabel>
-                  <Input
-                    id="piece-skipReason"
-                    placeholder={
-                      form.contentStatus === "skipped"
-                        ? "Reason (required)"
-                        : "Only used when skipped"
-                    }
-                    value={form.skipReason}
-                    onChange={(event) =>
-                      update("skipReason", event.target.value)
-                    }
-                  />
-                </Field>
-              </Field>
-
-              <Field orientation="responsive">
-                <Field>
-                  <FieldLabel htmlFor="piece-ownerId">Owner</FieldLabel>
-                  <PersonSelect
-                    id="piece-ownerId"
-                    people={ownerOptions(owners)}
-                    value={form.ownerId || null}
-                    onChange={(personId) => update("ownerId", personId ?? "")}
-                    noneLabel="No owner"
-                  />
-                </Field>
-                <Field>
-                  <FieldLabel htmlFor="piece-reviewerId">Reviewer</FieldLabel>
-                  <PersonSelect
-                    id="piece-reviewerId"
-                    people={ownerOptions(owners)}
-                    value={form.reviewerId || null}
-                    onChange={(personId) =>
-                      update("reviewerId", personId ?? "")
-                    }
-                    noneLabel="No reviewer"
-                  />
-                </Field>
-              </Field>
-
-              <Field orientation="responsive">
-                <Field>
-                  <FieldLabel htmlFor="piece-publishDueAt">
-                    Publish date
-                  </FieldLabel>
-                  <Input
-                    id="piece-publishDueAt"
-                    type="datetime-local"
-                    value={form.publishDueAt}
-                    onChange={(event) =>
-                      update("publishDueAt", event.target.value)
-                    }
-                  />
-                  <FieldDescription>
-                    Leave empty to keep it unscheduled.
-                  </FieldDescription>
-                </Field>
-                <Field>
-                  <FieldLabel htmlFor="piece-leadTimeDays">
-                    Lead time (days)
-                  </FieldLabel>
-                  <Input
-                    id="piece-leadTimeDays"
-                    type="number"
-                    min={1}
-                    step={1}
-                    value={form.leadTimeDays}
-                    onChange={(event) =>
-                      update("leadTimeDays", event.target.value)
-                    }
-                  />
-                </Field>
-              </Field>
-
-              <Field>
-                <div>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    disabled={!form.publishDueAt}
-                    aria-describedby="piece-lead-time-hint"
-                    onClick={applyLeadTimeDefaults}
-                  >
-                    Apply lead-time defaults
-                  </Button>
-                </div>
-                <FieldDescription id="piece-lead-time-hint">
-                  {form.publishDueAt
-                    ? "Sets the draft date two-thirds and the review date one-third of the lead time before publishing."
-                    : "Set a publish date to apply lead-time defaults."}
-                </FieldDescription>
-              </Field>
-
-              <Field orientation="responsive">
-                <Field>
-                  <FieldLabel htmlFor="piece-draftDueAt">Draft due</FieldLabel>
-                  <Input
-                    id="piece-draftDueAt"
-                    type="datetime-local"
-                    value={form.draftDueAt}
-                    onChange={(event) =>
-                      update("draftDueAt", event.target.value)
-                    }
-                  />
-                </Field>
-                <Field>
-                  <FieldLabel htmlFor="piece-reviewDueAt">
-                    Review due
-                  </FieldLabel>
-                  <Input
-                    id="piece-reviewDueAt"
-                    type="datetime-local"
-                    value={form.reviewDueAt}
-                    onChange={(event) =>
-                      update("reviewDueAt", event.target.value)
-                    }
-                  />
-                </Field>
-              </Field>
-
-              <Field>
-                <FieldLabel htmlFor="piece-internalNotes">
-                  Internal notes
-                </FieldLabel>
-                <Textarea
-                  id="piece-internalNotes"
-                  value={form.internalNotes}
-                  onChange={(event) =>
-                    update("internalNotes", event.target.value)
+                      <Spinner />
+                    )
                   }
                 />
-                <FieldDescription>{INTERNAL_NOTES_POLICY}</FieldDescription>
-              </Field>
+              </fieldset>
+              <PostStatusFields form={form} update={update} />
+              <PostTeamFields form={form} update={update} owners={owners} />
+              <PostScheduleFields
+                form={form}
+                update={update}
+                onError={setError}
+              />
+              <PostInternalNotesField form={form} update={update} />
             </FieldGroup>
           </div>
         </form>
       )}
 
       {mode === "edit" && (
-        <SheetFooter className="items-center justify-between">
+        <Footer className="items-center justify-between">
           {piece ? (
             <Button
               type="button"
@@ -1041,7 +515,7 @@ function SocialPostSheetBody({
               "Add social post"
             )}
           </Button>
-        </SheetFooter>
+        </Footer>
       )}
 
       <AlertDialog
@@ -1077,5 +551,15 @@ function SocialPostSheetBody({
         </AlertDialogContent>
       </AlertDialog>
     </>
+  );
+}
+
+/** The sheet footer's place on a page: the actions under the form. */
+function PageFooter({ className, ...props }: ComponentProps<"div">) {
+  return (
+    <div
+      className={cn("mt-6 flex flex-row gap-2 border-t pt-4", className)}
+      {...props}
+    />
   );
 }
