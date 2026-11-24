@@ -17,13 +17,13 @@ const MESSAGES: Record<string, string> = {
   POST_NOT_FOUND: "This post no longer exists.",
   POST_PUBLISHED: "This post is published, so its images can't change.",
   NOT_GEAR_STORY:
-    "Story images are made for an Instagram story that features a Gear Library item.",
-  TOO_MANY_MEDIA: `A post holds up to ${MAX_POST_MEDIA} files. Remove some to make room for the three story images.`,
+    "Images are made for an Instagram story or post drawn with a template, from the item or event it is about.",
+  TOO_MANY_MEDIA: `A post holds up to ${MAX_POST_MEDIA} files. Remove some to make room for the template's images.`,
 };
 
 /**
- * Generate story images (#1909): renders the post's three Gear Spotlight
- * frames (#1908), uploads them to its media and swaps them in for any set
+ * Generate story images (#1909): renders the post's template frames -- Gear
+ * Spotlight's three (#1908), an event template's one (#1926) -- uploads them to its media and swaps them in for any set
  * generated before, leaving media someone added by hand where it is. Each
  * frame is rendered and uploaded in turn rather than all at once, to keep a
  * function's memory to one 1080x1920 PNG at a time.

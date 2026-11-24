@@ -29,6 +29,8 @@ const editor: PostTemplateEditor = {
   templateKey: "gear_spotlight",
   choices: [{ key: "gear_spotlight", label: "Gear Spotlight" }],
   switchedOff: null,
+  description: null,
+  format: "story",
   frames: [1, 2, 3],
   fields: [
     {
@@ -48,6 +50,7 @@ const editor: PostTemplateEditor = {
       value: "",
     },
   ],
+  toggles: [],
   photo: {
     key: "photo",
     label: "Photo",

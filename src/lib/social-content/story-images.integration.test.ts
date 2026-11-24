@@ -1,18 +1,22 @@
 // Integration test: replace_social_post_story_images() (#1909) against a real
 // local Supabase stack -- the generated set goes first in frame order, a
 // regenerate replaces only it (never media added by hand) and hands back the
-// old objects, and a published post, a non-story or a path outside the post
-// is refused. Requires `bun run db:start && bun run db:reset` first; run via
+// old objects, and a published post, a reel or a path outside the post is
+// refused. An event template's single image (#1926) is taken for a 4:5 post
+// and named after the template. Requires `bun run db:start && bun run db:reset` first; run via
 // `bun run test:integration`.
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import {
   adminClient,
   createAvailableGearItems,
+  createPublishedEvent,
+  deleteEvent,
 } from "../../../test/integration-setup";
 import { SOCIAL_POST_MEDIA_BUCKET } from "./pieces";
 
 let tenantId: string;
 let gear: Awaited<ReturnType<typeof createAvailableGearItems>>;
+let eventId: string;
 const postIds: string[] = [];
 const objects: string[] = [];
 
@@ -20,6 +24,7 @@ beforeAll(async () => {
   const { data } = await adminClient.rpc("current_tenant_id");
   tenantId = data as string;
   gear = await createAvailableGearItems(1);
+  eventId = (await createPublishedEvent()).id;
 });
 
 afterAll(async () => {
@@ -30,6 +35,7 @@ afterAll(async () => {
     await adminClient.from("content_opportunities").delete().in("id", postIds);
   }
   await gear?.cleanup();
+  if (eventId) await deleteEvent(eventId);
 });
 
 async function storyPost() {
@@ -143,17 +149,61 @@ describe("replace_social_post_story_images (#1909)", () => {
     expect(error?.message).toBe("POST_PUBLISHED");
   });
 
-  test("refuses a post that is not a story", async () => {
+  test("refuses a reel", async () => {
     const post = await storyPost();
     await adminClient
       .from("content_opportunities")
-      .update({ post_format: "instagram_post" })
+      .update({ post_format: "instagram_reel" })
       .eq("id", post);
     const { error } = await adminClient.rpc(
       "replace_social_post_story_images",
       { p_post_id: post, p_paths: await frames(post), p_fingerprint: "a" },
     );
     expect(error?.message).toBe("NOT_GEAR_STORY");
+  });
+
+  test("takes an event template's one image on a 4:5 post (#1926)", async () => {
+    const { data, error: insertError } = await adminClient
+      .from("content_opportunities")
+      .insert({
+        title: `#1926 post ${crypto.randomUUID().slice(0, 8)}`,
+        content_status: "draft",
+        post_format: "instagram_post",
+        event_id: eventId,
+        template_key: "event_reminder",
+        lead_time_days: 21,
+      })
+      .select("id")
+      .single();
+    if (insertError) throw insertError;
+    postIds.push(data.id);
+    const path = await upload(data.id);
+    const { error } = await adminClient.rpc(
+      "replace_social_post_story_images",
+      { p_post_id: data.id, p_paths: [path], p_fingerprint: "a" },
+    );
+    expect(error).toBeNull();
+    expect(await media(data.id)).toEqual([
+      {
+        storage_path: path,
+        position: 0,
+        generated_frame: 1,
+        original_filename: "event-reminder-1.png",
+      },
+    ]);
+  });
+
+  test("refuses more than three images", async () => {
+    const post = await storyPost();
+    const { error } = await adminClient.rpc(
+      "replace_social_post_story_images",
+      {
+        p_post_id: post,
+        p_paths: [...(await frames(post)), await upload(post)],
+        p_fingerprint: "a",
+      },
+    );
+    expect(error?.message).toBe("INVALID_FRAMES");
   });
 
   test("refuses frames stored under another post", async () => {

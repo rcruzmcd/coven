@@ -47,11 +47,19 @@ export function StoryImagesPanel({
   const { isPending, run } = useActionToast();
   const [confirming, setConfirming] = useState(false);
   const hasSet = state.generated > 0;
+  const copy = panelCopy(state);
   const disabled = !state.hasItem || published || unsaved || isPending;
 
   function generate() {
     run(() => generateSocialPostStoryImagesAction(postId), {
-      success: hasSet ? "Story images regenerated." : "Story images added.",
+      success:
+        state.record === "event"
+          ? hasSet
+            ? "Image regenerated."
+            : "Image added."
+          : hasSet
+            ? "Story images regenerated."
+            : "Story images added.",
       onSuccess: onGenerated,
     });
   }
@@ -63,19 +71,19 @@ export function StoryImagesPanel({
     >
       <div className="flex flex-wrap items-center gap-2">
         <h3 id={headingId} className="text-sm font-semibold">
-          Story images
+          {copy.heading}
         </h3>
         {hasSet && state.stale && <Badge variant="outline">Out of date</Badge>}
       </div>
 
       <p className="app-muted text-sm">
         {!state.hasItem
-          ? "This post features no Gear Library item, so there is nothing to draw the story from."
+          ? copy.missing
           : hasSet
             ? state.stale
-              ? "The post, its item or your branding changed after these images were made. Regenerate them to match."
-              : "Three story images, drawn from this post and its item, are first in the post's media."
-            : "Draws three story images from this post, its item and your branding, and adds them to the post's media."}
+              ? copy.stale
+              : copy.made
+            : copy.draws}
       </p>
 
       {state.hasItem && !state.hasPhoto && (
@@ -114,11 +122,11 @@ export function StoryImagesPanel({
               </>
             ) : hasSet ? (
               <>
-                <RefreshCw /> Regenerate story images
+                <RefreshCw /> Regenerate {copy.noun}
               </>
             ) : (
               <>
-                <ImagePlus /> Generate story images
+                <ImagePlus /> Generate {copy.noun}
               </>
             )}
           </Button>
@@ -128,10 +136,9 @@ export function StoryImagesPanel({
       <AlertDialog open={confirming} onOpenChange={setConfirming}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Replace the story images?</AlertDialogTitle>
+            <AlertDialogTitle>Replace the {copy.noun}?</AlertDialogTitle>
             <AlertDialogDescription>
-              The three images made here before are replaced with new ones.
-              Photos and videos someone added to the post stay.
+              {copy.replaced} Photos and videos someone added to the post stay.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -149,4 +156,37 @@ export function StoryImagesPanel({
       </AlertDialog>
     </section>
   );
+}
+
+/**
+ * The panel's words: Gear Spotlight's three story frames as before, an event
+ * template's single image (#1926) in its own.
+ */
+function panelCopy(state: StoryImagesState) {
+  if (state.record !== "event") {
+    return {
+      heading: "Story images",
+      noun: "story images",
+      missing:
+        "This post features no Gear Library item, so there is nothing to draw the story from.",
+      stale:
+        "The post, its item or your branding changed after these images were made. Regenerate them to match.",
+      made: "Three story images, drawn from this post and its item, are first in the post's media.",
+      draws:
+        "Draws three story images from this post, its item and your branding, and adds them to the post's media.",
+      replaced: "The three images made here before are replaced with new ones.",
+    };
+  }
+  return {
+    heading: "Template image",
+    noun: "image",
+    missing:
+      "This post isn't related to an event, so there is nothing to draw the image from.",
+    stale:
+      "The post, its event, the day or your branding changed after this image was made. Regenerate it to match.",
+    made: "The image, drawn from this post and its event, is first in the post's media.",
+    draws:
+      "Draws the image from this post, its event and its flyer or your branding, and adds it to the post's media.",
+    replaced: "The image made here before is replaced with a new one.",
+  };
 }

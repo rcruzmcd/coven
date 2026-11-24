@@ -1,7 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { EMPTY_BRANDING } from "@/lib/branding";
 import {
+  EVENT_ANNOUNCEMENT,
+  EVENT_REMINDER,
+  EVENT_TEXT_LIMITS,
   GEAR_SPOTLIGHT,
+  eventTemplateValues,
   gearPostDetails,
   isPostTemplateKey,
   normalizeTemplateText,
@@ -15,6 +19,7 @@ import {
 } from "./post-templates";
 import { GEAR_DETAIL_LIMITS } from "./series-gear";
 import type { DetailsFrame, SpotlightFrame, StoryInput } from "./story-frames";
+import { buildEventPostFrame, type EventPostRecord } from "./event-post-frames";
 
 // Real extremes at each cap, in real words (GEAR_DETAIL_LIMITS).
 const BRAND_AT_CAP =
@@ -229,7 +234,7 @@ describe("templatesFor (#1925)", () => {
     expect(fits({ postFormat: "instagram_post" })).toEqual([]);
     expect(fits({ postFormat: "instagram_reel" })).toEqual([]);
     expect(fits({ postFormat: null })).toEqual([]);
-    expect(fits({ recordKinds: ["event"] })).toEqual([]);
+    expect(fits({ recordKinds: ["report"] })).toEqual([]);
     expect(fits({ off: ["gear_spotlight"] })).toEqual([]);
   });
 
@@ -247,5 +252,109 @@ describe("parsePostTemplatesOff (#1925)", () => {
     ]);
     expect(parsePostTemplatesOff(null)).toEqual([]);
     expect(parsePostTemplatesOff({ gear_spotlight: true })).toEqual([]);
+  });
+});
+
+describe("event announcement and reminder (#1926)", () => {
+  const event: EventPostRecord = {
+    name: "Meet us at Big Snow",
+    starts_at: "2026-12-12T15:00:00Z",
+    timezone: "America/New_York",
+    location: "Big Snow American Dream",
+    registration_enabled: true,
+    has_flyer: true,
+    host: "chattersnow.org",
+  };
+
+  test("both fit an event, as a story or a post", () => {
+    for (const postFormat of ["instagram_story", "instagram_post"]) {
+      expect(
+        templatesFor({ recordKinds: ["event"], postFormat, off: [] }),
+      ).toEqual(["event_announcement", "event_reminder"]);
+    }
+    expect(
+      templatesFor({
+        recordKinds: ["event"],
+        postFormat: "instagram_post",
+        off: ["event_reminder"],
+      }),
+    ).toEqual(["event_announcement"]);
+    expect(isPostTemplateKey("event_reminder")).toBe(true);
+  });
+
+  test("with a flyer, date and place start off and the logo on", () => {
+    expect(eventTemplateValues(EVENT_REMINDER, event, {})).toEqual({
+      line: "Meet us at Big Snow",
+      cta: null,
+      details: false,
+      logo: true,
+    });
+  });
+
+  test("without one, date and place start on", () => {
+    const values = eventTemplateValues(
+      EVENT_ANNOUNCEMENT,
+      { ...event, has_flyer: false, registration_enabled: false },
+      {},
+    );
+    expect(values.details).toBe(true);
+    expect(values.cta).toBe("More at chattersnow.org");
+  });
+
+  test("the call to action starts from registration", () => {
+    expect(eventTemplateValues(EVENT_ANNOUNCEMENT, event, {}).cta).toBe(
+      "Register at chattersnow.org",
+    );
+  });
+
+  test("an option is stored only when it differs from the event's default", () => {
+    expect(
+      normalizeTemplateText(EVENT_REMINDER, event, {
+        line: "Meet us at Big Snow",
+        details: "off",
+        logo: "off",
+      }),
+    ).toEqual({ text: { logo: "off" } });
+    expect(
+      normalizeTemplateText(EVENT_REMINDER, event, { details: "maybe" }),
+    ).toEqual({ error: "Show date, time and place is on or off." });
+  });
+
+  test("an event photo is a media choice", () => {
+    expect(
+      normalizeTemplateText(EVENT_REMINDER, event, {
+        photo: "event_media:0b9a2c4e-5d6f-4a1b-8c3d-2e1f0a9b8c7d",
+      }),
+    ).toEqual({
+      text: { photo: "event_media:0b9a2c4e-5d6f-4a1b-8c3d-2e1f0a9b8c7d" },
+    });
+  });
+
+  test("text at its caps fits the layout without being cut", () => {
+    const line = "Gear drive, breakfast, yoga and riding at Big Snow, all day!";
+    const cta = "Register now at chattersnow.org/events";
+    expect(line.length).toBe(EVENT_TEXT_LIMITS.line);
+    expect(cta.length).toBeLessThanOrEqual(EVENT_TEXT_LIMITS.cta);
+    for (const format of ["story", "post"] as const) {
+      for (const flyer of [
+        { src: "f", width: 810, height: 1013, color: "#f2f1ec" },
+        null,
+      ]) {
+        const model = buildEventPostFrame({
+          kind: "announcement",
+          format,
+          event,
+          text: { line, cta, details: true, logo: true },
+          flyer,
+          photo: null,
+          now: new Date("2026-12-11T17:00:00Z"),
+          branding: EMPTY_BRANDING,
+          headingTracking: "0",
+          orgName: "Chatter Snow",
+        });
+        expect(model.frame.line?.text).toBe(line);
+        expect(model.frame.cta?.text).toBe(cta);
+      }
+    }
   });
 });

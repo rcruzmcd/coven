@@ -6,9 +6,10 @@ import { parseStoryFrame } from "@/lib/social-content/story-frames";
 import { POST_TEMPLATES } from "@/lib/social-content/post-templates";
 
 /**
- * One frame of a post's story, as a 1080x1920 PNG (#1908), drawn by the
- * post's template (#1924). Gear Spotlight's: 1 the item, 2 its details, 3 how
- * to get it.
+ * One frame of a post's template as a PNG (#1908), drawn by the post's
+ * template (#1924). Gear Spotlight's three 1080x1920 frames: 1 the item, 2
+ * its details, 3 how to get it. The event announcement and reminder (#1926)
+ * have one frame, a 1080x1920 story or a 1080x1350 post by the post's format.
  *
  * Under `/api/` so the portal host's proxy passes it through rather than
  * rewriting it into `/portal/*`, like `/api/app-icon/[size]`. Nothing here is
@@ -53,7 +54,9 @@ export async function GET(
   }
 
   // A frame the post's template doesn't have is a miss like any other.
-  if (!POST_TEMPLATES[load.source.templateKey].frames.includes(frame)) {
+  const frames: readonly number[] =
+    POST_TEMPLATES[load.source.templateKey].frames;
+  if (!frames.includes(frame)) {
     return new Response("Not found", { status: 404 });
   }
 

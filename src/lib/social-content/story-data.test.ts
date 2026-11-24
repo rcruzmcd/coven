@@ -5,7 +5,7 @@ import type { Database } from "@/lib/database.types";
 mock.module("server-only", () => ({}));
 
 const { loadStoryFrame, storyFingerprint } = await import("./story-data");
-import type { StorySource } from "./story-data";
+import type { GearStorySource } from "./story-data";
 
 type Client = SupabaseClient<Database>;
 
@@ -115,7 +115,7 @@ describe("storyFingerprint (#1909)", () => {
     },
     photoSource: "items/jacket.jpg",
     typography: { headingTracking: "-0.02em" },
-  } as unknown as StorySource;
+  } as unknown as GearStorySource;
 
   test("is unchanged by a post with no crop (#1925)", () => {
     const withNull = { ...source, photoCrop: null, itemHasPhoto: true };
